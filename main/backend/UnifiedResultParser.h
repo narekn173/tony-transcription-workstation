@@ -12,43 +12,35 @@
     COPYING included with this distribution for more information.
 */
 
-#ifndef TONY_RESULT_VALIDATOR_H
-#define TONY_RESULT_VALIDATOR_H
+#ifndef TONY_UNIFIED_RESULT_PARSER_H
+#define TONY_UNIFIED_RESULT_PARSER_H
 
+#include "ResultValidator.h"
 #include "UnifiedResult.h"
+
+#include <QJsonObject>
 
 namespace Tony {
 namespace Backend {
 
-enum class ValidationSeverity {
-    Info,
-    Warning,
-    Error
-};
-
-struct ValidationIssue
+struct UnifiedResultParseResult
 {
-    ValidationSeverity severity = ValidationSeverity::Error;
-    QString code;
-    QString message;
-};
-
-struct ValidationReport
-{
-    QVector<ValidationIssue> issues;
+    UnifiedResult result;
+    ValidationReport report;
 
     bool isValid() const;
-    void addIssue(ValidationSeverity severity,
-                  const QString &code,
-                  const QString &message);
-    void addError(const QString &code, const QString &message);
 };
 
-class ResultValidator
+class UnifiedResultParser
 {
 public:
-    ValidationReport validate(const BackendRequest &request,
-                              const UnifiedResult &result) const;
+    UnifiedResultParseResult parse(const QJsonObject &object) const;
+
+private:
+    static BackendRuntimeType parseRuntimeType(const QString &value);
+    static BackendStatus parseStatus(const QString &value, ValidationReport &report);
+    static ResultDiagnosticSeverity parseSeverity(const QString &value,
+                                                  ResultDiagnosticSeverity fallback);
 };
 
 }

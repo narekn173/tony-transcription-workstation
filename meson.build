@@ -1031,6 +1031,7 @@ tony_main_files = [
   'main/backend/ResultValidator.cpp',
   'main/backend/TonyLayerImporter.cpp',
   'main/backend/UnifiedResult.cpp',
+  'main/backend/UnifiedResultParser.cpp',
 ]
 
 tony_main_moc_files = qt.preprocess(
@@ -1219,6 +1220,7 @@ backend_types_test_exe = executable(
   'main/backend/BackendTypes.cpp',
   'main/backend/ResultValidator.cpp',
   'main/backend/UnifiedResult.cpp',
+  'main/backend/UnifiedResultParser.cpp',
   'main/backend/test/backend-types-test.cpp',
   dependencies: [
     qt_dep,

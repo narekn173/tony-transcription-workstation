@@ -29,9 +29,17 @@ ValidationReport::isValid() const
 }
 
 void
+ValidationReport::addIssue(ValidationSeverity severity,
+                           const QString &code,
+                           const QString &message)
+{
+    issues.push_back({ severity, code, message });
+}
+
+void
 ValidationReport::addError(const QString &code, const QString &message)
 {
-    issues.push_back({ ValidationSeverity::Error, code, message });
+    addIssue(ValidationSeverity::Error, code, message);
 }
 
 ValidationReport
