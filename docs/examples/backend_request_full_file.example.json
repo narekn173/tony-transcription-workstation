@@ -1,0 +1,36 @@
+{
+  "contract_version": "0.1",
+  "request_id": "req_20260515_0001",
+  "created_at": "2026-05-15T12:00:00Z",
+  "engine_id": "basic_pitch",
+  "analysis_mode": "full_file",
+  "input_audio": {
+    "path": "C:/Users/User/audio/input.wav",
+    "original_path": "C:/Users/User/audio/input.wav",
+    "format": "wav",
+    "duration_sec": 12.345,
+    "sample_rate_hz": 44100,
+    "channels": 1,
+    "channel_policy": "as_is",
+    "hash_sha256": null
+  },
+  "region": null,
+  "output": {
+    "workspace_dir": "C:/Temp/tony_analysis/req_20260515_0001",
+    "result_json_path": "C:/Temp/tony_analysis/req_20260515_0001/result.json",
+    "requested_outputs": ["notes", "midi", "csv", "warnings", "logs"],
+    "keep_intermediate_files": true
+  },
+  "settings": {},
+  "runtime": {
+    "device_preference": "cpu",
+    "max_threads": null,
+    "timeout_sec": 1800,
+    "allow_internet": false,
+    "cancel_token_path": "C:/Temp/tony_analysis/req_20260515_0001/cancel.flag"
+  },
+  "host_context": {
+    "host_app": "Tony Fork Transcription Workstation",
+    "host_version": null
+  }
+}

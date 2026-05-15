@@ -1,0 +1,50 @@
+{
+  "contract_version": "0.1",
+  "engine_id": "basic_pitch",
+  "display_name": "Basic Pitch",
+  "engine_version": null,
+  "adapter_version": "0.1.0",
+  "category": "note_transcription",
+  "runtime": {
+    "type": "python_cli",
+    "requires_python": true,
+    "requires_model_files": false,
+    "supports_cpu": true,
+    "supports_cuda": false,
+    "supports_directml": false,
+    "supports_rocm": false,
+    "internet_required": false
+  },
+  "capabilities": {
+    "supports_full_file": true,
+    "supports_region": true,
+    "supports_batch": false,
+    "outputs_notes": true,
+    "outputs_pitch_curve": false,
+    "outputs_pitch_bends": true,
+    "outputs_velocity": true,
+    "outputs_confidence": true,
+    "outputs_technique_labels": false,
+    "outputs_warnings": true,
+    "can_run_offline": true
+  },
+  "inputs": {
+    "audio_formats": ["wav"],
+    "preferred_formats": ["wav"],
+    "mono_required": false,
+    "max_channels": 2,
+    "sample_rates_hz": [44100],
+    "requires_resampling": "adapter_or_host"
+  },
+  "outputs": {
+    "primary": ["notes", "midi", "csv_notes"],
+    "optional": ["pitch_bends", "warnings", "logs"]
+  },
+  "settings_schema": {},
+  "license": {
+    "name": "Apache-2.0",
+    "source_url": "https://github.com/spotify/basic-pitch",
+    "redistribution_status": "allowed_with_notice",
+    "notes": "Review before bundling."
+  }
+}

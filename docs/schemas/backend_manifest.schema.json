@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/tony-fork/schemas/backend_manifest.schema.json",
+  "title": "BackendManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "engine_id",
+    "display_name",
+    "engine_version",
+    "adapter_version",
+    "category",
+    "runtime",
+    "capabilities",
+    "inputs",
+    "outputs",
+    "license"
+  ],
+  "properties": {
+    "contract_version": { "type": "string", "const": "0.1" },
+    "engine_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "engine_version": { "type": ["string", "null"] },
+    "adapter_version": { "type": "string", "minLength": 1 },
+    "category": {
+      "type": "string",
+      "enum": [
+        "note_transcription",
+        "note_transcription_technique",
+        "f0_estimation",
+        "segmentation",
+        "postprocessing",
+        "development_test"
+      ]
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "requires_python",
+        "requires_model_files",
+        "supports_cpu",
+        "supports_cuda",
+        "supports_directml",
+        "supports_rocm",
+        "internet_required"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "internal",
+            "vamp_plugin",
+            "python_cli",
+            "native_cli",
+            "onnx_native",
+            "adapter_cli",
+            "development_test"
+          ]
+        },
+        "requires_python": { "type": "boolean" },
+        "requires_model_files": { "type": "boolean" },
+        "supports_cpu": { "type": "boolean" },
+        "supports_cuda": { "type": "boolean" },
+        "supports_directml": { "type": "boolean" },
+        "supports_rocm": { "type": "boolean" },
+        "internet_required": { "type": "boolean" }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supports_full_file",
+        "supports_region",
+        "supports_batch",
+        "outputs_notes",
+        "outputs_pitch_curve",
+        "outputs_pitch_bends",
+        "outputs_velocity",
+        "outputs_confidence",
+        "outputs_technique_labels",
+        "outputs_warnings",
+        "can_run_offline"
+      ],
+      "properties": {
+        "supports_full_file": { "type": "boolean" },
+        "supports_region": { "type": "boolean" },
+        "supports_batch": { "type": "boolean" },
+        "outputs_notes": { "type": "boolean" },
+        "outputs_pitch_curve": { "type": "boolean" },
+        "outputs_pitch_bends": { "type": "boolean" },
+        "outputs_velocity": { "type": "boolean" },
+        "outputs_confidence": { "type": "boolean" },
+        "outputs_technique_labels": { "type": "boolean" },
+        "outputs_warnings": { "type": "boolean" },
+        "can_run_offline": { "type": "boolean" }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audio_formats",
+        "preferred_formats",
+        "mono_required",
+        "max_channels",
+        "sample_rates_hz",
+        "requires_resampling"
+      ],
+      "properties": {
+        "audio_formats": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "preferred_formats": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "mono_required": { "type": "boolean" },
+        "max_channels": { "type": "integer", "minimum": 1 },
+        "sample_rates_hz": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
+        "requires_resampling": {
+          "type": "string",
+          "enum": ["none", "host", "adapter", "adapter_or_host", "unknown"]
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["primary", "optional"],
+      "properties": {
+        "primary": { "type": "array", "items": { "type": "string" } },
+        "optional": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "settings_schema": { "type": "object" },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "source_url", "redistribution_status", "notes"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "source_url": { "type": "string" },
+        "redistribution_status": {
+          "type": "string",
+          "enum": [
+            "allowed_with_notice",
+            "restricted",
+            "unknown_review_required",
+            "external_dependency_only"
+          ]
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "status_probe": { "type": "object" }
+  }
+}

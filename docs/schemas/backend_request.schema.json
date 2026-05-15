@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/tony-fork/schemas/backend_request.schema.json",
+  "title": "BackendRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "request_id",
+    "created_at",
+    "engine_id",
+    "analysis_mode",
+    "input_audio",
+    "region",
+    "output",
+    "settings",
+    "runtime"
+  ],
+  "properties": {
+    "contract_version": { "type": "string", "const": "0.1" },
+    "request_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "engine_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "analysis_mode": { "type": "string", "enum": ["full_file", "region", "f0_then_segmentation"] },
+    "input_audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "original_path", "format", "duration_sec", "sample_rate_hz", "channels", "channel_policy", "hash_sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "original_path": { "type": ["string", "null"] },
+        "format": { "type": "string", "minLength": 1 },
+        "duration_sec": { "type": "number", "minimum": 0 },
+        "sample_rate_hz": { "type": "integer", "minimum": 1 },
+        "channels": { "type": "integer", "minimum": 1 },
+        "channel_policy": { "type": "string", "enum": ["as_is", "mono_mixdown", "left", "right", "unknown"] },
+        "hash_sha256": { "type": ["string", "null"] }
+      }
+    },
+    "region": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_sec", "end_sec", "coordinate_system", "apply_policy"],
+          "properties": {
+            "start_sec": { "type": "number", "minimum": 0 },
+            "end_sec": { "type": "number", "exclusiveMinimum": 0 },
+            "coordinate_system": { "type": "string", "const": "original_audio_time" },
+            "apply_policy": { "type": "string", "enum": ["preview_only", "replace_region_after_user_confirmation", "add_as_layer"] }
+          }
+        }
+      ]
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace_dir", "result_json_path", "requested_outputs", "keep_intermediate_files"],
+      "properties": {
+        "workspace_dir": { "type": "string", "minLength": 1 },
+        "result_json_path": { "type": "string", "minLength": 1 },
+        "requested_outputs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["notes", "pitch_curve", "pitch_bends", "velocity", "confidence", "technique_labels", "midi", "csv", "warnings", "logs"]
+          }
+        },
+        "keep_intermediate_files": { "type": "boolean" }
+      }
+    },
+    "settings": { "type": "object" },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_preference", "max_threads", "timeout_sec", "allow_internet", "cancel_token_path"],
+      "properties": {
+        "device_preference": { "type": "string", "enum": ["cpu", "cuda", "directml", "rocm", "auto"] },
+        "max_threads": { "type": ["integer", "null"], "minimum": 1 },
+        "timeout_sec": { "type": "integer", "minimum": 1 },
+        "allow_internet": { "type": "boolean" },
+        "cancel_token_path": { "type": ["string", "null"] }
+      }
+    },
+    "host_context": { "type": "object" }
+  }
+}

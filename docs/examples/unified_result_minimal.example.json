@@ -1,0 +1,68 @@
+{
+  "contract_version": "0.1",
+  "result_id": "res_20260515_0001",
+  "request_id": "req_20260515_0001",
+  "created_at": "2026-05-15T12:01:00Z",
+  "engine": {
+    "engine_id": "basic_pitch",
+    "display_name": "Basic Pitch",
+    "engine_version": null,
+    "adapter_version": "0.1.0",
+    "runtime_type": "python_cli",
+    "device_used": "cpu"
+  },
+  "status": "completed",
+  "audio": {
+    "path": "C:/Users/User/audio/input.wav",
+    "duration_sec": 12.345,
+    "sample_rate_hz": 44100,
+    "channels": 1
+  },
+  "region": null,
+  "summary": {
+    "note_count": 1,
+    "pitch_point_count": 0,
+    "pitch_bend_count": 0,
+    "technique_label_count": 0,
+    "mean_confidence": 0.91,
+    "low_confidence_count": 0,
+    "duration_analyzed_sec": 12.345
+  },
+  "notes": [
+    {
+      "id": "note_0001",
+      "start_sec": 1.24,
+      "end_sec": 1.68,
+      "midi_pitch": 64,
+      "frequency_hz": 329.63,
+      "velocity": 82,
+      "confidence": 0.91,
+      "label": "E4",
+      "channel": null,
+      "pitch_bend_ref": null,
+      "technique_ref": null,
+      "source": {
+        "engine_id": "basic_pitch",
+        "raw_event_id": null
+      },
+      "flags": []
+    }
+  ],
+  "pitch_curve": [],
+  "pitch_bends": [],
+  "technique_labels": [],
+  "files": [],
+  "warnings": [],
+  "errors": [],
+  "provenance": {
+    "host_app_version": null,
+    "adapter_command": "basic_pitch_adapter --request request.json --result result.json",
+    "backend_command_redacted": "basic-pitch ...",
+    "settings_used": {},
+    "input_hash_sha256": null,
+    "created_by": "backend_adapter",
+    "confidence_mapping": null,
+    "velocity_mapping": null,
+    "notes": []
+  }
+}

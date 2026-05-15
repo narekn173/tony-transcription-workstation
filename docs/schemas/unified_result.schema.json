@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/tony-fork/schemas/unified_result.schema.json",
+  "title": "UnifiedResult",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "contract_version",
+    "result_id",
+    "request_id",
+    "created_at",
+    "engine",
+    "status",
+    "audio",
+    "region",
+    "summary",
+    "notes",
+    "pitch_curve",
+    "pitch_bends",
+    "technique_labels",
+    "files",
+    "warnings",
+    "errors",
+    "provenance"
+  ],
+  "properties": {
+    "contract_version": { "type": "string", "const": "0.1" },
+    "result_id": { "type": "string", "minLength": 1 },
+    "request_id": { "type": "string", "minLength": 1 },
+    "compare_run_id": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_id", "display_name", "engine_version", "adapter_version", "runtime_type", "device_used"],
+      "properties": {
+        "engine_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "display_name": { "type": "string", "minLength": 1 },
+        "engine_version": { "type": ["string", "null"] },
+        "adapter_version": { "type": "string", "minLength": 1 },
+        "runtime_type": { "type": "string" },
+        "device_used": { "type": ["string", "null"] }
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "completed_with_warnings",
+        "failed",
+        "cancelled",
+        "backend_missing",
+        "model_missing",
+        "unsupported_input",
+        "invalid_output"
+      ]
+    },
+    "audio": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["path", "duration_sec", "sample_rate_hz", "channels"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "duration_sec": { "type": "number", "minimum": 0 },
+        "sample_rate_hz": { "type": "integer", "minimum": 1 },
+        "channels": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "region": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start_sec", "end_sec", "coordinate_system", "apply_policy"],
+          "properties": {
+            "start_sec": { "type": "number", "minimum": 0 },
+            "end_sec": { "type": "number", "exclusiveMinimum": 0 },
+            "coordinate_system": { "type": "string", "const": "original_audio_time" },
+            "apply_policy": { "type": "string", "enum": ["preview_only", "replace_region_after_user_confirmation", "add_as_layer"] }
+          }
+        }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["note_count", "pitch_point_count", "pitch_bend_count", "technique_label_count", "mean_confidence", "low_confidence_count", "duration_analyzed_sec"],
+      "properties": {
+        "note_count": { "type": "integer", "minimum": 0 },
+        "pitch_point_count": { "type": "integer", "minimum": 0 },
+        "pitch_bend_count": { "type": "integer", "minimum": 0 },
+        "technique_label_count": { "type": "integer", "minimum": 0 },
+        "mean_confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "low_confidence_count": { "type": "integer", "minimum": 0 },
+        "duration_analyzed_sec": { "type": "number", "minimum": 0 }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "start_sec", "end_sec", "midi_pitch", "frequency_hz", "velocity", "confidence", "source", "flags"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "start_sec": { "type": "number", "minimum": 0 },
+          "end_sec": { "type": "number", "exclusiveMinimum": 0 },
+          "midi_pitch": { "type": ["integer", "null"], "minimum": 0, "maximum": 127 },
+          "frequency_hz": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+          "velocity": { "type": ["integer", "null"], "minimum": 0, "maximum": 127 },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "label": { "type": ["string", "null"] },
+          "channel": { "type": ["integer", "null"], "minimum": 0, "maximum": 15 },
+          "pitch_bend_ref": { "type": ["string", "null"] },
+          "technique_ref": { "type": ["string", "null"] },
+          "source": { "type": "object" },
+          "flags": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "pitch_curve": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["time_sec", "frequency_hz", "confidence", "voiced"],
+        "properties": {
+          "time_sec": { "type": "number", "minimum": 0 },
+          "frequency_hz": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "voiced": { "type": ["boolean", "null"] },
+          "midi_pitch_float": { "type": ["number", "null"] },
+          "cents_deviation": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "pitch_bends": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "note_id", "unit", "points", "confidence"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "note_id": { "type": ["string", "null"] },
+          "unit": { "type": "string", "enum": ["cents", "midi_pitch_float", "pitch_wheel_14bit"] },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["time_sec", "value"],
+              "properties": {
+                "time_sec": { "type": "number", "minimum": 0 },
+                "value": { "type": "number" }
+              }
+            }
+          },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "technique_labels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "note_id", "start_sec", "end_sec", "technique", "confidence", "source"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "note_id": { "type": ["string", "null"] },
+          "start_sec": { "type": "number", "minimum": 0 },
+          "end_sec": { "type": "number", "exclusiveMinimum": 0 },
+          "technique": { "type": "string", "enum": ["normal", "pizzicato", "spiccato", "flageolet", "no_technique", "unknown", "other"] },
+          "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "source": { "type": "object" }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path", "description", "generated_by", "imported"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["midi", "csv_notes", "csv_pitch", "json_raw", "log_stdout", "log_stderr", "audio_slice", "other"] },
+          "path": { "type": "string", "minLength": 1 },
+          "description": { "type": "string" },
+          "generated_by": { "type": "string" },
+          "imported": { "type": "boolean" }
+        }
+      }
+    },
+    "warnings": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
+    "errors": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
+    "provenance": { "type": "object" }
+  },
+  "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string", "enum": ["info", "warning", "error", "fatal"] },
+        "message": { "type": "string", "minLength": 1 },
+        "start_sec": { "type": ["number", "null"], "minimum": 0 },
+        "end_sec": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "recoverable": { "type": ["boolean", "null"] },
+        "details": { "type": "object" }
+      }
+    }
+  }
+}
