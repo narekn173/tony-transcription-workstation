@@ -139,18 +139,37 @@ struct AnalysisRunSummary
 struct BackendManifest
 {
     QString contractVersion = "0.1";
+    BackendId backendId;
     BackendId engineId;
     QString displayName;
+    QString description;
+    BackendRuntimeType backendType = BackendRuntimeType::Unknown;
+    QString executablePath;
+    QString workingDirectory;
+    QString version;
     QString engineVersion;
     QString adapterVersion;
     BackendRuntimeType runtimeType = BackendRuntimeType::Unknown;
     BackendStatus status = BackendStatus::NotConfigured;
     BackendCapability capabilities;
+    QStringList requiredFiles;
+    QStringList optionalFiles;
+    QVariantMap defaultSettings;
+    QStringList supportedInputFormats;
+    QStringList supportedOutputTypes;
     QStringList primaryOutputs;
     QStringList optionalOutputs;
     QString licenseName;
     QString licenseSourceUrl;
 
+    BackendId id() const;
+    bool isValidBackendId() const;
+    bool hasExecutablePath() const;
+    bool supportsFullFile() const;
+    bool supportsSelectedRegion() const;
+    bool supportsNotes() const;
+    bool supportsPitchCurve() const;
+    QString debugSummaryString() const;
     bool hasRequiredIdentity() const;
 };
 
@@ -176,6 +195,8 @@ struct BackendRequest
 
 QString statusToString(BackendStatus status);
 QString capabilitySummaryString(const BackendCapability &capability);
+bool isValidBackendId(const BackendId &backendId);
+QString manifestSummaryString(const BackendManifest &manifest);
 QString toString(BackendRuntimeType type);
 QString toString(BackendStatus status);
 QString toString(AnalysisRunState state);

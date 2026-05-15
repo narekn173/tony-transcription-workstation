@@ -76,9 +76,61 @@ AnalysisRunSummary::notImplemented(const BackendId &engineId)
 bool
 BackendManifest::hasRequiredIdentity() const
 {
+    const BackendId effectiveId = id();
     return !contractVersion.isEmpty() &&
-        !engineId.isEmpty() &&
+        Tony::Backend::isValidBackendId(effectiveId) &&
         !displayName.isEmpty();
+}
+
+BackendId
+BackendManifest::id() const
+{
+    if (!backendId.isEmpty()) {
+        return backendId;
+    }
+    return engineId;
+}
+
+bool
+BackendManifest::isValidBackendId() const
+{
+    return Tony::Backend::isValidBackendId(id());
+}
+
+bool
+BackendManifest::hasExecutablePath() const
+{
+    return !executablePath.trimmed().isEmpty();
+}
+
+bool
+BackendManifest::supportsFullFile() const
+{
+    return capabilities.supportsFullFile;
+}
+
+bool
+BackendManifest::supportsSelectedRegion() const
+{
+    return capabilities.supportsSelectedRegion;
+}
+
+bool
+BackendManifest::supportsNotes() const
+{
+    return capabilities.outputsNotes;
+}
+
+bool
+BackendManifest::supportsPitchCurve() const
+{
+    return capabilities.outputsPitchCurve;
+}
+
+QString
+BackendManifest::debugSummaryString() const
+{
+    return manifestSummaryString(*this);
 }
 
 bool
@@ -115,6 +167,54 @@ QString
 capabilitySummaryString(const BackendCapability &capability)
 {
     return capability.summaryString();
+}
+
+bool
+isValidBackendId(const BackendId &backendId)
+{
+    if (backendId.isEmpty()) {
+        return false;
+    }
+
+    const QChar first = backendId.front();
+    if (first < QLatin1Char('a') || first > QLatin1Char('z')) {
+        return false;
+    }
+
+    for (const QChar ch: backendId) {
+        const bool isLower = ch >= QLatin1Char('a') && ch <= QLatin1Char('z');
+        const bool isDigit = ch >= QLatin1Char('0') && ch <= QLatin1Char('9');
+        if (!isLower && !isDigit && ch != QLatin1Char('_')) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+QString
+manifestSummaryString(const BackendManifest &manifest)
+{
+    const QString manifestVersion =
+        !manifest.version.isEmpty() ? manifest.version : manifest.engineVersion;
+    const QString runtimeType =
+        manifest.backendType != BackendRuntimeType::Unknown ?
+            toString(manifest.backendType) : toString(manifest.runtimeType);
+    const QStringList outputs =
+        !manifest.supportedOutputTypes.isEmpty() ?
+            manifest.supportedOutputTypes :
+            manifest.primaryOutputs + manifest.optionalOutputs;
+
+    return QString("backend=%1 display=\"%2\" status=%3 type=%4 version=%5 "
+                   "capabilities=[%6] inputs=[%7] outputs=[%8]")
+        .arg(manifest.id().isEmpty() ? QString("unknown") : manifest.id())
+        .arg(manifest.displayName)
+        .arg(statusToString(manifest.status))
+        .arg(runtimeType)
+        .arg(manifestVersion.isEmpty() ? QString("unknown") : manifestVersion)
+        .arg(capabilitySummaryString(manifest.capabilities))
+        .arg(manifest.supportedInputFormats.join(", "))
+        .arg(outputs.join(", "));
 }
 
 QString

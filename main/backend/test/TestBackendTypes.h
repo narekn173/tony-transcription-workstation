@@ -99,10 +99,104 @@ private slots:
         BackendManifest manifest;
 
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.backendId.isEmpty());
+        QVERIFY(manifest.displayName.isEmpty());
+        QVERIFY(manifest.description.isEmpty());
+        QVERIFY(manifest.backendType == BackendRuntimeType::Unknown);
+        QVERIFY(manifest.executablePath.isEmpty());
+        QVERIFY(manifest.workingDirectory.isEmpty());
+        QVERIFY(manifest.version.isEmpty());
         QVERIFY(!manifest.capabilities.supportsFullFile);
         QVERIFY(!manifest.capabilities.outputsNotes);
         QVERIFY(!manifest.capabilities.supportsCpu);
+        QVERIFY(manifest.requiredFiles.isEmpty());
+        QVERIFY(manifest.optionalFiles.isEmpty());
+        QVERIFY(manifest.defaultSettings.isEmpty());
+        QVERIFY(manifest.supportedInputFormats.isEmpty());
+        QVERIFY(manifest.supportedOutputTypes.isEmpty());
+        QVERIFY(!manifest.isValidBackendId());
+        QVERIFY(!manifest.hasExecutablePath());
+        QVERIFY(!manifest.supportsFullFile());
+        QVERIFY(!manifest.supportsSelectedRegion());
+        QVERIFY(!manifest.supportsNotes());
+        QVERIFY(!manifest.supportsPitchCurve());
         QVERIFY(!manifest.hasRequiredIdentity());
+    }
+
+    void manifestAcceptsValidContractShape()
+    {
+        BackendManifest manifest;
+        manifest.backendId = "test_backend";
+        manifest.displayName = "Test Backend";
+        manifest.description = "Contract-shape unit test backend.";
+        manifest.backendType = BackendRuntimeType::AdapterCli;
+        manifest.executablePath = "configured-backend.exe";
+        manifest.workingDirectory = "configured-backend-workdir";
+        manifest.version = "0.1.0-test";
+        manifest.adapterVersion = "0.1.0";
+        manifest.status = BackendStatus::NotConfigured;
+        manifest.capabilities.supportsFullFile = true;
+        manifest.capabilities.supportsSelectedRegion = true;
+        manifest.capabilities.outputsNotes = true;
+        manifest.capabilities.outputsPitchBends = true;
+        manifest.capabilities.supportsCpu = true;
+        manifest.capabilities.requiresPython = true;
+        manifest.requiredFiles << "model-or-package";
+        manifest.optionalFiles << "notes.mid";
+        manifest.defaultSettings.insert("onset_threshold", 0.5);
+        manifest.supportedInputFormats << "wav";
+        manifest.supportedOutputTypes << "notes" << "midi" << "csv_notes";
+
+        QVERIFY(manifest.isValidBackendId());
+        QVERIFY(isValidBackendId(manifest.backendId));
+        QVERIFY(manifest.hasRequiredIdentity());
+        QVERIFY(manifest.hasExecutablePath());
+        QVERIFY(manifest.supportsFullFile());
+        QVERIFY(manifest.supportsSelectedRegion());
+        QVERIFY(manifest.supportsNotes());
+        QVERIFY(!manifest.supportsPitchCurve());
+        QCOMPARE(manifest.id(), QString("test_backend"));
+
+        const QString summary = manifestSummaryString(manifest);
+        QVERIFY(summary.contains("test_backend"));
+        QVERIFY(summary.contains("not_configured"));
+        QVERIFY(summary.contains("adapter_cli"));
+        QVERIFY(summary.contains("notes"));
+    }
+
+    void manifestRejectsInvalidBackendIds()
+    {
+        QVERIFY(!isValidBackendId(""));
+        QVERIFY(!isValidBackendId("BasicPitch"));
+        QVERIFY(!isValidBackendId("1basic_pitch"));
+        QVERIFY(!isValidBackendId("basic-pitch"));
+        QVERIFY(isValidBackendId("basic_pitch_2"));
+
+        BackendManifest manifest;
+        manifest.backendId = "BasicPitch";
+        manifest.displayName = "Basic Pitch";
+
+        QVERIFY(!manifest.isValidBackendId());
+        QVERIFY(!manifest.hasRequiredIdentity());
+    }
+
+    void manifestCapabilityChecksReflectDeclaredCapabilitiesOnly()
+    {
+        BackendManifest manifest;
+
+        QVERIFY(!manifest.supportsFullFile());
+        QVERIFY(!manifest.supportsSelectedRegion());
+        QVERIFY(!manifest.supportsNotes());
+        QVERIFY(!manifest.supportsPitchCurve());
+
+        manifest.capabilities.supportsFullFile = true;
+        manifest.capabilities.outputsPitchCurve = true;
+
+        QVERIFY(manifest.supportsFullFile());
+        QVERIFY(!manifest.supportsSelectedRegion());
+        QVERIFY(!manifest.supportsNotes());
+        QVERIFY(manifest.supportsPitchCurve());
+        QVERIFY(!manifest.capabilities.supportsMode(AnalysisMode::Region));
     }
 };
 
