@@ -12,24 +12,24 @@
     COPYING included with this distribution for more information.
 */
 
-#include "BackendAdapter.h"
+#include "TestBackendTypes.h"
 
-namespace Tony {
-namespace Backend {
+#include <QCoreApplication>
+#include <QtTest>
 
-BackendAdapter::~BackendAdapter() = default;
+#include <iostream>
 
-BackendStatus
-BackendAdapter::checkAvailability() const
+int main(int argc, char *argv[])
 {
-    return BackendStatus::NotConfigured;
-}
+    QCoreApplication app(argc, argv);
+    app.setOrganizationName("tony");
+    app.setApplicationName("test-backend-types");
 
-bool
-BackendAdapter::supportsMode(AnalysisMode mode) const
-{
-    return manifest().capabilities.supportsMode(mode);
-}
-
-}
+    TestBackendTypes t;
+    if (QTest::qExec(&t, argc, argv) == 0) {
+        std::cerr << "All tests passed" << std::endl;
+        return 0;
+    } else {
+        return 1;
+    }
 }

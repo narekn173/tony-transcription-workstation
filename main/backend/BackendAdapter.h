@@ -28,7 +28,7 @@ public:
     virtual BackendId engineId() const = 0;
     virtual BackendManifest manifest() const = 0;
 
-    virtual BackendAvailabilityState checkAvailability() const;
+    virtual BackendStatus checkAvailability() const;
     virtual bool supportsMode(AnalysisMode mode) const;
 };
 

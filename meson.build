@@ -1206,6 +1206,25 @@ svcore_data_fileio_test_exe = executable(
   win_subsystem: 'console'
 )
 
+backend_types_test_moc_files = qt.preprocess(
+  moc_headers: [
+  'main/backend/test/TestBackendTypes.h',
+])
+
+backend_types_test_exe = executable(
+  'test-backend-types',
+  backend_types_test_moc_files,
+  'main/backend/BackendTypes.cpp',
+  'main/backend/test/backend-types-test.cpp',
+  dependencies: [
+    qt_dep,
+  ],
+  cpp_args: [
+    general_defines,
+  ],
+  win_subsystem: 'console'
+)
+
 test('svcore-base', svcore_base_test_exe)
 test('svcore-system', svcore_system_test_exe)
 test('svcore-data-model', svcore_data_model_test_exe)
@@ -1213,6 +1232,7 @@ test('svcore-data-fileio', svcore_data_fileio_test_exe,
      args: [
        '--testdir', meson.current_source_dir() / 'svcore/data/fileio/test'
      ])
+test('backend-types', backend_types_test_exe)
 
 summary({'prefix': get_option('prefix'),
          'bindir': get_option('bindir'),

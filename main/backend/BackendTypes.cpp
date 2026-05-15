@@ -23,6 +23,42 @@ AnalysisRegion::isValid() const
     return startSec >= 0.0 && endSec > startSec;
 }
 
+bool
+BackendCapability::supportsMode(AnalysisMode mode) const
+{
+    switch (mode) {
+    case AnalysisMode::FullFile:
+        return supportsFullFile;
+    case AnalysisMode::Region:
+        return supportsSelectedRegion;
+    case AnalysisMode::F0ThenSegmentation:
+        return outputsPitchCurve;
+    }
+    return false;
+}
+
+QString
+BackendCapability::summaryString() const
+{
+    QStringList parts;
+
+    if (supportsFullFile) parts << "full_file";
+    if (supportsSelectedRegion) parts << "selected_region";
+    if (outputsNotes) parts << "notes";
+    if (outputsPitchCurve) parts << "pitch_curve";
+    if (outputsPitchBends) parts << "pitch_bends";
+    if (outputsTechniqueLabels) parts << "technique_labels";
+    if (requiresPython) parts << "requires_python";
+    if (requiresModelCheckpoint) parts << "requires_model_checkpoint";
+    if (supportsCpu) parts << "cpu";
+    if (supportsGpuOptional) parts << "gpu_optional";
+
+    if (parts.isEmpty()) {
+        return "none";
+    }
+    return parts.join(", ");
+}
+
 AnalysisRunSummary
 AnalysisRunSummary::notImplemented(const BackendId &engineId)
 {
@@ -67,6 +103,30 @@ UnifiedResult::isEmpty() const
 }
 
 QString
+statusToString(BackendStatus status)
+{
+    switch (status) {
+    case BackendStatus::Unknown: return "unknown";
+    case BackendStatus::NotConfigured: return "not_configured";
+    case BackendStatus::MissingExecutable: return "missing_executable";
+    case BackendStatus::MissingModel: return "missing_model";
+    case BackendStatus::Ready: return "ready";
+    case BackendStatus::Running: return "running";
+    case BackendStatus::Completed: return "completed";
+    case BackendStatus::CompletedWithWarnings: return "completed_with_warnings";
+    case BackendStatus::Failed: return "failed";
+    case BackendStatus::Cancelled: return "cancelled";
+    }
+    return "unknown";
+}
+
+QString
+capabilitySummaryString(const BackendCapability &capability)
+{
+    return capability.summaryString();
+}
+
+QString
 toString(BackendRuntimeType type)
 {
     switch (type) {
@@ -83,17 +143,9 @@ toString(BackendRuntimeType type)
 }
 
 QString
-toString(BackendAvailabilityState state)
+toString(BackendStatus status)
 {
-    switch (state) {
-    case BackendAvailabilityState::NotConfigured: return "not_configured";
-    case BackendAvailabilityState::Missing: return "missing";
-    case BackendAvailabilityState::Installed: return "installed";
-    case BackendAvailabilityState::Ready: return "ready";
-    case BackendAvailabilityState::Broken: return "broken";
-    case BackendAvailabilityState::Unsupported: return "unsupported";
-    }
-    return "unsupported";
+    return statusToString(status);
 }
 
 QString

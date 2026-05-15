@@ -37,13 +37,17 @@ enum class BackendRuntimeType {
     DevelopmentTest
 };
 
-enum class BackendAvailabilityState {
+enum class BackendStatus {
+    Unknown,
     NotConfigured,
-    Missing,
-    Installed,
+    MissingExecutable,
+    MissingModel,
     Ready,
-    Broken,
-    Unsupported
+    Running,
+    Completed,
+    CompletedWithWarnings,
+    Failed,
+    Cancelled
 };
 
 enum class AnalysisRunState {
@@ -91,19 +95,21 @@ struct AnalysisRegion
     bool isValid() const;
 };
 
-struct BackendCapabilityFlags
+struct BackendCapability
 {
     bool supportsFullFile = false;
-    bool supportsRegion = false;
-    bool supportsBatch = false;
+    bool supportsSelectedRegion = false;
     bool outputsNotes = false;
     bool outputsPitchCurve = false;
     bool outputsPitchBends = false;
-    bool outputsVelocity = false;
-    bool outputsConfidence = false;
     bool outputsTechniqueLabels = false;
-    bool outputsWarnings = false;
-    bool canRunOffline = true;
+    bool requiresPython = false;
+    bool requiresModelCheckpoint = false;
+    bool supportsCpu = false;
+    bool supportsGpuOptional = false;
+
+    bool supportsMode(AnalysisMode mode) const;
+    QString summaryString() const;
 };
 
 struct BackendError
@@ -138,8 +144,8 @@ struct BackendManifest
     QString engineVersion;
     QString adapterVersion;
     BackendRuntimeType runtimeType = BackendRuntimeType::Unknown;
-    BackendAvailabilityState availability = BackendAvailabilityState::NotConfigured;
-    BackendCapabilityFlags capabilities;
+    BackendStatus status = BackendStatus::NotConfigured;
+    BackendCapability capabilities;
     QStringList primaryOutputs;
     QStringList optionalOutputs;
     QString licenseName;
@@ -193,7 +199,7 @@ struct UnifiedResult
     QString resultId;
     AnalysisRunId requestId;
     BackendId engineId;
-    AnalysisRunState status = AnalysisRunState::Idle;
+    BackendStatus status = BackendStatus::Unknown;
     double audioDurationSec = 0.0;
     QVector<UnifiedNoteEvent> notes;
     QVector<UnifiedPitchPoint> pitchCurve;
@@ -203,8 +209,10 @@ struct UnifiedResult
     bool isEmpty() const;
 };
 
+QString statusToString(BackendStatus status);
+QString capabilitySummaryString(const BackendCapability &capability);
 QString toString(BackendRuntimeType type);
-QString toString(BackendAvailabilityState state);
+QString toString(BackendStatus status);
 QString toString(AnalysisRunState state);
 QString toString(AnalysisMode mode);
 QString toString(BackendErrorCode code);
