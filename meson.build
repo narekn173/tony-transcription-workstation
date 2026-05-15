@@ -1023,6 +1023,13 @@ tony_main_files = [
   'main/Analyser.cpp',
   'main/MainWindow.cpp',
   'main/NetworkPermissionTester.cpp',
+  'main/backend/AnalysisEngineManager.cpp',
+  'main/backend/BackendAdapter.cpp',
+  'main/backend/BackendRegistry.cpp',
+  'main/backend/BackendTypes.cpp',
+  'main/backend/ExternalProcessRunner.cpp',
+  'main/backend/ResultValidator.cpp',
+  'main/backend/TonyLayerImporter.cpp',
 ]
 
 tony_main_moc_files = qt.preprocess(
