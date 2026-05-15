@@ -15,7 +15,7 @@
 #ifndef TONY_RESULT_VALIDATOR_H
 #define TONY_RESULT_VALIDATOR_H
 
-#include "BackendTypes.h"
+#include "UnifiedResult.h"
 
 namespace Tony {
 namespace Backend {

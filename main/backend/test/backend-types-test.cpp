@@ -13,6 +13,7 @@
 */
 
 #include "TestBackendTypes.h"
+#include "TestUnifiedResult.h"
 
 #include <QCoreApplication>
 #include <QtTest>
@@ -25,8 +26,14 @@ int main(int argc, char *argv[])
     app.setOrganizationName("tony");
     app.setApplicationName("test-backend-types");
 
-    TestBackendTypes t;
-    if (QTest::qExec(&t, argc, argv) == 0) {
+    TestBackendTypes backendTypes;
+    TestUnifiedResult unifiedResult;
+
+    int failures = 0;
+    failures += QTest::qExec(&backendTypes, argc, argv);
+    failures += QTest::qExec(&unifiedResult, argc, argv);
+
+    if (failures == 0) {
         std::cerr << "All tests passed" << std::endl;
         return 0;
     } else {

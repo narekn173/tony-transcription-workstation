@@ -16,6 +16,7 @@
 #define TONY_LAYER_IMPORTER_H
 
 #include "BackendTypes.h"
+#include "UnifiedResult.h"
 
 namespace Tony {
 namespace Backend {

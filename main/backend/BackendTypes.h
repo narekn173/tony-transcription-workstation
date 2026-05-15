@@ -174,41 +174,6 @@ struct BackendRequest
     bool isRunnableShape() const;
 };
 
-struct UnifiedNoteEvent
-{
-    QString id;
-    double startSec = 0.0;
-    double endSec = 0.0;
-    int midiPitch = -1;
-    double frequencyHz = -1.0;
-    int velocity = -1;
-    double confidence = -1.0;
-};
-
-struct UnifiedPitchPoint
-{
-    double timeSec = 0.0;
-    double frequencyHz = -1.0;
-    double confidence = -1.0;
-    bool voiced = false;
-};
-
-struct UnifiedResult
-{
-    QString contractVersion = "0.1";
-    QString resultId;
-    AnalysisRunId requestId;
-    BackendId engineId;
-    BackendStatus status = BackendStatus::Unknown;
-    double audioDurationSec = 0.0;
-    QVector<UnifiedNoteEvent> notes;
-    QVector<UnifiedPitchPoint> pitchCurve;
-    QVector<BackendWarning> warnings;
-    QVector<BackendError> errors;
-
-    bool isEmpty() const;
-};
-
 QString statusToString(BackendStatus status);
 QString capabilitySummaryString(const BackendCapability &capability);
 QString toString(BackendRuntimeType type);

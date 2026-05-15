@@ -93,15 +93,6 @@ BackendRequest::isRunnableShape() const
     return true;
 }
 
-bool
-UnifiedResult::isEmpty() const
-{
-    return notes.isEmpty() &&
-        pitchCurve.isEmpty() &&
-        warnings.isEmpty() &&
-        errors.isEmpty();
-}
-
 QString
 statusToString(BackendStatus status)
 {

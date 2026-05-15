@@ -51,49 +51,101 @@ ResultValidator::validate(const BackendRequest &request,
                         "UnifiedResult request ID does not match the request.");
     }
     if (!request.engineId.isEmpty() &&
-        !result.engineId.isEmpty() &&
-        request.engineId != result.engineId) {
+        !result.engine.engineId.isEmpty() &&
+        request.engineId != result.engine.engineId) {
         report.addError("engine_id_mismatch",
                         "UnifiedResult engine ID does not match the request.");
     }
+    if (result.status == BackendStatus::Failed && result.errors.isEmpty()) {
+        report.addError("failed_result_without_error",
+                        "A failed UnifiedResult must include at least one error.");
+    }
 
     for (const auto &note: result.notes) {
-        if (note.startSec < 0.0 || note.endSec <= note.startSec) {
+        if (!note.isValidTimeRange()) {
             report.addError("invalid_note_timing",
                             "A note has invalid start/end timing.");
         }
-        if (note.midiPitch > 127) {
+        if (!note.hasValidMidiPitch()) {
             report.addError("invalid_midi_pitch",
-                            "A note has a MIDI pitch greater than 127.");
+                            "A note has a MIDI pitch outside the 0-127 range.");
         }
-        if (note.velocity > 127) {
+        if (!note.hasValidVelocity()) {
             report.addError("invalid_velocity",
-                            "A note has a velocity greater than 127.");
+                            "A note has velocity outside the 0-127 range.");
         }
-        if (note.confidence > 1.0) {
+        if (!note.hasValidConfidence()) {
             report.addError("invalid_confidence",
-                            "A note has confidence greater than 1.0.");
+                            "A note has confidence outside the 0.0-1.0 range.");
         }
-        if (note.frequencyHz == 0.0) {
+        if (note.frequencyHz.has_value() && *note.frequencyHz <= 0.0) {
             report.addError("invalid_frequency",
-                            "A note has a zero frequency value.");
+                            "A note has a non-positive frequency value.");
         }
     }
 
     double previousTime = -1.0;
     for (const auto &point: result.pitchCurve) {
+        if (!point.hasValidTime()) {
+            report.addError("invalid_pitch_time",
+                            "A pitch point has negative time.");
+        }
         if (point.timeSec < previousTime) {
             report.addError("pitch_curve_not_monotonic",
                             "Pitch curve points are not ordered by time.");
         }
         previousTime = point.timeSec;
-        if (point.frequencyHz == 0.0) {
+        if (!point.hasValidFrequency()) {
             report.addError("invalid_pitch_frequency",
-                            "A pitch point has a zero frequency value.");
+                            "A pitch point has a non-positive frequency value.");
         }
-        if (point.confidence > 1.0) {
+        if (!point.hasValidConfidence()) {
             report.addError("invalid_pitch_confidence",
-                            "A pitch point has confidence greater than 1.0.");
+                            "A pitch point has confidence outside the 0.0-1.0 range.");
+        }
+    }
+
+    for (const auto &bend: result.pitchBends) {
+        if (!bend.hasValidConfidence()) {
+            report.addError("invalid_pitch_bend_confidence",
+                            "A pitch bend has confidence outside the 0.0-1.0 range.");
+        }
+        double previousBendTime = -1.0;
+        for (const auto &point: bend.points) {
+            if (!point.hasValidTime()) {
+                report.addError("invalid_pitch_bend_time",
+                                "A pitch bend point has negative time.");
+            }
+            if (point.timeSec < previousBendTime) {
+                report.addError("pitch_bend_not_monotonic",
+                                "Pitch bend points are not ordered by time.");
+            }
+            previousBendTime = point.timeSec;
+        }
+    }
+
+    for (const auto &label: result.techniqueLabels) {
+        if (!label.isValidTimeRange()) {
+            report.addError("invalid_technique_timing",
+                            "A technique label has invalid start/end timing.");
+        }
+        if (!label.hasValidConfidence()) {
+            report.addError("invalid_technique_confidence",
+                            "A technique label has confidence outside the 0.0-1.0 range.");
+        }
+    }
+
+    for (const auto &warning: result.warnings) {
+        if (!warning.hasValidTimeRange()) {
+            report.addError("invalid_warning_timing",
+                            "A result warning has invalid start/end timing.");
+        }
+    }
+
+    for (const auto &error: result.errors) {
+        if (!error.hasValidTimeRange()) {
+            report.addError("invalid_error_timing",
+                            "A result error has invalid start/end timing.");
         }
     }
 

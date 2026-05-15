@@ -1030,6 +1030,7 @@ tony_main_files = [
   'main/backend/ExternalProcessRunner.cpp',
   'main/backend/ResultValidator.cpp',
   'main/backend/TonyLayerImporter.cpp',
+  'main/backend/UnifiedResult.cpp',
 ]
 
 tony_main_moc_files = qt.preprocess(
@@ -1209,12 +1210,15 @@ svcore_data_fileio_test_exe = executable(
 backend_types_test_moc_files = qt.preprocess(
   moc_headers: [
   'main/backend/test/TestBackendTypes.h',
+  'main/backend/test/TestUnifiedResult.h',
 ])
 
 backend_types_test_exe = executable(
   'test-backend-types',
   backend_types_test_moc_files,
   'main/backend/BackendTypes.cpp',
+  'main/backend/ResultValidator.cpp',
+  'main/backend/UnifiedResult.cpp',
   'main/backend/test/backend-types-test.cpp',
   dependencies: [
     qt_dep,
