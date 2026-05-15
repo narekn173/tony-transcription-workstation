@@ -15,8 +15,11 @@
 #ifndef TEST_BACKEND_TYPES_H
 #define TEST_BACKEND_TYPES_H
 
+#include "../BackendManifestParser.h"
 #include "../BackendTypes.h"
 
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QObject>
 #include <QtTest>
 
@@ -197,6 +200,142 @@ private slots:
         QVERIFY(!manifest.supportsNotes());
         QVERIFY(manifest.supportsPitchCurve());
         QVERIFY(!manifest.capabilities.supportsMode(AnalysisMode::Region));
+    }
+
+    void manifestParserAcceptsBasicPitchExampleShape()
+    {
+        const QJsonDocument document =
+            QJsonDocument::fromJson(basicPitchManifestJson());
+        QVERIFY(document.isObject());
+
+        BackendManifestParser parser;
+        const BackendManifestParseResult parsed =
+            parser.parse(document.object());
+
+        QVERIFY(parsed.isValid());
+        QCOMPARE(parsed.manifest.id(), QString("basic_pitch"));
+        QCOMPARE(parsed.manifest.displayName, QString("Basic Pitch"));
+        QVERIFY(parsed.manifest.backendType == BackendRuntimeType::PythonCli);
+        QVERIFY(parsed.manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(parsed.manifest.capabilities.supportsFullFile);
+        QVERIFY(parsed.manifest.capabilities.supportsSelectedRegion);
+        QVERIFY(parsed.manifest.capabilities.outputsNotes);
+        QVERIFY(!parsed.manifest.capabilities.outputsPitchCurve);
+        QVERIFY(parsed.manifest.capabilities.outputsPitchBends);
+        QVERIFY(parsed.manifest.capabilities.requiresPython);
+        QVERIFY(parsed.manifest.capabilities.supportsCpu);
+        QVERIFY(!parsed.manifest.hasExecutablePath());
+        QCOMPARE(parsed.manifest.supportedInputFormats, QStringList({ "wav" }));
+        QVERIFY(parsed.manifest.supportedOutputTypes.contains("notes"));
+        QVERIFY(parsed.manifest.supportedOutputTypes.contains("midi"));
+        QVERIFY(parsed.manifest.supportedOutputTypes.contains("csv_notes"));
+    }
+
+    void manifestParserRejectsMissingBackendId()
+    {
+        QJsonObject object = QJsonDocument::fromJson(basicPitchManifestJson()).object();
+        object.remove("engine_id");
+
+        BackendManifestParser parser;
+        const BackendManifestParseResult parsed = parser.parse(object);
+
+        QVERIFY(!parsed.isValid());
+        QCOMPARE(parsed.report.issues.front().code, QString("missing_backend_id"));
+    }
+
+    void manifestParserRejectsInvalidBackendId()
+    {
+        QJsonObject object = QJsonDocument::fromJson(basicPitchManifestJson()).object();
+        object.insert("engine_id", "BasicPitch");
+
+        BackendManifestParser parser;
+        const BackendManifestParseResult parsed = parser.parse(object);
+
+        QVERIFY(!parsed.isValid());
+        QCOMPARE(parsed.report.issues.front().code, QString("invalid_backend_id"));
+    }
+
+    void manifestParserRejectsMalformedCapabilities()
+    {
+        QJsonObject object = QJsonDocument::fromJson(basicPitchManifestJson()).object();
+        QJsonObject capabilities = object.value("capabilities").toObject();
+        capabilities.insert("supports_full_file", "yes");
+        object.insert("capabilities", capabilities);
+
+        BackendManifestParser parser;
+        const BackendManifestParseResult parsed = parser.parse(object);
+
+        QVERIFY(!parsed.isValid());
+        QVERIFY(!parsed.manifest.capabilities.supportsFullFile);
+        QVERIFY(!parsed.report.issues.isEmpty());
+    }
+
+    void manifestParserRejectsEmptyManifest()
+    {
+        BackendManifestParser parser;
+        const BackendManifestParseResult parsed = parser.parse(QJsonObject());
+
+        QVERIFY(!parsed.isValid());
+        QVERIFY(parsed.report.issues.size() >= 2);
+        QVERIFY(!parsed.manifest.isValidBackendId());
+        QVERIFY(parsed.manifest.status == BackendStatus::NotConfigured);
+    }
+
+private:
+    static QByteArray basicPitchManifestJson()
+    {
+        return R"json(
+{
+  "contract_version": "0.1",
+  "engine_id": "basic_pitch",
+  "display_name": "Basic Pitch",
+  "engine_version": null,
+  "adapter_version": "0.1.0",
+  "category": "note_transcription",
+  "runtime": {
+    "type": "python_cli",
+    "requires_python": true,
+    "requires_model_files": false,
+    "supports_cpu": true,
+    "supports_cuda": false,
+    "supports_directml": false,
+    "supports_rocm": false,
+    "internet_required": false
+  },
+  "capabilities": {
+    "supports_full_file": true,
+    "supports_region": true,
+    "supports_batch": false,
+    "outputs_notes": true,
+    "outputs_pitch_curve": false,
+    "outputs_pitch_bends": true,
+    "outputs_velocity": true,
+    "outputs_confidence": true,
+    "outputs_technique_labels": false,
+    "outputs_warnings": true,
+    "can_run_offline": true
+  },
+  "inputs": {
+    "audio_formats": ["wav"],
+    "preferred_formats": ["wav"],
+    "mono_required": false,
+    "max_channels": 2,
+    "sample_rates_hz": [44100],
+    "requires_resampling": "adapter_or_host"
+  },
+  "outputs": {
+    "primary": ["notes", "midi", "csv_notes"],
+    "optional": ["pitch_bends", "warnings", "logs"]
+  },
+  "settings_schema": {},
+  "license": {
+    "name": "Apache-2.0",
+    "source_url": "https://github.com/spotify/basic-pitch",
+    "redistribution_status": "allowed_with_notice",
+    "notes": "Review before bundling."
+  }
+}
+)json";
     }
 };
 
