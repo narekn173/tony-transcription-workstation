@@ -15,12 +15,15 @@
 #ifndef TEST_BACKEND_TYPES_H
 #define TEST_BACKEND_TYPES_H
 
+#include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
 #include "../BackendTypes.h"
 
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QObject>
+#include <QTemporaryDir>
 #include <QtTest>
 
 using namespace Tony::Backend;
@@ -281,7 +284,95 @@ private slots:
         QVERIFY(parsed.manifest.status == BackendStatus::NotConfigured);
     }
 
+    void manifestFileLoaderLoadsValidManifestFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, basicPitchManifestJson()));
+
+        BackendManifestFileLoader loader;
+        const BackendManifestFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(loaded.isValid());
+        QCOMPARE(loaded.path, path);
+        QCOMPARE(loaded.manifest.id(), QString("basic_pitch"));
+        QCOMPARE(loaded.manifest.displayName, QString("Basic Pitch"));
+        QVERIFY(loaded.manifest.backendType == BackendRuntimeType::PythonCli);
+        QVERIFY(loaded.manifest.status == BackendStatus::NotConfigured);
+    }
+
+    void manifestFileLoaderMissingFileFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("missing_manifest.json");
+
+        BackendManifestFileLoader loader;
+        const BackendManifestFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.path, path);
+        QVERIFY(!loaded.report.issues.isEmpty());
+        QCOMPARE(loaded.report.issues.front().code, QString("file_open_failed"));
+    }
+
+    void manifestFileLoaderInvalidJsonFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, "{ invalid json"));
+
+        BackendManifestFileLoader loader;
+        const BackendManifestFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!loaded.report.issues.isEmpty());
+        QCOMPARE(loaded.report.issues.front().code, QString("invalid_json"));
+    }
+
+    void manifestFileLoaderWrongTopLevelJsonFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, "[]"));
+
+        BackendManifestFileLoader loader;
+        const BackendManifestFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!loaded.report.issues.isEmpty());
+        QCOMPARE(loaded.report.issues.front().code,
+                 QString("invalid_top_level_json"));
+    }
+
+    void manifestFileLoaderDoesNotMarkManifestReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, basicPitchManifestJson()));
+
+        BackendManifestFileLoader loader;
+        const BackendManifestFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(loaded.isValid());
+        QVERIFY(loaded.manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(!loaded.manifest.hasExecutablePath());
+    }
+
 private:
+    static bool writeFile(const QString &path, const QByteArray &contents)
+    {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return false;
+        }
+        return file.write(contents) == contents.size();
+    }
+
     static QByteArray basicPitchManifestJson()
     {
         return R"json(
