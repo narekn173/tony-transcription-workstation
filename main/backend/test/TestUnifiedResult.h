@@ -19,6 +19,7 @@
 #include "../UnifiedResult.h"
 #include "../UnifiedResultFileLoader.h"
 #include "../UnifiedResultParser.h"
+#include "../UnifiedResultSchemaValidator.h"
 
 #include <QFile>
 #include <QJsonDocument>
@@ -364,6 +365,121 @@ private slots:
         QCOMPARE(loaded.report.issues.size(), 1);
         QCOMPARE(loaded.report.issues.front().code,
                  QString("invalid_top_level_json"));
+    }
+
+    void schemaValidatorReportsDeferredFullSchemaBoundary()
+    {
+        UnifiedResultSchemaValidator validator;
+
+        QVERIFY(!validator.hasFullJsonSchemaValidator());
+        QCOMPARE(validator.schemaReferencePath(),
+                 QString("docs/schemas/unified_result.schema.json"));
+    }
+
+    void schemaValidatorAcceptsValidJsonThroughLightweightBoundary()
+    {
+        const QJsonDocument document =
+            QJsonDocument::fromJson(validUnifiedResultJson());
+        QVERIFY(document.isObject());
+
+        UnifiedResultSchemaValidator validator;
+        const UnifiedResultSchemaValidationResult validation =
+            validator.validateLightweight(document.object());
+
+        QVERIFY(validation.isValid());
+        QVERIFY(!validation.fullJsonSchemaValidationApplied);
+        QCOMPARE(validation.schemaReferencePath,
+                 QString("docs/schemas/unified_result.schema.json"));
+        QVERIFY(validation.debugSummaryString().contains("deferred"));
+    }
+
+    void schemaValidatorRejectsInvalidJsonThroughLightweightBoundary()
+    {
+        const QByteArray json = R"json(
+{
+  "contract_version": "0.1",
+  "result_id": "res_invalid_schema_boundary",
+  "request_id": "req_invalid_schema_boundary",
+  "created_at": "2026-05-15T12:01:00Z",
+  "engine": {
+    "engine_id": "basic_pitch",
+    "display_name": "Basic Pitch",
+    "engine_version": null,
+    "adapter_version": "0.1.0",
+    "runtime_type": "python_cli",
+    "device_used": "cpu"
+  },
+  "status": "completed",
+  "audio": {
+    "path": "C:/audio/input.wav",
+    "duration_sec": 12.345,
+    "sample_rate_hz": 44100,
+    "channels": 1
+  },
+  "region": null,
+  "summary": {
+    "note_count": 1,
+    "pitch_point_count": 0,
+    "pitch_bend_count": 0,
+    "technique_label_count": 0,
+    "mean_confidence": 0.91,
+    "low_confidence_count": 0,
+    "duration_analyzed_sec": 12.345
+  },
+  "notes": [
+    {
+      "id": "note_bad",
+      "start_sec": 3.0,
+      "end_sec": 2.0,
+      "midi_pitch": 200,
+      "frequency_hz": 0.0,
+      "velocity": 82,
+      "confidence": 1.5,
+      "source": { "engine_id": "basic_pitch" },
+      "flags": []
+    }
+  ],
+  "pitch_curve": [],
+  "pitch_bends": [],
+  "technique_labels": [],
+  "files": [],
+  "warnings": [],
+  "errors": [],
+  "provenance": {}
+}
+)json";
+
+        const QJsonDocument document = QJsonDocument::fromJson(json);
+        QVERIFY(document.isObject());
+
+        UnifiedResultSchemaValidator validator;
+        const UnifiedResultSchemaValidationResult validation =
+            validator.validateLightweight(document.object());
+
+        QVERIFY(!validation.isValid());
+        QVERIFY(!validation.fullJsonSchemaValidationApplied);
+        QVERIFY(validation.report.issues.size() >= 3);
+    }
+
+    void schemaValidatorKeepsParsedSemanticValidationSeparate()
+    {
+        BackendRequest request;
+        request.requestId = "req_expected";
+        request.engineId = "basic_pitch";
+
+        UnifiedResult result;
+        result.contractVersion = "0.1";
+        result.requestId = "req_actual";
+        result.engine.engineId = "basic_pitch";
+
+        UnifiedResultSchemaValidator validator;
+        const UnifiedResultSchemaValidationResult validation =
+            validator.validateParsedResult(request, result);
+
+        QVERIFY(!validation.isValid());
+        QCOMPARE(validation.report.issues.front().code,
+                 QString("request_id_mismatch"));
+        QVERIFY(!validation.fullJsonSchemaValidationApplied);
     }
 
 private:
