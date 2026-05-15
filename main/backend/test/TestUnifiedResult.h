@@ -17,11 +17,14 @@
 
 #include "../ResultValidator.h"
 #include "../UnifiedResult.h"
+#include "../UnifiedResultFileLoader.h"
 #include "../UnifiedResultParser.h"
 
+#include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QObject>
+#include <QTemporaryDir>
 #include <QtTest>
 
 using namespace Tony::Backend;
@@ -296,6 +299,140 @@ private slots:
 
         QVERIFY(!parsed.isValid());
         QVERIFY(parsed.report.issues.size() >= 5);
+    }
+
+    void fileLoaderLoadsValidUnifiedResultFile()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString path = dir.filePath("valid-result.json");
+        QVERIFY(writeTextFile(path, validUnifiedResultJson()));
+
+        UnifiedResultFileLoader loader;
+        const UnifiedResultFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(loaded.isValid());
+        QCOMPARE(loaded.path, path);
+        QCOMPARE(loaded.result.resultId, QString("res_file_001"));
+        QCOMPARE(loaded.result.engine.engineId, QString("basic_pitch"));
+        QCOMPARE(loaded.result.notes.size(), 1);
+    }
+
+    void fileLoaderMissingFileFailsCleanly()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        UnifiedResultFileLoader loader;
+        const UnifiedResultFileLoadResult loaded =
+            loader.load(dir.filePath("missing-result.json"));
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.report.issues.size(), 1);
+        QCOMPARE(loaded.report.issues.front().code, QString("file_open_failed"));
+    }
+
+    void fileLoaderInvalidJsonFailsCleanly()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString path = dir.filePath("invalid-json.json");
+        QVERIFY(writeTextFile(path, "{ invalid json"));
+
+        UnifiedResultFileLoader loader;
+        const UnifiedResultFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.report.issues.size(), 1);
+        QCOMPARE(loaded.report.issues.front().code, QString("invalid_json"));
+    }
+
+    void fileLoaderWrongTopLevelJsonFailsCleanly()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+
+        const QString path = dir.filePath("array-result.json");
+        QVERIFY(writeTextFile(path, "[]"));
+
+        UnifiedResultFileLoader loader;
+        const UnifiedResultFileLoadResult loaded = loader.load(path);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.report.issues.size(), 1);
+        QCOMPARE(loaded.report.issues.front().code,
+                 QString("invalid_top_level_json"));
+    }
+
+private:
+    static bool writeTextFile(const QString &path, const QByteArray &content)
+    {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            return false;
+        }
+        return file.write(content) == content.size();
+    }
+
+    static QByteArray validUnifiedResultJson()
+    {
+        return R"json(
+{
+  "contract_version": "0.1",
+  "result_id": "res_file_001",
+  "request_id": "req_file_001",
+  "created_at": "2026-05-15T12:01:00Z",
+  "engine": {
+    "engine_id": "basic_pitch",
+    "display_name": "Basic Pitch",
+    "engine_version": null,
+    "adapter_version": "0.1.0",
+    "runtime_type": "python_cli",
+    "device_used": "cpu"
+  },
+  "status": "completed",
+  "audio": {
+    "path": "C:/audio/input.wav",
+    "duration_sec": 12.345,
+    "sample_rate_hz": 44100,
+    "channels": 1
+  },
+  "region": null,
+  "summary": {
+    "note_count": 1,
+    "pitch_point_count": 0,
+    "pitch_bend_count": 0,
+    "technique_label_count": 0,
+    "mean_confidence": 0.91,
+    "low_confidence_count": 0,
+    "duration_analyzed_sec": 12.345
+  },
+  "notes": [
+    {
+      "id": "note_0001",
+      "start_sec": 1.24,
+      "end_sec": 1.68,
+      "midi_pitch": 64,
+      "frequency_hz": 329.63,
+      "velocity": 82,
+      "confidence": 0.91,
+      "source": { "engine_id": "basic_pitch" },
+      "flags": []
+    }
+  ],
+  "pitch_curve": [],
+  "pitch_bends": [],
+  "technique_labels": [],
+  "files": [],
+  "warnings": [],
+  "errors": [],
+  "provenance": {
+    "created_by": "unit_test_file_fixture"
+  }
+}
+)json";
     }
 };
 
