@@ -47,6 +47,8 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <future>
+
 using namespace Tony::Backend;
 
 class TestBackendTypes : public QObject
@@ -3359,6 +3361,43 @@ private slots:
         QVERIFY(result.timedOut);
         QVERIFY(result.state == AnalysisRunState::Failed);
         QVERIFY(result.error.code == BackendErrorCode::TimedOut);
+    }
+
+    void externalProcessRunnerCancellationReportsCancelled()
+    {
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "sleep", "3000" });
+        request.timeoutMsec = 5000;
+        request.cancellationToken =
+            QSharedPointer<ExternalProcessCancellationToken>::create();
+
+        auto future = std::async(std::launch::async, [request]() {
+            ExternalProcessRunner runner;
+            return runner.run(request);
+        });
+
+        QTest::qWait(100);
+        ExternalProcessRunner runner;
+        QVERIFY(runner.cancel(request.cancellationToken));
+
+        const ExternalProcessResult result = future.get();
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(result.started);
+        QVERIFY(!result.startFailed);
+        QVERIFY(!result.timedOut);
+        QVERIFY(result.cancelled);
+        QVERIFY(result.state == AnalysisRunState::Cancelled);
+        QVERIFY(result.error.code == BackendErrorCode::Cancelled);
+        QVERIFY(result.debugSummaryString().contains("cancelled=true"));
+    }
+
+    void externalProcessRunnerCancelRejectsMissingToken()
+    {
+        ExternalProcessRunner runner;
+
+        QVERIFY(!runner.cancel(
+            QSharedPointer<ExternalProcessCancellationToken>()));
     }
 
     void externalProcessRunnerCapturesStdout()

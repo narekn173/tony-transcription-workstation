@@ -19,9 +19,23 @@
 
 #include <QMap>
 #include <QProcess>
+#include <QSharedPointer>
+
+#include <atomic>
 
 namespace Tony {
 namespace Backend {
+
+class ExternalProcessCancellationToken
+{
+public:
+    void requestCancellation();
+    bool isCancellationRequested() const;
+    void reset();
+
+private:
+    std::atomic_bool m_cancelled { false };
+};
 
 struct ExternalProcessRequest
 {
@@ -30,9 +44,11 @@ struct ExternalProcessRequest
     QString workingDirectory;
     QMap<QString, QString> environmentOverrides;
     int timeoutMsec = 0;
+    QSharedPointer<ExternalProcessCancellationToken> cancellationToken;
 
     bool hasExecutable() const;
     bool hasTimeout() const;
+    bool isCancellationRequested() const;
 };
 
 struct ExternalProcessResult
@@ -58,6 +74,8 @@ class ExternalProcessRunner
 public:
     ExternalProcessResult run(const ExternalProcessRequest &request) const;
     bool cancel(const AnalysisRunId &runId);
+    bool cancel(
+        const QSharedPointer<ExternalProcessCancellationToken> &token) const;
 };
 
 }

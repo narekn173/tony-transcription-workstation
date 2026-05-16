@@ -14,7 +14,9 @@
 
 #include "ExternalProcessRunner.h"
 
+#include <QElapsedTimer>
 #include <QProcessEnvironment>
+#include <QtGlobal>
 
 namespace Tony {
 namespace Backend {
@@ -55,6 +57,24 @@ exitStatusName(QProcess::ExitStatus status)
 
 }
 
+void
+ExternalProcessCancellationToken::requestCancellation()
+{
+    m_cancelled.store(true);
+}
+
+bool
+ExternalProcessCancellationToken::isCancellationRequested() const
+{
+    return m_cancelled.load();
+}
+
+void
+ExternalProcessCancellationToken::reset()
+{
+    m_cancelled.store(false);
+}
+
 bool
 ExternalProcessRequest::hasExecutable() const
 {
@@ -65,6 +85,13 @@ bool
 ExternalProcessRequest::hasTimeout() const
 {
     return timeoutMsec > 0;
+}
+
+bool
+ExternalProcessRequest::isCancellationRequested() const
+{
+    return cancellationToken &&
+        cancellationToken->isCancellationRequested();
 }
 
 bool
@@ -79,13 +106,14 @@ QString
 ExternalProcessResult::debugSummaryString() const
 {
     return QString("state=%1 exit_code=%2 exit_status=%3 "
-                   "started=%4 start_failed=%5 timed_out=%6")
+                   "started=%4 start_failed=%5 timed_out=%6 cancelled=%7")
         .arg(toString(state))
         .arg(exitCode)
         .arg(exitStatusName(exitStatus))
         .arg(started ? "true" : "false")
         .arg(startFailed ? "true" : "false")
-        .arg(timedOut ? "true" : "false");
+        .arg(timedOut ? "true" : "false")
+        .arg(cancelled ? "true" : "false");
 }
 
 ExternalProcessResult
@@ -147,9 +175,42 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
     result.started = true;
     result.state = AnalysisRunState::Running;
 
-    const bool finished = request.hasTimeout() ?
-        process.waitForFinished(request.timeoutMsec) :
-        process.waitForFinished(-1);
+    QElapsedTimer elapsed;
+    elapsed.start();
+
+    bool finished = false;
+    while (!finished) {
+        if (request.isCancellationRequested()) {
+            result.cancelled = true;
+            result.state = AnalysisRunState::Cancelled;
+            result.processError = process.error();
+            process.terminate();
+            if (!process.waitForFinished(1000)) {
+                process.kill();
+                process.waitForFinished(3000);
+            }
+            result.exitCode = process.exitCode();
+            result.exitStatus = process.exitStatus();
+            result.standardOutput =
+                QString::fromLocal8Bit(process.readAllStandardOutput());
+            result.standardError =
+                QString::fromLocal8Bit(process.readAllStandardError());
+            result.error = {
+                BackendErrorCode::Cancelled,
+                "External process was cancelled.",
+                true
+            };
+            return result;
+        }
+
+        if (request.hasTimeout() && elapsed.elapsed() >= request.timeoutMsec) {
+            break;
+        }
+
+        const int waitMsec = request.hasTimeout() ?
+            qBound(1, int(request.timeoutMsec - elapsed.elapsed()), 50) : 50;
+        finished = process.waitForFinished(waitMsec);
+    }
 
     if (!finished) {
         result.timedOut = true;
@@ -213,6 +274,18 @@ bool
 ExternalProcessRunner::cancel(const AnalysisRunId &)
 {
     return false;
+}
+
+bool
+ExternalProcessRunner::cancel(
+    const QSharedPointer<ExternalProcessCancellationToken> &token) const
+{
+    if (!token) {
+        return false;
+    }
+
+    token->requestCancellation();
+    return true;
 }
 
 }
