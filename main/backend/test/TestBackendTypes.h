@@ -16,6 +16,7 @@
 #define TEST_BACKEND_TYPES_H
 
 #include "../BackendDiscoveryConfig.h"
+#include "../BackendDiscoveryService.h"
 #include "../BackendManifestDirectoryLoader.h"
 #include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
@@ -731,6 +732,146 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
         QVERIFY(!registry.hasBackend("basic_pitch"));
         QVERIFY(!registry.manifestById("basic_pitch").has_value());
+    }
+
+    void discoveryServiceDiscoversFromTestDirectory()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(writeFile(directory.filePath("backend_manifest.json"),
+                          basicPitchManifestJson()));
+
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = directory.path();
+        BackendRegistry registry;
+        BackendDiscoveryService service;
+        const BackendDiscoveryResult discovered =
+            service.discover(config, registry);
+
+        QVERIFY(discovered.isValid());
+        QCOMPARE(discovered.directoriesScanned(), 1);
+        QCOMPARE(discovered.manifestsLoaded(), 1);
+        QCOMPARE(discovered.manifestsRejected(), 0);
+        QCOMPARE(discovered.duplicateIds(), 0);
+        QCOMPARE(discovered.directories.front().directory.path,
+                 directory.path());
+        QVERIFY(discovered.directories.front().directory.source ==
+                BackendDiscoveryPathSource::TestOnly);
+        QVERIFY(registry.hasBackend("basic_pitch"));
+    }
+
+    void discoveryServiceMissingDirectoryHandledCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = directory.filePath("missing");
+        BackendRegistry registry;
+        BackendDiscoveryService service;
+        const BackendDiscoveryResult discovered =
+            service.discover(config, registry);
+
+        QVERIFY(!discovered.isValid());
+        QCOMPARE(discovered.directoriesScanned(), 1);
+        QCOMPARE(discovered.manifestsLoaded(), 0);
+        QCOMPARE(discovered.manifestsRejected(), 0);
+        QVERIFY(reportHasIssue(discovered.report, "directory_not_found"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void discoveryServiceRegistersValidManifest()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(writeFile(directory.filePath("backend_manifest.json"),
+                          basicPitchManifestJson()));
+
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = directory.path();
+        BackendRegistry registry;
+        BackendDiscoveryService service;
+        const BackendDiscoveryResult discovered =
+            service.discover(config, registry);
+
+        QVERIFY(discovered.isValid());
+
+        const std::optional<BackendManifest> manifest =
+            registry.manifestById("basic_pitch");
+        QVERIFY(manifest.has_value());
+        QCOMPARE(manifest->displayName, QString("Basic Pitch"));
+        QVERIFY(manifest->status == BackendStatus::NotConfigured);
+    }
+
+    void discoveryServiceRejectsInvalidManifest()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(writeFile(directory.filePath("backend_manifest.json"),
+                          "{ invalid json"));
+
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = directory.path();
+        BackendRegistry registry;
+        BackendDiscoveryService service;
+        const BackendDiscoveryResult discovered =
+            service.discover(config, registry);
+
+        QVERIFY(!discovered.isValid());
+        QCOMPARE(discovered.directoriesScanned(), 1);
+        QCOMPARE(discovered.manifestsLoaded(), 0);
+        QCOMPARE(discovered.manifestsRejected(), 1);
+        QVERIFY(reportHasIssue(discovered.report, "invalid_json"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void discoveryServiceReportsDuplicateBackendIds()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(writeFile(directory.filePath("a_manifest.json"),
+                          basicPitchManifestJson()));
+        QVERIFY(writeFile(directory.filePath("b_manifest.json"),
+                          basicPitchManifestJson()));
+
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = directory.path();
+        BackendRegistry registry;
+        BackendDiscoveryService service;
+        const BackendDiscoveryResult discovered =
+            service.discover(config, registry);
+
+        QVERIFY(!discovered.isValid());
+        QCOMPARE(discovered.directoriesScanned(), 1);
+        QCOMPARE(discovered.manifestsLoaded(), 1);
+        QCOMPARE(discovered.manifestsRejected(), 1);
+        QCOMPARE(discovered.duplicateIds(), 1);
+        QVERIFY(reportHasIssue(discovered.report, "registry_add_failed"));
+        QCOMPARE(registry.allManifests().size(), 1);
+        QVERIFY(registry.hasBackend("basic_pitch"));
+    }
+
+    void discoveryServiceDoesNotMarkManifestReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(writeFile(directory.filePath("backend_manifest.json"),
+                          basicPitchManifestJson()));
+
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = directory.path();
+        BackendRegistry registry;
+        BackendDiscoveryService service;
+        const BackendDiscoveryResult discovered =
+            service.discover(config, registry);
+
+        QVERIFY(discovered.isValid());
+
+        const std::optional<BackendManifest> manifest =
+            registry.manifestById("basic_pitch");
+        QVERIFY(manifest.has_value());
+        QVERIFY(manifest->status == BackendStatus::NotConfigured);
+        QVERIFY(manifest->status != BackendStatus::Ready);
     }
 
 private:
