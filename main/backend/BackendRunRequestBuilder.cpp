@@ -82,6 +82,7 @@ BackendRunRequestBuilder::build(
     result.inputAudioFilePath = trimmed(parameters.inputAudioFilePath);
     result.expectedUnifiedResultJsonPath =
         trimmed(parameters.expectedUnifiedResultJsonPath);
+    result.selectedRegion = parameters.selectedRegion;
     result.hasSelectedRegion = parameters.selectedRegion.has_value();
 
     if (!manifest.isValidBackendId()) {
@@ -153,6 +154,7 @@ BackendRunRequestBuilder::build(
             << "--region-start" << formatSeconds(parameters.selectedRegion->startSec)
             << "--region-end" << formatSeconds(parameters.selectedRegion->endSec);
     }
+
 
     result.request.arguments << parameters.additionalArguments;
 

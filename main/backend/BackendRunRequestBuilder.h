@@ -40,6 +40,7 @@ struct BackendRunRequestBuildResult
     BackendId backendId;
     QString inputAudioFilePath;
     QString expectedUnifiedResultJsonPath;
+    std::optional<AnalysisRegion> selectedRegion;
     bool usedSettingsExecutableOverride = false;
     bool usedSettingsWorkingDirectoryOverride = false;
     bool hasSelectedRegion = false;

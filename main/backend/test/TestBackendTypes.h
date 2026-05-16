@@ -26,7 +26,9 @@
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
 #include "../BackendRequiredFileProbe.h"
+#include "../BackendRunRequestFileWriter.h"
 #include "../BackendRunRequestBuilder.h"
+#include "../BackendRunRequestSerializer.h"
 #include "../BackendRunWorkspace.h"
 #include "../BackendSettingsDirectoryPreparer.h"
 #include "../BackendSettingsFactory.h"
@@ -3815,6 +3817,244 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void backendRunRequestSerializerSerializesValidRequest()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunRequestBuildResult request =
+            validBackendRunRequest(directory.path());
+
+        BackendRunRequestSerializer serializer;
+        const BackendRunRequestSerializationResult serialized =
+            serializer.serialize(request);
+
+        QVERIFY(serialized.isValid());
+        QCOMPARE(serialized.object.value("contract_version").toString(),
+                 QString("0.1"));
+        QCOMPARE(serialized.object.value("backend_id").toString(),
+                 QString("basic_pitch"));
+        QCOMPARE(serialized.object.value("run_id").toString(),
+                 QString("run_001"));
+        QCOMPARE(serialized.object.value("executable_path").toString(),
+                 request.request.executablePath);
+        QCOMPARE(serialized.object.value("working_directory").toString(),
+                 request.request.workingDirectory);
+        QCOMPARE(serialized.object.value("input_audio_path").toString(),
+                 request.inputAudioFilePath);
+        QCOMPARE(serialized.object.value("output_result_json_path").toString(),
+                 request.expectedUnifiedResultJsonPath);
+        QCOMPARE(serialized.object.value("timeout_msec").toInt(),
+                 request.request.timeoutMsec);
+        QVERIFY(serialized.object.value("arguments").isArray());
+        QVERIFY(serialized.object.value("selected_region").isNull());
+    }
+
+    void backendRunRequestSerializerSerializesSelectedRegion()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunRequestBuildResult request =
+            validBackendRunRequest(directory.path(),
+                                   std::optional<AnalysisRegion>(
+                                       AnalysisRegion { 1.25, 3.5 }));
+
+        BackendRunRequestSerializer serializer;
+        const BackendRunRequestSerializationResult serialized =
+            serializer.serialize(request);
+
+        QVERIFY(serialized.isValid());
+        QVERIFY(serialized.object.value("selected_region").isObject());
+
+        const QJsonObject region =
+            serialized.object.value("selected_region").toObject();
+        QCOMPARE(region.value("start_sec").toDouble(), 1.25);
+        QCOMPARE(region.value("end_sec").toDouble(), 3.5);
+        QCOMPARE(region.value("coordinate_system").toString(),
+                 QString("original_audio_time"));
+        QCOMPARE(region.value("apply_policy").toString(),
+                 QString("preview_only"));
+    }
+
+    void backendRunRequestSerializerSerializesEnvironmentOverrides()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.environmentVariables.insert("TONY_BACKEND_MODE", "test");
+        settings.environmentVariables.insert("TONY_BACKEND_TRACE", "1");
+
+        const BackendRunRequestBuildResult request =
+            validBackendRunRequest(directory.path(), std::nullopt, settings);
+
+        BackendRunRequestSerializer serializer;
+        const BackendRunRequestSerializationResult serialized =
+            serializer.serialize(request);
+
+        QVERIFY(serialized.isValid());
+        const QJsonObject environment =
+            serialized.object.value("environment_overrides").toObject();
+        QCOMPARE(environment.value("TONY_BACKEND_MODE").toString(),
+                 QString("test"));
+        QCOMPARE(environment.value("TONY_BACKEND_TRACE").toString(),
+                 QString("1"));
+    }
+
+    void backendRunRequestFileWriterWritesValidRequestFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunRequestBuildResult request =
+            validBackendRunRequest(directory.path());
+        const QString path = directory.filePath("request.json");
+
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(path, request);
+
+        QVERIFY(written.isValid());
+        QCOMPARE(written.path, path);
+        QVERIFY(written.bytesWritten > 0);
+        QVERIFY(QFile::exists(path));
+
+        const QJsonDocument document =
+            QJsonDocument::fromJson(readTextFile(path).toUtf8());
+        QVERIFY(document.isObject());
+        QCOMPARE(document.object().value("backend_id").toString(),
+                 QString("basic_pitch"));
+        QCOMPARE(document.object().value("input_audio_path").toString(),
+                 request.inputAudioFilePath);
+    }
+
+    void backendRunRequestFileWriterRejectsEmptyPath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(QString(), validBackendRunRequest(directory.path()));
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "empty_request_file_path"));
+    }
+
+    void backendRunRequestFileWriterRejectsMissingParentDirectory()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString path = directory.filePath("missing-parent/request.json");
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(path, validBackendRunRequest(directory.path()));
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "parent_directory_missing"));
+        QVERIFY(!QFile::exists(path));
+        QVERIFY(!QDir(directory.filePath("missing-parent")).exists());
+    }
+
+    void backendRunRequestFileWriterRejectsInvalidRequiredFields()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendRunRequestBuildResult request =
+            validBackendRunRequest(directory.path());
+        request.request.executablePath.clear();
+
+        const QString path = directory.filePath("request.json");
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(path, request);
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "empty_executable_path"));
+        QVERIFY(!QFile::exists(path));
+    }
+
+    void backendRunRequestFileWriterRejectsWriteFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(directory.path(),
+                         validBackendRunRequest(directory.path()));
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "file_write_failed"));
+    }
+
+    void backendRunRequestFileWriterNeverRunsProcess()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath = directory.filePath("writer-ran.marker");
+        const QString scriptPath = directory.filePath("writer-backend.bat");
+        const QByteArray script =
+            QByteArray("@echo off\r\n") +
+            QByteArray("echo ran > \"") +
+            QDir::toNativeSeparators(markerPath).toUtf8() +
+            QByteArray("\"\r\n");
+        QVERIFY(writeFile(scriptPath, script));
+        QVERIFY(makeExecutable(scriptPath));
+
+        BackendRunRequestBuildResult request =
+            validBackendRunRequest(directory.path());
+        request.request.executablePath = scriptPath;
+
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(directory.filePath("request.json"), request);
+
+        QVERIFY(written.isValid());
+        QVERIFY(!QFile::exists(markerPath));
+    }
+
+    void backendRunRequestFileWriterNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("manifest-adapter.exe");
+        manifest.status = BackendStatus::NotConfigured;
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult request =
+            builder.build(manifest, workspace, parameters);
+
+        BackendRunRequestFileWriter writer;
+        const BackendRunRequestFileWriteResult written =
+            writer.write(directory.filePath("request.json"), request);
+
+        QVERIFY(written.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
     void externalProcessRunnerRunsSuccessfulCommand()
     {
         ExternalProcessRunner runner;
@@ -4532,6 +4772,32 @@ private:
         report.backendId = backendId;
         report.status = status;
         return report;
+    }
+
+    static BackendRunRequestBuildResult validBackendRunRequest(
+        const QString &baseDirectory,
+        const std::optional<AnalysisRegion> &region = std::nullopt,
+        const std::optional<BackendSettings> &settings = std::nullopt)
+    {
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath =
+            QDir(baseDirectory).filePath("manifest-adapter.exe");
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(baseDirectory,
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath =
+            QDir(baseDirectory).filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.selectedRegion = region;
+        parameters.timeoutMsec = 3000;
+
+        BackendRunRequestBuilder builder;
+        return builder.build(manifest, settings, workspace, parameters);
     }
 
     static BackendManifest parsedBasicPitchManifest()
