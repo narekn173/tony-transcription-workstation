@@ -23,6 +23,7 @@
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
+#include "../BackendRequiredFileProbe.h"
 #include "../BackendSettingsDirectoryPreparer.h"
 #include "../BackendSettingsFactory.h"
 #include "../BackendSettingsFileStore.h"
@@ -2675,6 +2676,238 @@ private slots:
         QVERIFY(!registry.hasBackend("basic_pitch"));
     }
 
+    void backendRequiredFileProbeAcceptsNoRequiredFiles()
+    {
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result = probe.probe(manifest);
+
+        QVERIFY(result.isValid());
+        QCOMPARE(result.backendId, QString("basic_pitch"));
+        QVERIFY(result.entries.isEmpty());
+        QVERIFY(!result.hasRequiredFiles());
+        QVERIFY(!result.hasMissingRequiredFile());
+        QVERIFY(!result.hasModelCheckpointProbe());
+        QVERIFY(!result.hasMissingModelCheckpoint());
+    }
+
+    void backendRequiredFileProbeReportsPresentRequiredFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("required-model.bin");
+        QVERIFY(writeFile(path, "required file contents"));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << path;
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result = probe.probe(manifest);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.hasRequiredFiles());
+        QVERIFY(!result.hasMissingRequiredFile());
+        QCOMPARE(result.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry = result.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::RequiredFile);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Present);
+        QCOMPARE(entry.roleName(), QString("required_file"));
+        QCOMPARE(entry.statusName(), QString("present"));
+        QCOMPARE(entry.path, path);
+        QVERIFY(entry.exists);
+        QVERIFY(entry.isFile);
+        QVERIFY(!entry.isDirectory);
+        QVERIFY(entry.isPresent());
+        QVERIFY(entry.isRequired());
+    }
+
+    void backendRequiredFileProbeReportsMissingRequiredFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("missing-required.bin");
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << path;
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result = probe.probe(manifest);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.hasRequiredFiles());
+        QVERIFY(result.hasMissingRequiredFile());
+        QCOMPARE(result.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry = result.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::RequiredFile);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Missing);
+        QVERIFY(!entry.exists);
+        QVERIFY(!entry.isFile);
+        QVERIFY(!entry.isDirectory);
+        QVERIFY(!QFile::exists(path));
+        QVERIFY(reportHasIssue(result.report, "required_file_missing"));
+    }
+
+    void backendRequiredFileProbeOptionalMissingIsWarning()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("missing-optional.bin");
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.optionalFiles << path;
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result = probe.probe(manifest);
+
+        QVERIFY(result.isValid());
+        QCOMPARE(result.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry = result.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::OptionalFile);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Missing);
+        QVERIFY(!entry.isRequired());
+        QVERIFY(reportHasIssue(result.report, "optional_file_missing"));
+        QVERIFY(reportHasIssueWithSeverity(result.report,
+                                           "optional_file_missing",
+                                           ValidationSeverity::Warning));
+        QVERIFY(!QFile::exists(path));
+    }
+
+    void backendRequiredFileProbeReportsPresentModelCheckpointOverride()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("checkpoint.onnx");
+        QVERIFY(writeFile(path, "checkpoint placeholder"));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.modelCheckpointPathOverride = path;
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result =
+            probe.probe(manifest, settings);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.hasModelCheckpointProbe());
+        QVERIFY(!result.hasMissingModelCheckpoint());
+        QCOMPARE(result.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry = result.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::ModelCheckpoint);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Present);
+        QCOMPARE(entry.roleName(), QString("model_checkpoint"));
+        QCOMPARE(entry.path, path);
+        QVERIFY(entry.exists);
+        QVERIFY(entry.isFile);
+        QVERIFY(!entry.isDirectory);
+    }
+
+    void backendRequiredFileProbeReportsMissingModelCheckpointOverride()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("missing-checkpoint.onnx");
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.modelCheckpointPathOverride = path;
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result =
+            probe.probe(manifest, settings);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.hasModelCheckpointProbe());
+        QVERIFY(result.hasMissingModelCheckpoint());
+        QCOMPARE(result.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry = result.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::ModelCheckpoint);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Missing);
+        QVERIFY(!entry.exists);
+        QVERIFY(!entry.isFile);
+        QVERIFY(!entry.isDirectory);
+        QVERIFY(reportHasIssue(result.report, "model_checkpoint_missing"));
+        QVERIFY(!QFile::exists(path));
+    }
+
+    void backendRequiredFileProbeReportsDirectoryInsteadOfFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << directory.path();
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result = probe.probe(manifest);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.hasMissingRequiredFile());
+        QCOMPARE(result.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry = result.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::RequiredFile);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Directory);
+        QCOMPARE(entry.statusName(), QString("directory"));
+        QVERIFY(entry.exists);
+        QVERIFY(!entry.isFile);
+        QVERIFY(entry.isDirectory);
+        QVERIFY(reportHasIssue(result.report,
+                               "required_file_path_is_directory"));
+    }
+
+    void backendRequiredFileProbeNeverMarksBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString requiredPath = directory.filePath("required-file.bin");
+        const QString checkpointPath = directory.filePath("checkpoint.onnx");
+        QVERIFY(writeFile(requiredPath, "required"));
+        QVERIFY(writeFile(checkpointPath, "checkpoint"));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << requiredPath;
+        manifest.status = BackendStatus::NotConfigured;
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.modelCheckpointPathOverride = checkpointPath;
+        settings.enabled = true;
+
+        BackendRequiredFileProbe probe;
+        const BackendRequiredFileProbeResult result =
+            probe.probe(manifest, settings);
+
+        QVERIFY(result.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -2706,6 +2939,18 @@ private:
     {
         for (const auto &issue: report.issues) {
             if (issue.code == code) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool reportHasIssueWithSeverity(const ValidationReport &report,
+                                           const QString &code,
+                                           ValidationSeverity severity)
+    {
+        for (const auto &issue: report.issues) {
+            if (issue.code == code && issue.severity == severity) {
                 return true;
             }
         }
