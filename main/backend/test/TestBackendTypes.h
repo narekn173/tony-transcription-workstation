@@ -24,6 +24,7 @@
 #include "../BackendRegistry.h"
 #include "../BackendSettingsFileStore.h"
 #include "../BackendSettingsPersistenceConfig.h"
+#include "../BackendSettingsPersistenceService.h"
 #include "../BackendSettingsSerializer.h"
 #include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
@@ -1581,6 +1582,250 @@ private slots:
         settings.backendId = "basic_pitch";
         QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
         QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendSettingsPersistenceServiceLoadsFromTestPath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+        settings.enabled = true;
+
+        BackendSettingsStore store;
+        QVERIFY(store.setSettings(settings));
+
+        BackendSettingsFileStore fileStore;
+        QVERIFY(fileStore.save(path, store).isValid());
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = path;
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceLoadResult loaded =
+            service.load(config);
+
+        QVERIFY(loaded.isValid());
+        QCOMPARE(loaded.path, path);
+        QVERIFY(loaded.source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+        QCOMPARE(loaded.loadedCount, 1);
+        QCOMPARE(loaded.rejectedCount, 0);
+        QVERIFY(loaded.store.settingsForBackend("basic_pitch").has_value());
+
+        const std::optional<BackendSettings> found =
+            loaded.store.settingsForBackend("basic_pitch");
+        QVERIFY(found.has_value());
+        QCOMPARE(found->executablePathOverride,
+                 QString("C:/Tools/basic_pitch/adapter.exe"));
+        QVERIFY(found->statusFromSettings() == BackendStatus::NotConfigured);
+    }
+
+    void backendSettingsPersistenceServiceSavesToTestPath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.pythonExecutablePathOverride = "C:/Python/python.exe";
+        settings.enabled = true;
+
+        BackendSettingsStore store;
+        QVERIFY(store.setSettings(settings));
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = path;
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceSaveResult saved =
+            service.save(config, store);
+
+        QVERIFY(saved.isValid());
+        QCOMPARE(saved.path, path);
+        QVERIFY(saved.source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+
+        BackendSettingsFileStore fileStore;
+        const BackendSettingsFileLoadResult loaded = fileStore.load(path);
+        QVERIFY(loaded.isValid());
+        QVERIFY(loaded.store.settingsForBackend("basic_pitch").has_value());
+    }
+
+    void backendSettingsPersistenceServiceMissingPathFailsCleanly()
+    {
+        BackendSettingsPersistenceConfig config;
+        config.defaultSettingsFilePath = " ";
+        config.userConfiguredSettingsFilePath = "  ";
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceLoadResult loaded =
+            service.load(config);
+        const BackendSettingsPersistenceSaveResult saved =
+            service.save(config, BackendSettingsStore());
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!saved.isValid());
+        QVERIFY(loaded.path.isEmpty());
+        QVERIFY(saved.path.isEmpty());
+        QVERIFY(reportHasIssue(loaded.report, "no_settings_file_path"));
+        QVERIFY(reportHasIssue(saved.report, "no_settings_file_path"));
+    }
+
+    void backendSettingsPersistenceServiceMissingFileFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("missing_settings.json");
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = path;
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceLoadResult loaded =
+            service.load(config);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.path, path);
+        QVERIFY(loaded.source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+        QCOMPARE(loaded.loadedCount, 0);
+        QCOMPARE(loaded.rejectedCount, 0);
+        QCOMPARE(loaded.store.size(), 0);
+        QVERIFY(reportHasIssue(loaded.report, "file_open_failed"));
+    }
+
+    void backendSettingsPersistenceServiceReportsInvalidJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+        QVERIFY(writeFile(path, "{ invalid json"));
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = path;
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceLoadResult loaded =
+            service.load(config);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.path, path);
+        QVERIFY(reportHasIssue(loaded.report, "invalid_json"));
+    }
+
+    void backendSettingsPersistenceServiceReportsWriteFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+
+        BackendSettingsStore store;
+        QVERIFY(store.setSettings(settings));
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = directory.path();
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceSaveResult saved =
+            service.save(config, store);
+
+        QVERIFY(!saved.isValid());
+        QCOMPARE(saved.path, directory.path());
+        QVERIFY(reportHasIssue(saved.report, "file_write_failed"));
+    }
+
+    void backendSettingsPersistenceServiceRoundTripsSettings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettings first;
+        first.backendId = "basic_pitch";
+        first.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+        first.enabled = true;
+
+        BackendSettings second;
+        second.backendId = "crepe_notes";
+        second.modelCheckpointPathOverride = "C:/Models/crepe/model.bin";
+        second.environmentVariables.insert("TONY_BACKEND_TRACE", "1");
+
+        BackendSettingsStore store;
+        QVERIFY(store.setSettings(first));
+        QVERIFY(store.setSettings(second));
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = path;
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceSaveResult saved =
+            service.save(config, store);
+        QVERIFY(saved.isValid());
+
+        const BackendSettingsPersistenceLoadResult loaded =
+            service.load(config);
+
+        QVERIFY(loaded.isValid());
+        QCOMPARE(loaded.loadedCount, 2);
+        QCOMPARE(loaded.rejectedCount, 0);
+        QCOMPARE(loaded.store.size(), 2);
+        QVERIFY(loaded.store.settingsForBackend("basic_pitch").has_value());
+        QVERIFY(loaded.store.settingsForBackend("crepe_notes").has_value());
+
+        const std::optional<BackendSettings> found =
+            loaded.store.settingsForBackend("crepe_notes");
+        QVERIFY(found.has_value());
+        QCOMPARE(found->modelCheckpointPathOverride,
+                 QString("C:/Models/crepe/model.bin"));
+        QCOMPARE(found->environmentVariables.value("TONY_BACKEND_TRACE"),
+                 QString("1"));
+        QVERIFY(found->statusFromSettings() == BackendStatus::NotConfigured);
+    }
+
+    void backendSettingsPersistenceServiceNeverMarksBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+        QVERIFY(writeFile(path, R"json(
+{
+  "backend_settings": [
+    {
+      "backend_id": "basic_pitch",
+      "executable_path_override": "C:/Tools/basic_pitch/adapter.exe",
+      "enabled": true,
+      "status": "ready"
+    }
+  ]
+}
+)json"));
+
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = path;
+
+        BackendSettingsPersistenceService service;
+        const BackendSettingsPersistenceLoadResult loaded =
+            service.load(config);
+
+        QVERIFY(loaded.isValid());
+        QCOMPARE(loaded.loadedCount, 1);
+
+        const std::optional<BackendSettings> found =
+            loaded.store.settingsForBackend("basic_pitch");
+        QVERIFY(found.has_value());
+        QVERIFY(found->statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(found->statusFromSettings() != BackendStatus::Ready);
 
         BackendRegistry registry;
         QVERIFY(registry.allManifests().isEmpty());
