@@ -23,6 +23,7 @@
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
 #include "../BackendSettingsFileStore.h"
+#include "../BackendSettingsPathResolver.h"
 #include "../BackendSettingsPersistenceConfig.h"
 #include "../BackendSettingsPersistenceService.h"
 #include "../BackendSettingsSerializer.h"
@@ -1577,6 +1578,133 @@ private slots:
 
         QVERIFY(config.validate().isValid());
         QVERIFY(config.hasAnyUsableSettingsFilePath());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendSettingsPathResolverDefaultPathIsNonCrashing()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPath();
+
+        if (resolved.isValid()) {
+            QVERIFY(!resolved.path.isEmpty());
+            QVERIFY(!resolved.baseDirectory.isEmpty());
+            QCOMPARE(resolved.fileName, QString("backend_settings.json"));
+            QVERIFY(resolved.path.endsWith("backend_settings.json"));
+        } else {
+            QVERIFY(reportHasIssue(resolved.report,
+                                   "empty_platform_settings_directory"));
+        }
+        QVERIFY(!resolved.usedTestOverride);
+    }
+
+    void backendSettingsPathResolverSupportsCustomFileName()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "backend_settings_test.json");
+
+        QVERIFY(resolved.isValid());
+        QCOMPARE(resolved.baseDirectory,
+                 QString("C:/Users/Test/AppData/Local/Tony"));
+        QCOMPARE(resolved.fileName, QString("backend_settings_test.json"));
+        QVERIFY(resolved.path.endsWith("backend_settings_test.json"));
+        QVERIFY(!resolved.usedTestOverride);
+    }
+
+    void backendSettingsPathResolverRejectsEmptyOrInvalidFileName()
+    {
+        BackendSettingsPathResolver resolver;
+
+        const BackendSettingsPathResolutionResult empty =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                " ");
+        const BackendSettingsPathResolutionResult pathLike =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "settings/backend_settings.json");
+        const BackendSettingsPathResolutionResult parent =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "..");
+
+        QVERIFY(!empty.isValid());
+        QVERIFY(!pathLike.isValid());
+        QVERIFY(!parent.isValid());
+        QVERIFY(reportHasIssue(empty.report, "empty_settings_file_name"));
+        QVERIFY(reportHasIssue(pathLike.report,
+                               "invalid_settings_file_name"));
+        QVERIFY(reportHasIssue(parent.report,
+                               "invalid_settings_file_name"));
+        QVERIFY(empty.path.isEmpty());
+        QVERIFY(pathLike.path.isEmpty());
+        QVERIFY(parent.path.isEmpty());
+    }
+
+    void backendSettingsPathResolverHandlesEmptyPlatformPathCleanly()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                " ",
+                "backend_settings.json");
+
+        QVERIFY(!resolved.isValid());
+        QVERIFY(resolved.path.isEmpty());
+        QVERIFY(reportHasIssue(resolved.report,
+                               "empty_platform_settings_directory"));
+    }
+
+    void backendSettingsPathResolverSupportsTestOverridePath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveTestOverridePath(path);
+
+        QVERIFY(resolved.isValid());
+        QCOMPARE(resolved.path, path);
+        QVERIFY(resolved.usedTestOverride);
+        QVERIFY(resolved.baseDirectory.isEmpty());
+        QVERIFY(resolved.fileName.isEmpty());
+    }
+
+    void backendSettingsPathResolverRejectsEmptyTestOverridePath()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveTestOverridePath(" ");
+
+        QVERIFY(!resolved.isValid());
+        QVERIFY(resolved.path.isEmpty());
+        QVERIFY(resolved.usedTestOverride);
+        QVERIFY(reportHasIssue(resolved.report, "empty_test_settings_path"));
+    }
+
+    void backendSettingsPathResolverAloneNeverMarksBackendReadyOrInstalled()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "backend_settings.json");
+
+        QVERIFY(resolved.isValid());
 
         BackendSettings settings;
         settings.backendId = "basic_pitch";
