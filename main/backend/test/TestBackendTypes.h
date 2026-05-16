@@ -22,6 +22,7 @@
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
+#include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
 
 #include <QFile>
@@ -872,6 +873,163 @@ private slots:
         QVERIFY(manifest.has_value());
         QVERIFY(manifest->status == BackendStatus::NotConfigured);
         QVERIFY(manifest->status != BackendStatus::Ready);
+    }
+
+    void backendSettingsDefaultsAreSafe()
+    {
+        BackendSettings settings;
+
+        QVERIFY(settings.backendId.isEmpty());
+        QVERIFY(settings.executablePathOverride.isEmpty());
+        QVERIFY(settings.workingDirectoryOverride.isEmpty());
+        QVERIFY(settings.modelCheckpointPathOverride.isEmpty());
+        QVERIFY(settings.pythonExecutablePathOverride.isEmpty());
+        QVERIFY(settings.environmentVariables.isEmpty());
+        QVERIFY(!settings.enabled);
+        QVERIFY(!settings.isValidBackendId());
+        QVERIFY(!settings.hasAnyPathOverride());
+        QVERIFY(!settings.isConfigured());
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(!settings.validate().isValid());
+        QVERIFY(reportHasIssue(settings.validate(), "invalid_backend_id"));
+    }
+
+    void backendSettingsStoreAddsAndGetsSettings()
+    {
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+        settings.workingDirectoryOverride = "C:/Tools/basic_pitch";
+        settings.modelCheckpointPathOverride = "C:/Models/basic_pitch/model";
+        settings.pythonExecutablePathOverride = "C:/Python/python.exe";
+        settings.environmentVariables.insert("TONY_BACKEND_MODE", "test");
+        settings.enabled = true;
+        settings.displayLabelOverride = "Local Basic Pitch";
+        settings.userNotes = "Configured by user.";
+
+        BackendSettingsStore store;
+
+        QVERIFY(settings.validate().isValid());
+        QVERIFY(settings.isConfigured());
+        QVERIFY(settings.hasExecutablePathOverride());
+        QVERIFY(settings.hasWorkingDirectoryOverride());
+        QVERIFY(settings.hasModelCheckpointPathOverride());
+        QVERIFY(settings.hasPythonExecutablePathOverride());
+        QVERIFY(store.setSettings(settings));
+        QCOMPARE(store.size(), 1);
+        QCOMPARE(store.configuredBackendIds().size(), 1);
+        QCOMPARE(store.configuredBackendIds().front(), QString("basic_pitch"));
+
+        const std::optional<BackendSettings> found =
+            store.settingsForBackend("basic_pitch");
+        QVERIFY(found.has_value());
+        QCOMPARE(found->backendId, QString("basic_pitch"));
+        QCOMPARE(found->executablePathOverride,
+                 QString("C:/Tools/basic_pitch/adapter.exe"));
+        QCOMPARE(found->workingDirectoryOverride,
+                 QString("C:/Tools/basic_pitch"));
+        QCOMPARE(found->modelCheckpointPathOverride,
+                 QString("C:/Models/basic_pitch/model"));
+        QCOMPARE(found->pythonExecutablePathOverride,
+                 QString("C:/Python/python.exe"));
+        QCOMPARE(found->environmentVariables.value("TONY_BACKEND_MODE"),
+                 QString("test"));
+        QVERIFY(found->enabled);
+        QCOMPARE(found->displayLabelOverride, QString("Local Basic Pitch"));
+        QVERIFY(found->debugSummaryString().contains("not_configured"));
+        QVERIFY(found->debugSummaryString().contains("executable_path"));
+    }
+
+    void backendSettingsStoreRejectsInvalidBackendId()
+    {
+        BackendSettings settings;
+        settings.backendId = "BasicPitch";
+        settings.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+
+        BackendSettingsStore store;
+
+        QVERIFY(!settings.validate().isValid());
+        QVERIFY(!store.setSettings(settings));
+        QVERIFY(store.configuredBackendIds().isEmpty());
+        QVERIFY(!store.settingsForBackend("BasicPitch").has_value());
+        QVERIFY(!store.removeSettings("BasicPitch"));
+    }
+
+    void backendSettingsEmptyPathsAreAllowedButUnconfigured()
+    {
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = " ";
+        settings.workingDirectoryOverride = "";
+        settings.modelCheckpointPathOverride = "  ";
+        settings.pythonExecutablePathOverride = "";
+
+        BackendSettingsStore store;
+
+        QVERIFY(settings.validate().isValid());
+        QVERIFY(!settings.hasAnyPathOverride());
+        QVERIFY(!settings.isConfigured());
+        QVERIFY(store.setSettings(settings));
+        QVERIFY(store.settingsForBackend("basic_pitch").has_value());
+    }
+
+    void backendSettingsStoreRemovesSettings()
+    {
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.enabled = true;
+
+        BackendSettingsStore store;
+
+        QVERIFY(store.setSettings(settings));
+        QVERIFY(store.settingsForBackend("basic_pitch").has_value());
+        QVERIFY(store.removeSettings("basic_pitch"));
+        QVERIFY(!store.settingsForBackend("basic_pitch").has_value());
+        QVERIFY(!store.removeSettings("basic_pitch"));
+        QCOMPARE(store.size(), 0);
+    }
+
+    void backendSettingsStoreClearsSettings()
+    {
+        BackendSettings first;
+        first.backendId = "basic_pitch";
+        BackendSettings second;
+        second.backendId = "crepe_notes";
+
+        BackendSettingsStore store;
+
+        QVERIFY(store.setSettings(first));
+        QVERIFY(store.setSettings(second));
+        QCOMPARE(store.size(), 2);
+
+        store.clear();
+
+        QCOMPARE(store.size(), 0);
+        QVERIFY(store.configuredBackendIds().isEmpty());
+        QVERIFY(!store.settingsForBackend("basic_pitch").has_value());
+        QVERIFY(!store.settingsForBackend("crepe_notes").has_value());
+    }
+
+    void backendSettingsAloneNeverMarkBackendReadyOrInstalled()
+    {
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+        settings.enabled = true;
+
+        BackendSettingsStore store;
+
+        QVERIFY(store.setSettings(settings));
+
+        const std::optional<BackendSettings> found =
+            store.settingsForBackend("basic_pitch");
+        QVERIFY(found.has_value());
+        QVERIFY(found->statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(found->statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
     }
 
 private:
