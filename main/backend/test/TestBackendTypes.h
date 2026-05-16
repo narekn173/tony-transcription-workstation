@@ -23,6 +23,7 @@
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
 #include "../BackendSettingsFileStore.h"
+#include "../BackendSettingsPersistenceConfig.h"
 #include "../BackendSettingsSerializer.h"
 #include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
@@ -1458,6 +1459,128 @@ private slots:
         QVERIFY(found.has_value());
         QVERIFY(found->statusFromSettings() == BackendStatus::NotConfigured);
         QVERIFY(found->statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendSettingsPersistenceConfigDefaultsAreSafe()
+    {
+        const BackendSettingsPersistenceConfig config =
+            BackendSettingsPersistenceConfig::safeDefaults();
+
+        QCOMPARE(config.defaultSettingsFilePath,
+                 QString("settings/backend_settings.json"));
+        QVERIFY(config.userConfiguredSettingsFilePath.isEmpty());
+        QVERIFY(config.testOnlySettingsFilePath.isEmpty());
+        QVERIFY(config.hasAnyUsableSettingsFilePath());
+
+        const QVector<BackendSettingsPersistencePath> candidates =
+            config.settingsFilePathCandidates();
+        QCOMPARE(candidates.size(), 1);
+        QVERIFY(candidates.front().source ==
+                BackendSettingsPersistencePathSource::DefaultLocal);
+        QCOMPARE(candidates.front().path,
+                 QString("settings/backend_settings.json"));
+        QCOMPARE(candidates.front().sourceName(), QString("default_local"));
+        QVERIFY(candidates.front().isUsable());
+
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::DefaultLocal);
+        QCOMPARE(preferred.path, QString("settings/backend_settings.json"));
+        QVERIFY(config.validate().isValid());
+    }
+
+    void backendSettingsPersistenceConfigSupportsCustomSettingsFilePath()
+    {
+        BackendSettingsPersistenceConfig config =
+            BackendSettingsPersistenceConfig::safeDefaults();
+        config.userConfiguredSettingsFilePath =
+            "C:/Users/Test/AppData/Local/Tony/backend_settings.json";
+
+        const QVector<BackendSettingsPersistencePath> candidates =
+            config.settingsFilePathCandidates();
+
+        QCOMPARE(candidates.size(), 2);
+        QVERIFY(candidates[0].source ==
+                BackendSettingsPersistencePathSource::DefaultLocal);
+        QVERIFY(candidates[1].source ==
+                BackendSettingsPersistencePathSource::UserConfigured);
+        QCOMPARE(candidates[1].path,
+                 QString("C:/Users/Test/AppData/Local/Tony/backend_settings.json"));
+        QCOMPARE(candidates[1].sourceName(), QString("user_configured"));
+
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::UserConfigured);
+        QCOMPARE(preferred.path,
+                 QString("C:/Users/Test/AppData/Local/Tony/backend_settings.json"));
+        QVERIFY(config.validate().isValid());
+    }
+
+    void backendSettingsPersistenceConfigSupportsExplicitTestOnlyPath()
+    {
+        BackendSettingsPersistenceConfig config;
+        config.testOnlySettingsFilePath = "C:/test/backend_settings.json";
+
+        const QVector<BackendSettingsPersistencePath> candidates =
+            config.settingsFilePathCandidates();
+
+        QCOMPARE(candidates.size(), 1);
+        QVERIFY(candidates.front().source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+        QCOMPARE(candidates.front().path,
+                 QString("C:/test/backend_settings.json"));
+        QCOMPARE(candidates.front().sourceName(), QString("test_only"));
+
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+        QCOMPARE(preferred.path, QString("C:/test/backend_settings.json"));
+        QVERIFY(config.validate().isValid());
+    }
+
+    void backendSettingsPersistenceConfigHandlesEmptyPathsWithoutCrashing()
+    {
+        BackendSettingsPersistenceConfig config;
+        config.defaultSettingsFilePath = " ";
+        config.userConfiguredSettingsFilePath = "  ";
+        config.testOnlySettingsFilePath = "";
+
+        const QVector<BackendSettingsPersistencePath> candidates =
+            config.settingsFilePathCandidates();
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        const ValidationReport report = config.validate();
+
+        QVERIFY(candidates.isEmpty());
+        QVERIFY(!preferred.isUsable());
+        QVERIFY(!config.hasAnyUsableSettingsFilePath());
+        QVERIFY(report.isValid());
+        QVERIFY(reportHasIssue(report, "empty_default_settings_file_path"));
+        QVERIFY(reportHasIssue(report, "empty_user_settings_file_path"));
+        QVERIFY(reportHasIssue(report, "no_settings_file_paths"));
+    }
+
+    void backendSettingsPersistenceConfigAloneNeverMarksBackendReadyOrInstalled()
+    {
+        BackendSettingsPersistenceConfig config =
+            BackendSettingsPersistenceConfig::safeDefaults();
+        config.userConfiguredSettingsFilePath =
+            "C:/Users/Test/AppData/Local/Tony/backend_settings.json";
+
+        QVERIFY(config.validate().isValid());
+        QVERIFY(config.hasAnyUsableSettingsFilePath());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
 
         BackendRegistry registry;
         QVERIFY(registry.allManifests().isEmpty());
