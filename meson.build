@@ -1258,6 +1258,7 @@ backend_types_test_exe = executable(
   'main/backend/BackendSettingsPersistenceService.cpp',
   'main/backend/BackendSettingsSerializer.cpp',
   'main/backend/BackendSettingsStore.cpp',
+  'main/backend/ExternalProcessRunner.cpp',
   'main/backend/ResultValidator.cpp',
   'main/backend/UnifiedResult.cpp',
   'main/backend/UnifiedResultFileLoader.cpp',

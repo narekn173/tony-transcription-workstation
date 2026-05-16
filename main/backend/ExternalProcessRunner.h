@@ -18,6 +18,7 @@
 #include "BackendTypes.h"
 
 #include <QMap>
+#include <QProcess>
 
 namespace Tony {
 namespace Backend {
@@ -31,17 +32,25 @@ struct ExternalProcessRequest
     int timeoutMsec = 0;
 
     bool hasExecutable() const;
+    bool hasTimeout() const;
 };
 
 struct ExternalProcessResult
 {
-    AnalysisRunState state = AnalysisRunState::NotImplemented;
+    AnalysisRunState state = AnalysisRunState::Idle;
     int exitCode = -1;
+    QProcess::ExitStatus exitStatus = QProcess::NormalExit;
+    QProcess::ProcessError processError = QProcess::UnknownError;
+    bool started = false;
+    bool startFailed = false;
     bool timedOut = false;
     bool cancelled = false;
     QString standardOutput;
     QString standardError;
     BackendError error;
+
+    bool succeeded() const;
+    QString debugSummaryString() const;
 };
 
 class ExternalProcessRunner

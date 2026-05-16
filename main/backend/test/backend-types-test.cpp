@@ -16,12 +16,60 @@
 #include "TestUnifiedResult.h"
 
 #include <QCoreApplication>
+#include <QThread>
 #include <QtTest>
 
 #include <iostream>
 
+namespace {
+
+int runExternalProcessHelper(int argc, char *argv[])
+{
+    if (argc < 3 ||
+        QString::fromLocal8Bit(argv[1]) != "--external-process-helper") {
+        return -1;
+    }
+
+    const QString command = QString::fromLocal8Bit(argv[2]);
+
+    if (command == "success") {
+        return 0;
+    }
+    if (command == "failure") {
+        return 7;
+    }
+    if (command == "stdout") {
+        const QString text =
+            argc >= 4 ? QString::fromLocal8Bit(argv[3]) : QString("stdout");
+        std::cout << text.toStdString() << std::endl;
+        return 0;
+    }
+    if (command == "stderr") {
+        const QString text =
+            argc >= 4 ? QString::fromLocal8Bit(argv[3]) : QString("stderr");
+        std::cerr << text.toStdString() << std::endl;
+        return 0;
+    }
+    if (command == "sleep") {
+        const unsigned long msec =
+            argc >= 4 ? QString::fromLocal8Bit(argv[3]).toULong() : 1000UL;
+        QThread::msleep(msec);
+        return 0;
+    }
+
+    std::cerr << "unknown helper command" << std::endl;
+    return 99;
+}
+
+}
+
 int main(int argc, char *argv[])
 {
+    const int helperExitCode = runExternalProcessHelper(argc, argv);
+    if (helperExitCode >= 0) {
+        return helperExitCode;
+    }
+
     QCoreApplication app(argc, argv);
     app.setOrganizationName("tony");
     app.setApplicationName("test-backend-types");

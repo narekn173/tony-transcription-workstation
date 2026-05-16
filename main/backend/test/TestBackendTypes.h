@@ -35,7 +35,9 @@
 #include "../BackendSettingsSerializer.h"
 #include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
+#include "../ExternalProcessRunner.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -3288,6 +3290,101 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void externalProcessRunnerRunsSuccessfulCommand()
+    {
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result =
+            runner.run(externalProcessHelperRequest({ "success" }));
+
+        QVERIFY(result.succeeded());
+        QVERIFY(result.started);
+        QVERIFY(!result.startFailed);
+        QVERIFY(!result.timedOut);
+        QVERIFY(result.state == AnalysisRunState::Completed);
+        QCOMPARE(result.exitCode, 0);
+        QVERIFY(result.exitStatus == QProcess::NormalExit);
+        QVERIFY(result.error.code == BackendErrorCode::None);
+        QVERIFY(result.debugSummaryString().contains("completed"));
+    }
+
+    void externalProcessRunnerReportsNonZeroExitCode()
+    {
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result =
+            runner.run(externalProcessHelperRequest({ "failure" }));
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(result.started);
+        QVERIFY(!result.startFailed);
+        QVERIFY(!result.timedOut);
+        QVERIFY(result.state == AnalysisRunState::Failed);
+        QCOMPARE(result.exitCode, 7);
+        QVERIFY(result.exitStatus == QProcess::NormalExit);
+        QVERIFY(result.error.code == BackendErrorCode::ExecutionFailed);
+        QVERIFY(result.error.message.contains("code 7"));
+    }
+
+    void externalProcessRunnerReportsMissingExecutable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessRequest request;
+        request.executablePath = directory.filePath("missing-runner.exe");
+        request.timeoutMsec = 1000;
+
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(!result.started);
+        QVERIFY(result.startFailed);
+        QVERIFY(!result.timedOut);
+        QVERIFY(result.state == AnalysisRunState::Failed);
+        QVERIFY(result.processError == QProcess::FailedToStart);
+        QVERIFY(result.error.code == BackendErrorCode::BackendMissing);
+    }
+
+    void externalProcessRunnerTimesOutCommand()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "sleep", "1000" });
+        request.timeoutMsec = 100;
+
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(result.started);
+        QVERIFY(result.timedOut);
+        QVERIFY(result.state == AnalysisRunState::Failed);
+        QVERIFY(result.error.code == BackendErrorCode::TimedOut);
+    }
+
+    void externalProcessRunnerCapturesStdout()
+    {
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result =
+            runner.run(externalProcessHelperRequest({ "stdout",
+                                                      "runner_stdout" }));
+
+        QVERIFY(result.succeeded());
+        QVERIFY(result.standardOutput.contains("runner_stdout"));
+        QVERIFY(result.standardError.isEmpty());
+    }
+
+    void externalProcessRunnerCapturesStderr()
+    {
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result =
+            runner.run(externalProcessHelperRequest({ "stderr",
+                                                      "runner_stderr" }));
+
+        QVERIFY(result.succeeded());
+        QVERIFY(result.standardOutput.isEmpty());
+        QVERIFY(result.standardError.contains("runner_stderr"));
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -3335,6 +3432,17 @@ private:
             }
         }
         return false;
+    }
+
+    static ExternalProcessRequest externalProcessHelperRequest(
+        const QStringList &helperArguments)
+    {
+        ExternalProcessRequest request;
+        request.executablePath = QCoreApplication::applicationFilePath();
+        request.arguments << "--external-process-helper";
+        request.arguments << helperArguments;
+        request.timeoutMsec = 3000;
+        return request;
     }
 
     static BackendAvailabilityReport makeAvailabilityReport(
