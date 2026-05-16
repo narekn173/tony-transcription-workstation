@@ -60,6 +60,67 @@ exitStatusName(QProcess::ExitStatus status)
     return "unknown_exit";
 }
 
+QString
+eventTypeName(ExternalProcessEventType type)
+{
+    switch (type) {
+    case ExternalProcessEventType::Started:
+        return "started";
+    case ExternalProcessEventType::StdoutChunk:
+        return "stdout_chunk";
+    case ExternalProcessEventType::StderrChunk:
+        return "stderr_chunk";
+    case ExternalProcessEventType::Finished:
+        return "finished";
+    case ExternalProcessEventType::FailedToStart:
+        return "failed_to_start";
+    case ExternalProcessEventType::TimedOut:
+        return "timed_out";
+    case ExternalProcessEventType::Cancelled:
+        return "cancelled";
+    }
+    return "unknown";
+}
+
+void
+appendEvent(const ExternalProcessRequest &request,
+            ExternalProcessEventType type,
+            const QString &message = QString(),
+            const QString &data = QString(),
+            int exitCode = -1)
+{
+    if (!request.eventCollector) {
+        return;
+    }
+
+    ExternalProcessEvent event;
+    event.type = type;
+    event.runId = request.runId;
+    event.message = message;
+    event.data = data;
+    event.exitCode = exitCode;
+    request.eventCollector->append(event);
+}
+
+void
+appendOutputEvents(const ExternalProcessRequest &request,
+                   const QString &standardOutput,
+                   const QString &standardError)
+{
+    if (!standardOutput.isEmpty()) {
+        appendEvent(request,
+                    ExternalProcessEventType::StdoutChunk,
+                    "External process wrote stdout.",
+                    standardOutput);
+    }
+    if (!standardError.isEmpty()) {
+        appendEvent(request,
+                    ExternalProcessEventType::StderrChunk,
+                    "External process wrote stderr.",
+                    standardError);
+    }
+}
+
 }
 
 class ExternalProcessAsyncRunState
@@ -96,6 +157,71 @@ public:
         return result;
     }
 };
+
+QString
+ExternalProcessEvent::typeName() const
+{
+    return eventTypeName(type);
+}
+
+QString
+ExternalProcessEvent::debugSummaryString() const
+{
+    return QString("type=%1 run_id=%2 exit_code=%3 data_size=%4")
+        .arg(typeName())
+        .arg(runId)
+        .arg(exitCode)
+        .arg(data.size());
+}
+
+void
+ExternalProcessEventCollector::append(const ExternalProcessEvent &event)
+{
+    QMutexLocker locker(&m_mutex);
+    m_events.push_back(event);
+}
+
+QVector<ExternalProcessEvent>
+ExternalProcessEventCollector::events() const
+{
+    QMutexLocker locker(&m_mutex);
+    return m_events;
+}
+
+bool
+ExternalProcessEventCollector::hasEvent(
+    ExternalProcessEventType type) const
+{
+    return count(type) > 0;
+}
+
+int
+ExternalProcessEventCollector::count(
+    ExternalProcessEventType type) const
+{
+    QMutexLocker locker(&m_mutex);
+    int total = 0;
+    for (const auto &event: m_events) {
+        if (event.type == type) {
+            ++total;
+        }
+    }
+    return total;
+}
+
+void
+ExternalProcessEventCollector::clear()
+{
+    QMutexLocker locker(&m_mutex);
+    m_events.clear();
+}
+
+QString
+ExternalProcessEventCollector::debugSummaryString() const
+{
+    QMutexLocker locker(&m_mutex);
+    return QString("events=%1").arg(m_events.size());
+}
 
 void
 ExternalProcessCancellationToken::requestCancellation()
@@ -183,6 +309,9 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
             "External process request has no executable path.",
             true
         };
+        appendEvent(request,
+                    ExternalProcessEventType::FailedToStart,
+                    result.error.message);
         return result;
     }
 
@@ -223,11 +352,20 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
                 processErrorMessage(process.error()) : process.errorString(),
             true
         };
+        appendOutputEvents(request,
+                           result.standardOutput,
+                           result.standardError);
+        appendEvent(request,
+                    ExternalProcessEventType::FailedToStart,
+                    result.error.message);
         return result;
     }
 
     result.started = true;
     result.state = AnalysisRunState::Running;
+    appendEvent(request,
+                ExternalProcessEventType::Started,
+                "External process started.");
 
     QElapsedTimer elapsed;
     elapsed.start();
@@ -254,6 +392,14 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
                 "External process was cancelled.",
                 true
             };
+            appendOutputEvents(request,
+                               result.standardOutput,
+                               result.standardError);
+            appendEvent(request,
+                        ExternalProcessEventType::Cancelled,
+                        result.error.message,
+                        QString(),
+                        result.exitCode);
             return result;
         }
 
@@ -283,6 +429,14 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
             "External process exceeded its timeout.",
             true
         };
+        appendOutputEvents(request,
+                           result.standardOutput,
+                           result.standardError);
+        appendEvent(request,
+                    ExternalProcessEventType::TimedOut,
+                    result.error.message,
+                    QString(),
+                    result.exitCode);
         return result;
     }
 
@@ -293,6 +447,7 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
         QString::fromLocal8Bit(process.readAllStandardOutput());
     result.standardError =
         QString::fromLocal8Bit(process.readAllStandardError());
+    appendOutputEvents(request, result.standardOutput, result.standardError);
 
     if (result.exitStatus != QProcess::NormalExit) {
         result.state = AnalysisRunState::Failed;
@@ -301,6 +456,11 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
             "External process did not exit normally.",
             false
         };
+        appendEvent(request,
+                    ExternalProcessEventType::Finished,
+                    result.error.message,
+                    QString(),
+                    result.exitCode);
         return result;
     }
 
@@ -312,6 +472,11 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
                 .arg(result.exitCode),
             false
         };
+        appendEvent(request,
+                    ExternalProcessEventType::Finished,
+                    result.error.message,
+                    QString(),
+                    result.exitCode);
         return result;
     }
 
@@ -321,6 +486,11 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
         QString(),
         false
     };
+    appendEvent(request,
+                ExternalProcessEventType::Finished,
+                "External process finished.",
+                QString(),
+                result.exitCode);
     return result;
 }
 
@@ -337,6 +507,7 @@ ExternalProcessRunner::startAsync(const ExternalProcessRequest &request)
         QSharedPointer<ExternalProcessAsyncRunState>::create();
     state->runId =
         QUuid::createUuid().toString(QUuid::WithoutBraces);
+    asyncRequest.runId = state->runId;
     state->cancellationToken = asyncRequest.cancellationToken;
     state->future = std::async(std::launch::async, [asyncRequest]() {
         ExternalProcessRunner runner;

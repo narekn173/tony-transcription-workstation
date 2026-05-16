@@ -17,11 +17,13 @@
 
 #include "BackendTypes.h"
 
+#include <QDateTime>
 #include <QHash>
 #include <QMap>
 #include <QMutex>
 #include <QProcess>
 #include <QSharedPointer>
+#include <QVector>
 
 #include <atomic>
 #include <optional>
@@ -30,6 +32,44 @@ namespace Tony {
 namespace Backend {
 
 class ExternalProcessAsyncRunState;
+
+enum class ExternalProcessEventType {
+    Started,
+    StdoutChunk,
+    StderrChunk,
+    Finished,
+    FailedToStart,
+    TimedOut,
+    Cancelled
+};
+
+struct ExternalProcessEvent
+{
+    ExternalProcessEventType type = ExternalProcessEventType::Started;
+    AnalysisRunId runId;
+    QString message;
+    QString data;
+    int exitCode = -1;
+    QDateTime timestampUtc = QDateTime::currentDateTimeUtc();
+
+    QString typeName() const;
+    QString debugSummaryString() const;
+};
+
+class ExternalProcessEventCollector
+{
+public:
+    void append(const ExternalProcessEvent &event);
+    QVector<ExternalProcessEvent> events() const;
+    bool hasEvent(ExternalProcessEventType type) const;
+    int count(ExternalProcessEventType type) const;
+    void clear();
+    QString debugSummaryString() const;
+
+private:
+    mutable QMutex m_mutex;
+    QVector<ExternalProcessEvent> m_events;
+};
 
 class ExternalProcessCancellationToken
 {
@@ -44,12 +84,14 @@ private:
 
 struct ExternalProcessRequest
 {
+    AnalysisRunId runId;
     QString executablePath;
     QStringList arguments;
     QString workingDirectory;
     QMap<QString, QString> environmentOverrides;
     int timeoutMsec = 0;
     QSharedPointer<ExternalProcessCancellationToken> cancellationToken;
+    QSharedPointer<ExternalProcessEventCollector> eventCollector;
 
     bool hasExecutable() const;
     bool hasTimeout() const;

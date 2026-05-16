@@ -3545,6 +3545,168 @@ private slots:
         QVERIFY(!runner.hasAsyncRun(handle));
     }
 
+    void externalProcessRunnerEventsRecordSuccessfulLifecycle()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "success" });
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(result.succeeded());
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::Started));
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::Finished));
+        QCOMPARE(request.eventCollector->count(
+                     ExternalProcessEventType::Started), 1);
+        QCOMPARE(request.eventCollector->count(
+                     ExternalProcessEventType::Finished), 1);
+        QVERIFY(request.eventCollector->debugSummaryString()
+                    .contains("events=2"));
+
+        const QVector<ExternalProcessEvent> events =
+            request.eventCollector->events();
+        QVERIFY(events.front().type == ExternalProcessEventType::Started);
+        QVERIFY(events.back().type == ExternalProcessEventType::Finished);
+        QCOMPARE(events.back().exitCode, 0);
+        QCOMPARE(events.back().typeName(), QString("finished"));
+        QVERIFY(events.back().debugSummaryString().contains("finished"));
+    }
+
+    void externalProcessRunnerEventsCaptureStdoutChunk()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "stdout", "event_stdout" });
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(result.succeeded());
+        QVERIFY(result.standardOutput.contains("event_stdout"));
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::StdoutChunk));
+        QVERIFY(eventDataContains(*request.eventCollector,
+                                  ExternalProcessEventType::StdoutChunk,
+                                  "event_stdout"));
+    }
+
+    void externalProcessRunnerEventsCaptureStderrChunk()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "stderr", "event_stderr" });
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(result.succeeded());
+        QVERIFY(result.standardError.contains("event_stderr"));
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::StderrChunk));
+        QVERIFY(eventDataContains(*request.eventCollector,
+                                  ExternalProcessEventType::StderrChunk,
+                                  "event_stderr"));
+    }
+
+    void externalProcessRunnerEventsRecordMissingExecutable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessRequest request;
+        request.executablePath = directory.filePath("missing-runner.exe");
+        request.timeoutMsec = 1000;
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(result.startFailed);
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::FailedToStart));
+        QVERIFY(!request.eventCollector->hasEvent(
+            ExternalProcessEventType::Started));
+    }
+
+    void externalProcessRunnerEventsRecordTimeout()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "sleep", "1000" });
+        request.timeoutMsec = 100;
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(result.timedOut);
+        QVERIFY(!result.cancelled);
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::Started));
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::TimedOut));
+        QVERIFY(!request.eventCollector->hasEvent(
+            ExternalProcessEventType::Cancelled));
+    }
+
+    void externalProcessRunnerEventsRecordAsyncCancellation()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "sleep", "3000" });
+        request.timeoutMsec = 5000;
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessRunHandle handle = runner.startAsync(request);
+
+        QVERIFY(waitForAsyncRunToStart(runner, handle));
+        QVERIFY(runner.cancel(handle));
+        QVERIFY(waitForAsyncRunToFinish(runner, handle));
+
+        const std::optional<ExternalProcessResult> result =
+            runner.collectResult(handle);
+        QVERIFY(result.has_value());
+        QVERIFY(result->cancelled);
+        QVERIFY(!result->timedOut);
+        QVERIFY(result->state == AnalysisRunState::Cancelled);
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::Started));
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::Cancelled));
+        QVERIFY(!request.eventCollector->hasEvent(
+            ExternalProcessEventType::TimedOut));
+        QVERIFY(runner.cleanup(handle));
+    }
+
+    void externalProcessRunnerEventCollectionPreservesResultSemantics()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "failure" });
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessResult resultWithEvents = runner.run(request);
+        const ExternalProcessResult resultWithoutEvents =
+            runner.run(externalProcessHelperRequest({ "failure" }));
+
+        QCOMPARE(resultWithEvents.exitCode, resultWithoutEvents.exitCode);
+        QVERIFY(resultWithEvents.state == resultWithoutEvents.state);
+        QVERIFY(resultWithEvents.error.code == resultWithoutEvents.error.code);
+        QVERIFY(request.eventCollector->hasEvent(
+            ExternalProcessEventType::Finished));
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -3588,6 +3750,19 @@ private:
     {
         for (const auto &issue: report.issues) {
             if (issue.code == code && issue.severity == severity) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool eventDataContains(
+        const ExternalProcessEventCollector &collector,
+        ExternalProcessEventType type,
+        const QString &text)
+    {
+        for (const auto &event: collector.events()) {
+            if (event.type == type && event.data.contains(text)) {
                 return true;
             }
         }
