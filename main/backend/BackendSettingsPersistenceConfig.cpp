@@ -36,6 +36,14 @@ appendIfUsable(QVector<BackendSettingsPersistencePath> &paths,
     }
 }
 
+void
+appendIssues(ValidationReport &target, const ValidationReport &source)
+{
+    for (const auto &issue: source.issues) {
+        target.addIssue(issue.severity, issue.code, issue.message);
+    }
+}
+
 }
 
 bool
@@ -114,6 +122,32 @@ BackendSettingsPersistenceConfig::preferredSettingsFilePath() const
 }
 
 ValidationReport
+BackendSettingsPersistenceConfig::applyResolvedDefaultPath(
+    const BackendSettingsPathResolutionResult &resolved)
+{
+    ValidationReport report;
+    appendIssues(report, resolved.report);
+
+    if (!resolved.isValid()) {
+        return report;
+    }
+
+    if (hasExplicitSettingsFilePath()) {
+        return report;
+    }
+
+    const QString cleanedPath = cleanPath(resolved.path);
+    if (cleanedPath.isEmpty()) {
+        report.addError("empty_resolved_settings_path",
+                        "Resolved backend settings path is empty.");
+        return report;
+    }
+
+    defaultSettingsFilePath = cleanedPath;
+    return report;
+}
+
+ValidationReport
 BackendSettingsPersistenceConfig::validate() const
 {
     ValidationReport report;
@@ -142,6 +176,13 @@ BackendSettingsPersistenceConfig::validate() const
     }
 
     return report;
+}
+
+bool
+BackendSettingsPersistenceConfig::hasExplicitSettingsFilePath() const
+{
+    return !cleanPath(userConfiguredSettingsFilePath).isEmpty() ||
+        !cleanPath(testOnlySettingsFilePath).isEmpty();
 }
 
 bool

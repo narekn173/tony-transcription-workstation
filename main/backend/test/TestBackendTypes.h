@@ -1716,6 +1716,129 @@ private slots:
         QVERIFY(!registry.hasBackend("basic_pitch"));
     }
 
+    void backendSettingsPersistenceConfigAppliesResolvedDefaultPath()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "backend_settings.json");
+
+        BackendSettingsPersistenceConfig config;
+        const ValidationReport report =
+            config.applyResolvedDefaultPath(resolved);
+
+        QVERIFY(report.isValid());
+        QCOMPARE(config.defaultSettingsFilePath,
+                 QString("C:/Users/Test/AppData/Local/Tony/backend_settings.json"));
+        QVERIFY(!config.hasExplicitSettingsFilePath());
+
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::DefaultLocal);
+        QCOMPARE(preferred.path,
+                 QString("C:/Users/Test/AppData/Local/Tony/backend_settings.json"));
+    }
+
+    void backendSettingsPersistenceConfigKeepsUserPathPriority()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "backend_settings.json");
+
+        BackendSettingsPersistenceConfig config;
+        config.defaultSettingsFilePath = "C:/old/default/backend_settings.json";
+        config.userConfiguredSettingsFilePath =
+            "D:/Tony/backend_settings_user.json";
+
+        const ValidationReport report =
+            config.applyResolvedDefaultPath(resolved);
+
+        QVERIFY(report.isValid());
+        QVERIFY(config.hasExplicitSettingsFilePath());
+        QCOMPARE(config.defaultSettingsFilePath,
+                 QString("C:/old/default/backend_settings.json"));
+
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::UserConfigured);
+        QCOMPARE(preferred.path, QString("D:/Tony/backend_settings_user.json"));
+    }
+
+    void backendSettingsPersistenceConfigKeepsTestPathPriority()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "backend_settings.json");
+
+        BackendSettingsPersistenceConfig config;
+        config.defaultSettingsFilePath = "C:/old/default/backend_settings.json";
+        config.userConfiguredSettingsFilePath =
+            "D:/Tony/backend_settings_user.json";
+        config.testOnlySettingsFilePath = "E:/tests/backend_settings.json";
+
+        const ValidationReport report =
+            config.applyResolvedDefaultPath(resolved);
+
+        QVERIFY(report.isValid());
+        QVERIFY(config.hasExplicitSettingsFilePath());
+        QCOMPARE(config.defaultSettingsFilePath,
+                 QString("C:/old/default/backend_settings.json"));
+
+        const BackendSettingsPersistencePath preferred =
+            config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+        QCOMPARE(preferred.path, QString("E:/tests/backend_settings.json"));
+    }
+
+    void backendSettingsPersistenceConfigReportsInvalidResolvedDefaultPath()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                " ",
+                "backend_settings.json");
+
+        BackendSettingsPersistenceConfig config;
+        config.defaultSettingsFilePath = "C:/old/default/backend_settings.json";
+
+        const ValidationReport report =
+            config.applyResolvedDefaultPath(resolved);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(reportHasIssue(report, "empty_platform_settings_directory"));
+        QCOMPARE(config.defaultSettingsFilePath,
+                 QString("C:/old/default/backend_settings.json"));
+    }
+
+    void backendSettingsPersistenceConfigResolverConnectionNeverMarksReady()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                "C:/Users/Test/AppData/Local/Tony",
+                "backend_settings.json");
+
+        BackendSettingsPersistenceConfig config;
+        QVERIFY(config.applyResolvedDefaultPath(resolved).isValid());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
     void backendSettingsPersistenceServiceLoadsFromTestPath()
     {
         QTemporaryDir directory;

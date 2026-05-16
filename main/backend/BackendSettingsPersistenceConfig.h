@@ -15,7 +15,7 @@
 #ifndef TONY_BACKEND_SETTINGS_PERSISTENCE_CONFIG_H
 #define TONY_BACKEND_SETTINGS_PERSISTENCE_CONFIG_H
 
-#include "ResultValidator.h"
+#include "BackendSettingsPathResolver.h"
 
 #include <QString>
 #include <QVector>
@@ -50,7 +50,10 @@ struct BackendSettingsPersistenceConfig
 
     QVector<BackendSettingsPersistencePath> settingsFilePathCandidates() const;
     BackendSettingsPersistencePath preferredSettingsFilePath() const;
+    ValidationReport applyResolvedDefaultPath(
+        const BackendSettingsPathResolutionResult &resolved);
     ValidationReport validate() const;
+    bool hasExplicitSettingsFilePath() const;
     bool hasAnyUsableSettingsFilePath() const;
 };
 
