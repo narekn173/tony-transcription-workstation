@@ -15,6 +15,7 @@
 #ifndef TEST_BACKEND_TYPES_H
 #define TEST_BACKEND_TYPES_H
 
+#include "../BackendManifestDirectoryLoader.h"
 #include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
@@ -529,6 +530,118 @@ private slots:
         QVERIFY(found->status == BackendStatus::NotConfigured);
     }
 
+    void manifestDirectoryLoaderLoadsDirectoryWithOneValidManifest()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, basicPitchManifestJson()));
+
+        BackendRegistry registry;
+        BackendManifestDirectoryLoader loader;
+        const BackendManifestDirectoryLoadResult loaded =
+            loader.load(directory.path(), registry);
+
+        QVERIFY(loaded.isValid());
+        QCOMPARE(loaded.directoryPath, directory.path());
+        QCOMPARE(loaded.entries.size(), 1);
+        QCOMPARE(loaded.loadedCount(), 1);
+        QVERIFY(loaded.entries.front().isValid());
+        QVERIFY(registry.hasBackend("basic_pitch"));
+
+        const std::optional<BackendManifest> manifest =
+            registry.manifestById("basic_pitch");
+        QVERIFY(manifest.has_value());
+        QCOMPARE(manifest->displayName, QString("Basic Pitch"));
+        QVERIFY(manifest->status == BackendStatus::NotConfigured);
+    }
+
+    void manifestDirectoryLoaderReportsInvalidJsonFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, "{ invalid json"));
+
+        BackendRegistry registry;
+        BackendManifestDirectoryLoader loader;
+        const BackendManifestDirectoryLoadResult loaded =
+            loader.load(directory.path(), registry);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.entries.size(), 1);
+        QCOMPARE(loaded.loadedCount(), 0);
+        QVERIFY(!loaded.entries.front().isValid());
+        QVERIFY(reportHasIssue(loaded.entries.front().report, "invalid_json"));
+        QVERIFY(reportHasIssue(loaded.report, "invalid_json"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void manifestDirectoryLoaderMissingDirectoryFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString missingPath = directory.filePath("missing");
+
+        BackendRegistry registry;
+        BackendManifestDirectoryLoader loader;
+        const BackendManifestDirectoryLoadResult loaded =
+            loader.load(missingPath, registry);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.directoryPath, missingPath);
+        QCOMPARE(loaded.entries.size(), 0);
+        QCOMPARE(loaded.loadedCount(), 0);
+        QVERIFY(reportHasIssue(loaded.report, "directory_not_found"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void manifestDirectoryLoaderReportsDuplicateBackendIds()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QVERIFY(writeFile(directory.filePath("a_manifest.json"),
+                          basicPitchManifestJson()));
+        QVERIFY(writeFile(directory.filePath("b_manifest.json"),
+                          basicPitchManifestJson()));
+
+        BackendRegistry registry;
+        BackendManifestDirectoryLoader loader;
+        const BackendManifestDirectoryLoadResult loaded =
+            loader.load(directory.path(), registry);
+
+        QVERIFY(!loaded.isValid());
+        QCOMPARE(loaded.entries.size(), 2);
+        QCOMPARE(loaded.loadedCount(), 1);
+        QVERIFY(loaded.entries[0].addedToRegistry);
+        QVERIFY(!loaded.entries[1].addedToRegistry);
+        QVERIFY(reportHasIssue(loaded.entries[1].report, "registry_add_failed"));
+        QVERIFY(reportHasIssue(loaded.report, "registry_add_failed"));
+        QCOMPARE(registry.allManifests().size(), 1);
+        QVERIFY(registry.hasBackend("basic_pitch"));
+    }
+
+    void manifestDirectoryLoaderDoesNotMarkBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_manifest.json");
+        QVERIFY(writeFile(path, basicPitchManifestJson()));
+
+        BackendRegistry registry;
+        BackendManifestDirectoryLoader loader;
+        const BackendManifestDirectoryLoadResult loaded =
+            loader.load(directory.path(), registry);
+
+        QVERIFY(loaded.isValid());
+
+        const std::optional<BackendManifest> manifest =
+            registry.manifestById("basic_pitch");
+        QVERIFY(manifest.has_value());
+        QVERIFY(manifest->status == BackendStatus::NotConfigured);
+        QVERIFY(manifest->status != BackendStatus::Ready);
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -537,6 +650,17 @@ private:
             return false;
         }
         return file.write(contents) == contents.size();
+    }
+
+    static bool reportHasIssue(const ValidationReport &report,
+                               const QString &code)
+    {
+        for (const auto &issue: report.issues) {
+            if (issue.code == code) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static BackendManifest parsedBasicPitchManifest()
