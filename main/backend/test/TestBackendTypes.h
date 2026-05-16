@@ -17,6 +17,7 @@
 
 #include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
+#include "../BackendManifestSchemaValidator.h"
 #include "../BackendTypes.h"
 
 #include <QFile>
@@ -361,6 +362,79 @@ private slots:
         QVERIFY(loaded.isValid());
         QVERIFY(loaded.manifest.status == BackendStatus::NotConfigured);
         QVERIFY(!loaded.manifest.hasExecutablePath());
+    }
+
+    void manifestSchemaValidatorReportsDeferredFullSchemaBoundary()
+    {
+        BackendManifestSchemaValidator validator;
+
+        QVERIFY(!validator.hasFullJsonSchemaValidator());
+        QCOMPARE(validator.schemaReferencePath(),
+                 QString("docs/schemas/backend_manifest.schema.json"));
+    }
+
+    void manifestSchemaValidatorAcceptsValidJsonThroughLightweightBoundary()
+    {
+        const QJsonDocument document =
+            QJsonDocument::fromJson(basicPitchManifestJson());
+        QVERIFY(document.isObject());
+
+        BackendManifestSchemaValidator validator;
+        const BackendManifestSchemaValidationResult validation =
+            validator.validateLightweight(document.object());
+
+        QVERIFY(validation.isValid());
+        QVERIFY(!validation.fullJsonSchemaValidationApplied);
+        QCOMPARE(validation.schemaReferencePath,
+                 QString("docs/schemas/backend_manifest.schema.json"));
+        QVERIFY(validation.debugSummaryString().contains("deferred"));
+    }
+
+    void manifestSchemaValidatorRejectsInvalidJsonThroughLightweightBoundary()
+    {
+        QJsonObject object = QJsonDocument::fromJson(basicPitchManifestJson()).object();
+        object.insert("engine_id", "BasicPitch");
+
+        BackendManifestSchemaValidator validator;
+        const BackendManifestSchemaValidationResult validation =
+            validator.validateLightweight(object);
+
+        QVERIFY(!validation.isValid());
+        QVERIFY(!validation.fullJsonSchemaValidationApplied);
+        QCOMPARE(validation.report.issues.front().code,
+                 QString("invalid_backend_id"));
+    }
+
+    void manifestSchemaValidatorKeepsParsedManifestValidationSeparate()
+    {
+        BackendManifest manifest;
+        manifest.contractVersion = "0.1";
+        manifest.backendId = "BasicPitch";
+        manifest.displayName = "Basic Pitch";
+
+        BackendManifestSchemaValidator validator;
+        const BackendManifestSchemaValidationResult validation =
+            validator.validateParsedManifest(manifest);
+
+        QVERIFY(!validation.isValid());
+        QVERIFY(!validation.fullJsonSchemaValidationApplied);
+        QCOMPARE(validation.report.issues.front().code,
+                 QString("invalid_backend_id"));
+    }
+
+    void manifestSchemaValidatorDoesNotChangeAvailabilityStatus()
+    {
+        BackendManifest manifest;
+        manifest.backendId = "basic_pitch";
+        manifest.displayName = "Basic Pitch";
+        manifest.status = BackendStatus::NotConfigured;
+
+        BackendManifestSchemaValidator validator;
+        const BackendManifestSchemaValidationResult validation =
+            validator.validateParsedManifest(manifest);
+
+        QVERIFY(validation.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
     }
 
 private:
