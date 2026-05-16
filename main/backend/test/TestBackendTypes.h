@@ -17,6 +17,7 @@
 
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
+#include "../BackendExecutableProbe.h"
 #include "../BackendManifestDirectoryLoader.h"
 #include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
@@ -2476,6 +2477,204 @@ private slots:
         QVERIFY(!registry.hasBackend("basic_pitch"));
     }
 
+    void backendExecutableProbeReportsEmptyExecutablePath()
+    {
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = " ";
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result = probe.probe(manifest);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(!result.isPresent());
+        QCOMPARE(result.backendId, QString("basic_pitch"));
+        QVERIFY(result.status == BackendExecutableProbeStatus::EmptyPath);
+        QCOMPARE(result.statusName(), QString("empty_path"));
+        QVERIFY(result.effectiveExecutablePath.isEmpty());
+        QVERIFY(!result.usedSettingsOverride);
+        QVERIFY(reportHasIssue(result.report, "empty_executable_path"));
+    }
+
+    void backendExecutableProbeReportsMissingExecutablePath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("missing-backend.exe");
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result = probe.probe(manifest);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.status == BackendExecutableProbeStatus::Missing);
+        QCOMPARE(result.effectiveExecutablePath, manifest.executablePath);
+        QVERIFY(!result.exists);
+        QVERIFY(!result.isFile);
+        QVERIFY(!result.isDirectory);
+        QVERIFY(!result.isExecutable);
+        QVERIFY(reportHasIssue(result.report, "executable_missing"));
+    }
+
+    void backendExecutableProbeRejectsDirectoryPath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.path();
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result = probe.probe(manifest);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.status == BackendExecutableProbeStatus::Directory);
+        QVERIFY(result.exists);
+        QVERIFY(!result.isFile);
+        QVERIFY(result.isDirectory);
+        QVERIFY(!result.isPresent());
+        QVERIFY(reportHasIssue(result.report, "executable_path_is_directory"));
+    }
+
+    void backendExecutableProbeReportsExistingExecutableFilePath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("probe-backend.exe");
+        QVERIFY(writeFile(path, "this file is never executed"));
+        QVERIFY(makeExecutable(path));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = path;
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result = probe.probe(manifest);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.isPresent());
+        QVERIFY(result.status == BackendExecutableProbeStatus::Present);
+        QCOMPARE(result.statusName(), QString("present"));
+        QCOMPARE(result.effectiveExecutablePath, path);
+        QVERIFY(result.exists);
+        QVERIFY(result.isFile);
+        QVERIFY(!result.isDirectory);
+        QVERIFY(result.isExecutable);
+        QVERIFY(result.report.issues.isEmpty());
+    }
+
+    void backendExecutableProbeReportsNotExecutableWhenCheckable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("probe-backend.txt");
+        QVERIFY(writeFile(path, "not executable"));
+        QFile::setPermissions(path,
+                              QFileDevice::ReadOwner |
+                              QFileDevice::WriteOwner);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = path;
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result = probe.probe(manifest);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.status == BackendExecutableProbeStatus::NotExecutable);
+        QVERIFY(result.exists);
+        QVERIFY(result.isFile);
+        QVERIFY(!result.isDirectory);
+        QVERIFY(!result.isExecutable);
+        QVERIFY(reportHasIssue(result.report, "executable_not_executable"));
+    }
+
+    void backendExecutableProbeSettingsOverrideTakesPriority()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString manifestPath = directory.filePath("manifest.exe");
+        QVERIFY(writeFile(manifestPath, "manifest executable placeholder"));
+        QVERIFY(makeExecutable(manifestPath));
+
+        const QString overridePath = directory.filePath("missing-override.exe");
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = manifestPath;
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = overridePath;
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result =
+            probe.probe(manifest, settings);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.status == BackendExecutableProbeStatus::Missing);
+        QVERIFY(result.usedSettingsOverride);
+        QCOMPARE(result.manifestExecutablePath, manifestPath);
+        QCOMPARE(result.settingsExecutablePathOverride, overridePath);
+        QCOMPARE(result.effectiveExecutablePath, overridePath);
+        QVERIFY(reportHasIssue(result.report, "executable_missing"));
+    }
+
+    void backendExecutableProbeNeverRunsExecutable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath = directory.filePath("probe-ran.marker");
+        const QString scriptPath = directory.filePath("probe-backend.bat");
+        const QByteArray script =
+            QByteArray("@echo off\r\n") +
+            QByteArray("echo ran > \"") +
+            QDir::toNativeSeparators(markerPath).toUtf8() +
+            QByteArray("\"\r\n");
+        QVERIFY(writeFile(scriptPath, script));
+        QVERIFY(makeExecutable(scriptPath));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = scriptPath;
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result = probe.probe(manifest);
+
+        QVERIFY(result.exists);
+        QVERIFY(!QFile::exists(markerPath));
+    }
+
+    void backendExecutableProbeNeverMarksBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("probe-backend.exe");
+        QVERIFY(writeFile(path, "this file is never executed"));
+        QVERIFY(makeExecutable(path));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = path;
+        manifest.status = BackendStatus::NotConfigured;
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = path;
+        settings.enabled = true;
+
+        BackendExecutableProbe probe;
+        const BackendExecutableProbeResult result =
+            probe.probe(manifest, settings);
+
+        QVERIFY(result.isPresent());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -2484,6 +2683,22 @@ private:
             return false;
         }
         return file.write(contents) == contents.size();
+    }
+
+    static bool makeExecutable(const QString &path)
+    {
+        return QFile::setPermissions(
+            path,
+            QFileDevice::ReadOwner |
+            QFileDevice::WriteOwner |
+            QFileDevice::ExeOwner |
+            QFileDevice::ReadUser |
+            QFileDevice::WriteUser |
+            QFileDevice::ExeUser |
+            QFileDevice::ReadGroup |
+            QFileDevice::ExeGroup |
+            QFileDevice::ReadOther |
+            QFileDevice::ExeOther);
     }
 
     static bool reportHasIssue(const ValidationReport &report,
