@@ -35,6 +35,7 @@
 #include "../BackendSettingsSerializer.h"
 #include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
+#include "../ExternalProcessLogFileSink.h"
 #include "../ExternalProcessRunner.h"
 
 #include <QCoreApplication>
@@ -3707,6 +3708,189 @@ private slots:
             ExternalProcessEventType::Finished));
     }
 
+    void externalProcessLogFileSinkWritesSuccessfulProcessEvents()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "success" });
+        request.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+
+        const ExternalProcessResult result = runner.run(request);
+        QVERIFY(result.succeeded());
+
+        const QString path = directory.filePath("external-process.log");
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(path, *request.eventCollector, result);
+
+        QVERIFY(written.isValid());
+        QCOMPARE(written.path, path);
+        QCOMPARE(written.eventCount, request.eventCollector->events().size());
+        QVERIFY(written.resultSummaryIncluded);
+        QVERIFY(written.bytesWritten > 0);
+
+        const QString contents = readTextFile(path);
+        QVERIFY(contents.contains("Tony External Process Log"));
+        QVERIFY(contents.contains("type=started"));
+        QVERIFY(contents.contains("type=finished"));
+        QVERIFY(contents.contains("exit_code=0"));
+        QVERIFY(contents.contains("Result"));
+    }
+
+    void externalProcessLogFileSinkWritesStdoutAndStderrEvents()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessRunner runner;
+        ExternalProcessRequest stdoutRequest =
+            externalProcessHelperRequest({ "stdout", "log_stdout" });
+        stdoutRequest.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+        const ExternalProcessResult stdoutResult = runner.run(stdoutRequest);
+        QVERIFY(stdoutResult.succeeded());
+
+        ExternalProcessRequest stderrRequest =
+            externalProcessHelperRequest({ "stderr", "log_stderr" });
+        stderrRequest.eventCollector =
+            QSharedPointer<ExternalProcessEventCollector>::create();
+        const ExternalProcessResult stderrResult = runner.run(stderrRequest);
+        QVERIFY(stderrResult.succeeded());
+
+        QVector<ExternalProcessEvent> events =
+            stdoutRequest.eventCollector->events();
+        events += stderrRequest.eventCollector->events();
+
+        const QString path = directory.filePath("external-process.log");
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(path, events);
+
+        QVERIFY(written.isValid());
+        QCOMPARE(written.eventCount, events.size());
+
+        const QString contents = readTextFile(path);
+        QVERIFY(contents.contains("type=stdout_chunk"));
+        QVERIFY(contents.contains("log_stdout"));
+        QVERIFY(contents.contains("type=stderr_chunk"));
+        QVERIFY(contents.contains("log_stderr"));
+        QVERIFY(contents.contains("data_begin"));
+        QVERIFY(contents.contains("data_end"));
+    }
+
+    void externalProcessLogFileSinkRejectsEmptyPath()
+    {
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(QString(), QVector<ExternalProcessEvent>());
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "empty_log_file_path"));
+    }
+
+    void externalProcessLogFileSinkRejectsMissingParentDirectory()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString path =
+            directory.filePath("missing-parent/external-process.log");
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(path, QVector<ExternalProcessEvent>());
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "parent_directory_missing"));
+        QVERIFY(!QFile::exists(path));
+    }
+
+    void externalProcessLogFileSinkWritesMinimalEmptyEventLog()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString path = directory.filePath("empty-events.log");
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(path, QVector<ExternalProcessEvent>());
+
+        QVERIFY(written.isValid());
+        QCOMPARE(written.eventCount, 0);
+        QVERIFY(written.bytesWritten > 0);
+
+        const QString contents = readTextFile(path);
+        QVERIFY(contents.contains("event_count=0"));
+        QVERIFY(contents.contains(
+            "No external process events were recorded."));
+    }
+
+    void externalProcessLogFileSinkRejectsWriteFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(directory.path(), QVector<ExternalProcessEvent>());
+
+        QVERIFY(!written.isValid());
+        QVERIFY(reportHasIssue(written.report, "file_write_failed"));
+    }
+
+    void externalProcessLogFileSinkNeverRunsProcess()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessEvent event;
+        event.type = ExternalProcessEventType::StdoutChunk;
+        event.runId = "manual_log_only";
+        event.message = "Manual event for log sink test.";
+        event.data = "manual_sink_data";
+
+        const QString path = directory.filePath("manual-events.log");
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(path, QVector<ExternalProcessEvent>({ event }));
+
+        QVERIFY(written.isValid());
+        const QString contents = readTextFile(path);
+        QVERIFY(contents.contains("manual_log_only"));
+        QVERIFY(contents.contains("manual_sink_data"));
+        QVERIFY(!contents.contains("--external-process-helper"));
+    }
+
+    void externalProcessLogFileSinkNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        ExternalProcessEvent event;
+        event.type = ExternalProcessEventType::Finished;
+        event.runId = "availability_unchanged";
+        event.exitCode = 0;
+
+        ExternalProcessLogFileSink sink;
+        const ExternalProcessLogFileWriteResult written =
+            sink.write(directory.filePath("availability.log"),
+                       QVector<ExternalProcessEvent>({ event }));
+
+        QVERIFY(written.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -3715,6 +3899,15 @@ private:
             return false;
         }
         return file.write(contents) == contents.size();
+    }
+
+    static QString readTextFile(const QString &path)
+    {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            return QString();
+        }
+        return QString::fromUtf8(file.readAll());
     }
 
     static bool makeExecutable(const QString &path)
