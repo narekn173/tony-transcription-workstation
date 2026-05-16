@@ -17,14 +17,19 @@
 
 #include "BackendTypes.h"
 
+#include <QHash>
 #include <QMap>
+#include <QMutex>
 #include <QProcess>
 #include <QSharedPointer>
 
 #include <atomic>
+#include <optional>
 
 namespace Tony {
 namespace Backend {
+
+class ExternalProcessAsyncRunState;
 
 class ExternalProcessCancellationToken
 {
@@ -69,13 +74,37 @@ struct ExternalProcessResult
     QString debugSummaryString() const;
 };
 
+struct ExternalProcessRunHandle
+{
+    AnalysisRunId runId;
+
+    bool isValid() const;
+    QString debugSummaryString() const;
+};
+
 class ExternalProcessRunner
 {
 public:
     ExternalProcessResult run(const ExternalProcessRequest &request) const;
+    ExternalProcessRunHandle startAsync(const ExternalProcessRequest &request);
+    bool isRunning(const ExternalProcessRunHandle &handle) const;
+    bool isRunning(const AnalysisRunId &runId) const;
+    bool hasAsyncRun(const ExternalProcessRunHandle &handle) const;
+    std::optional<ExternalProcessResult> collectResult(
+        const ExternalProcessRunHandle &handle);
+    bool cleanup(const ExternalProcessRunHandle &handle);
     bool cancel(const AnalysisRunId &runId);
+    bool cancel(const ExternalProcessRunHandle &handle);
     bool cancel(
         const QSharedPointer<ExternalProcessCancellationToken> &token) const;
+
+private:
+    QSharedPointer<ExternalProcessAsyncRunState> asyncRunById(
+        const AnalysisRunId &runId) const;
+
+    mutable QMutex m_asyncRunsMutex;
+    QHash<AnalysisRunId, QSharedPointer<ExternalProcessAsyncRunState>>
+        m_asyncRuns;
 };
 
 }

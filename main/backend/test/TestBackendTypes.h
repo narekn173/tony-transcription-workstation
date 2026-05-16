@@ -39,6 +39,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -3424,6 +3425,126 @@ private slots:
         QVERIFY(result.standardError.contains("runner_stderr"));
     }
 
+    void externalProcessRunnerAsyncRunsSuccessfulCommand()
+    {
+        ExternalProcessRunner runner;
+        const ExternalProcessRunHandle handle =
+            runner.startAsync(externalProcessHelperRequest({ "success" }));
+
+        QVERIFY(handle.isValid());
+        QVERIFY(runner.hasAsyncRun(handle));
+        QVERIFY(waitForAsyncRunToFinish(runner, handle));
+
+        const std::optional<ExternalProcessResult> result =
+            runner.collectResult(handle);
+        QVERIFY(result.has_value());
+        QVERIFY(result->succeeded());
+        QVERIFY(result->state == AnalysisRunState::Completed);
+
+        QVERIFY(runner.cleanup(handle));
+        QVERIFY(!runner.hasAsyncRun(handle));
+        QVERIFY(!runner.cleanup(handle));
+    }
+
+    void externalProcessRunnerAsyncCancelsByHandle()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "sleep", "3000" });
+        request.timeoutMsec = 5000;
+
+        const ExternalProcessRunHandle handle = runner.startAsync(request);
+
+        QVERIFY(handle.isValid());
+        QVERIFY(runner.hasAsyncRun(handle));
+        QVERIFY(waitForAsyncRunToStart(runner, handle));
+        QVERIFY(runner.cancel(handle));
+        QVERIFY(waitForAsyncRunToFinish(runner, handle));
+
+        const std::optional<ExternalProcessResult> result =
+            runner.collectResult(handle);
+        QVERIFY(result.has_value());
+        QVERIFY(result->cancelled);
+        QVERIFY(!result->timedOut);
+        QVERIFY(result->state == AnalysisRunState::Cancelled);
+        QVERIFY(result->error.code == BackendErrorCode::Cancelled);
+
+        QVERIFY(runner.cleanup(handle));
+        QVERIFY(!runner.hasAsyncRun(handle));
+    }
+
+    void externalProcessRunnerAsyncMissingExecutableReportsStartFailure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessRequest request;
+        request.executablePath = directory.filePath("missing-runner.exe");
+        request.timeoutMsec = 1000;
+
+        ExternalProcessRunner runner;
+        const ExternalProcessRunHandle handle = runner.startAsync(request);
+
+        QVERIFY(handle.isValid());
+        QVERIFY(waitForAsyncRunToFinish(runner, handle));
+
+        const std::optional<ExternalProcessResult> result =
+            runner.collectResult(handle);
+        QVERIFY(result.has_value());
+        QVERIFY(!result->succeeded());
+        QVERIFY(result->startFailed);
+        QVERIFY(result->state == AnalysisRunState::Failed);
+        QVERIFY(result->error.code == BackendErrorCode::BackendMissing);
+        QVERIFY(runner.cleanup(handle));
+    }
+
+    void externalProcessRunnerAsyncCapturesOutput()
+    {
+        ExternalProcessRunner runner;
+        const ExternalProcessRunHandle stdoutHandle =
+            runner.startAsync(externalProcessHelperRequest({ "stdout",
+                                                             "async_stdout" }));
+        const ExternalProcessRunHandle stderrHandle =
+            runner.startAsync(externalProcessHelperRequest({ "stderr",
+                                                             "async_stderr" }));
+
+        QVERIFY(waitForAsyncRunToFinish(runner, stdoutHandle));
+        QVERIFY(waitForAsyncRunToFinish(runner, stderrHandle));
+
+        const std::optional<ExternalProcessResult> stdoutResult =
+            runner.collectResult(stdoutHandle);
+        const std::optional<ExternalProcessResult> stderrResult =
+            runner.collectResult(stderrHandle);
+
+        QVERIFY(stdoutResult.has_value());
+        QVERIFY(stderrResult.has_value());
+        QVERIFY(stdoutResult->succeeded());
+        QVERIFY(stderrResult->succeeded());
+        QVERIFY(stdoutResult->standardOutput.contains("async_stdout"));
+        QVERIFY(stderrResult->standardError.contains("async_stderr"));
+
+        QVERIFY(runner.cleanup(stdoutHandle));
+        QVERIFY(runner.cleanup(stderrHandle));
+    }
+
+    void externalProcessRunnerAsyncCleanupRejectsRunningRun()
+    {
+        ExternalProcessRunner runner;
+        ExternalProcessRequest request =
+            externalProcessHelperRequest({ "sleep", "500" });
+        request.timeoutMsec = 3000;
+
+        const ExternalProcessRunHandle handle = runner.startAsync(request);
+
+        QVERIFY(handle.isValid());
+        QVERIFY(waitForAsyncRunToStart(runner, handle));
+        QVERIFY(!runner.cleanup(handle));
+        QVERIFY(runner.cancel(handle));
+        QVERIFY(waitForAsyncRunToFinish(runner, handle));
+        QVERIFY(runner.cleanup(handle));
+        QVERIFY(!runner.hasAsyncRun(handle));
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -3482,6 +3603,36 @@ private:
         request.arguments << helperArguments;
         request.timeoutMsec = 3000;
         return request;
+    }
+
+    static bool waitForAsyncRunToStart(ExternalProcessRunner &runner,
+                                       const ExternalProcessRunHandle &handle,
+                                       int timeoutMsec = 1000)
+    {
+        QElapsedTimer elapsed;
+        elapsed.start();
+        while (elapsed.elapsed() < timeoutMsec) {
+            if (runner.isRunning(handle)) {
+                return true;
+            }
+            QTest::qWait(10);
+        }
+        return runner.isRunning(handle);
+    }
+
+    static bool waitForAsyncRunToFinish(ExternalProcessRunner &runner,
+                                        const ExternalProcessRunHandle &handle,
+                                        int timeoutMsec = 5000)
+    {
+        QElapsedTimer elapsed;
+        elapsed.start();
+        while (elapsed.elapsed() < timeoutMsec) {
+            if (!runner.isRunning(handle)) {
+                return true;
+            }
+            QTest::qWait(10);
+        }
+        return !runner.isRunning(handle);
     }
 
     static BackendAvailabilityReport makeAvailabilityReport(

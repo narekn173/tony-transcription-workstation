@@ -15,8 +15,13 @@
 #include "ExternalProcessRunner.h"
 
 #include <QElapsedTimer>
+#include <QMutexLocker>
 #include <QProcessEnvironment>
+#include <QUuid>
 #include <QtGlobal>
+
+#include <chrono>
+#include <future>
 
 namespace Tony {
 namespace Backend {
@@ -56,6 +61,41 @@ exitStatusName(QProcess::ExitStatus status)
 }
 
 }
+
+class ExternalProcessAsyncRunState
+{
+public:
+    AnalysisRunId runId;
+    QSharedPointer<ExternalProcessCancellationToken> cancellationToken;
+    std::future<ExternalProcessResult> future;
+    std::optional<ExternalProcessResult> result;
+
+    bool isReady() const
+    {
+        if (!future.valid()) {
+            return result.has_value();
+        }
+        return future.wait_for(std::chrono::milliseconds(0)) ==
+            std::future_status::ready;
+    }
+
+    bool isRunning() const
+    {
+        return future.valid() && !isReady();
+    }
+
+    std::optional<ExternalProcessResult> collect()
+    {
+        if (result.has_value()) {
+            return result;
+        }
+        if (!future.valid() || !isReady()) {
+            return std::nullopt;
+        }
+        result = future.get();
+        return result;
+    }
+};
 
 void
 ExternalProcessCancellationToken::requestCancellation()
@@ -114,6 +154,20 @@ ExternalProcessResult::debugSummaryString() const
         .arg(startFailed ? "true" : "false")
         .arg(timedOut ? "true" : "false")
         .arg(cancelled ? "true" : "false");
+}
+
+bool
+ExternalProcessRunHandle::isValid() const
+{
+    return !runId.trimmed().isEmpty();
+}
+
+QString
+ExternalProcessRunHandle::debugSummaryString() const
+{
+    return QString("run_id=%1 valid=%2")
+        .arg(runId)
+        .arg(isValid() ? "true" : "false");
 }
 
 ExternalProcessResult
@@ -270,10 +324,97 @@ ExternalProcessRunner::run(const ExternalProcessRequest &request) const
     return result;
 }
 
-bool
-ExternalProcessRunner::cancel(const AnalysisRunId &)
+ExternalProcessRunHandle
+ExternalProcessRunner::startAsync(const ExternalProcessRequest &request)
 {
-    return false;
+    ExternalProcessRequest asyncRequest = request;
+    if (!asyncRequest.cancellationToken) {
+        asyncRequest.cancellationToken =
+            QSharedPointer<ExternalProcessCancellationToken>::create();
+    }
+
+    QSharedPointer<ExternalProcessAsyncRunState> state =
+        QSharedPointer<ExternalProcessAsyncRunState>::create();
+    state->runId =
+        QUuid::createUuid().toString(QUuid::WithoutBraces);
+    state->cancellationToken = asyncRequest.cancellationToken;
+    state->future = std::async(std::launch::async, [asyncRequest]() {
+        ExternalProcessRunner runner;
+        return runner.run(asyncRequest);
+    });
+
+    {
+        QMutexLocker locker(&m_asyncRunsMutex);
+        m_asyncRuns.insert(state->runId, state);
+    }
+
+    ExternalProcessRunHandle handle;
+    handle.runId = state->runId;
+    return handle;
+}
+
+bool
+ExternalProcessRunner::isRunning(const ExternalProcessRunHandle &handle) const
+{
+    return isRunning(handle.runId);
+}
+
+bool
+ExternalProcessRunner::isRunning(const AnalysisRunId &runId) const
+{
+    const QSharedPointer<ExternalProcessAsyncRunState> state =
+        asyncRunById(runId);
+    return state && state->isRunning();
+}
+
+bool
+ExternalProcessRunner::hasAsyncRun(
+    const ExternalProcessRunHandle &handle) const
+{
+    return bool(asyncRunById(handle.runId));
+}
+
+std::optional<ExternalProcessResult>
+ExternalProcessRunner::collectResult(const ExternalProcessRunHandle &handle)
+{
+    const QSharedPointer<ExternalProcessAsyncRunState> state =
+        asyncRunById(handle.runId);
+    if (!state) {
+        return std::nullopt;
+    }
+    return state->collect();
+}
+
+bool
+ExternalProcessRunner::cleanup(const ExternalProcessRunHandle &handle)
+{
+    QMutexLocker locker(&m_asyncRunsMutex);
+    auto it = m_asyncRuns.find(handle.runId);
+    if (it == m_asyncRuns.end()) {
+        return false;
+    }
+    if ((*it)->isRunning()) {
+        return false;
+    }
+    m_asyncRuns.erase(it);
+    return true;
+}
+
+bool
+ExternalProcessRunner::cancel(const AnalysisRunId &runId)
+{
+    const QSharedPointer<ExternalProcessAsyncRunState> state =
+        asyncRunById(runId);
+    if (!state || !state->isRunning()) {
+        return false;
+    }
+    return cancel(state->cancellationToken);
+}
+
+bool
+ExternalProcessRunner::cancel(const ExternalProcessRunHandle &handle)
+{
+    return cancel(handle.runId);
 }
 
 bool
@@ -286,6 +427,21 @@ ExternalProcessRunner::cancel(
 
     token->requestCancellation();
     return true;
+}
+
+QSharedPointer<ExternalProcessAsyncRunState>
+ExternalProcessRunner::asyncRunById(const AnalysisRunId &runId) const
+{
+    if (runId.trimmed().isEmpty()) {
+        return {};
+    }
+
+    QMutexLocker locker(&m_asyncRunsMutex);
+    auto it = m_asyncRuns.constFind(runId);
+    if (it == m_asyncRuns.constEnd()) {
+        return {};
+    }
+    return *it;
 }
 
 }
