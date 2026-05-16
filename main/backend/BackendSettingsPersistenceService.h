@@ -15,6 +15,7 @@
 #ifndef TONY_BACKEND_SETTINGS_PERSISTENCE_SERVICE_H
 #define TONY_BACKEND_SETTINGS_PERSISTENCE_SERVICE_H
 
+#include "BackendSettingsDirectoryPreparer.h"
 #include "BackendSettingsFileStore.h"
 #include "BackendSettingsPersistenceConfig.h"
 
@@ -38,8 +39,11 @@ struct BackendSettingsPersistenceSaveResult
 {
     ValidationReport report;
     QString path;
+    QString preparedParentDirectoryPath;
     BackendSettingsPersistencePathSource source =
         BackendSettingsPersistencePathSource::DefaultLocal;
+    bool parentDirectoryPrepared = false;
+    bool parentDirectoryCreated = false;
 
     bool isValid() const;
 };
@@ -53,6 +57,10 @@ public:
     BackendSettingsPersistenceSaveResult
     save(const BackendSettingsPersistenceConfig &config,
          const BackendSettingsStore &store) const;
+
+    BackendSettingsPersistenceSaveResult
+    saveWithPreparedDirectory(const BackendSettingsPersistenceConfig &config,
+                              const BackendSettingsStore &store) const;
 
 private:
     static bool resolvePreferredPath(

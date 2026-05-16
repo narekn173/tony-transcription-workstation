@@ -90,6 +90,43 @@ BackendSettingsPersistenceService::save(
     return saved;
 }
 
+BackendSettingsPersistenceSaveResult
+BackendSettingsPersistenceService::saveWithPreparedDirectory(
+    const BackendSettingsPersistenceConfig &config,
+    const BackendSettingsStore &store) const
+{
+    BackendSettingsPersistenceSaveResult saved;
+
+    BackendSettingsPersistencePath path;
+    if (!resolvePreferredPath(config, path, saved.report)) {
+        return saved;
+    }
+
+    saved.path = path.path;
+    saved.source = path.source;
+
+    BackendSettingsDirectoryPreparer preparer;
+    const BackendSettingsDirectoryPreparationResult prepared =
+        preparer.prepareParentDirectory(path.path);
+
+    saved.preparedParentDirectoryPath = prepared.parentDirectoryPath;
+    saved.parentDirectoryPrepared = prepared.isValid();
+    saved.parentDirectoryCreated = prepared.directoryCreated;
+    appendIssues(saved.report, prepared.report);
+
+    if (!prepared.isValid()) {
+        return saved;
+    }
+
+    BackendSettingsFileStore fileStore;
+    const BackendSettingsFileSaveResult fileSaved =
+        fileStore.save(path.path, store);
+
+    appendIssues(saved.report, fileSaved.report);
+
+    return saved;
+}
+
 bool
 BackendSettingsPersistenceService::resolvePreferredPath(
     const BackendSettingsPersistenceConfig &config,
