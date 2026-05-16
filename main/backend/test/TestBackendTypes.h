@@ -15,6 +15,7 @@
 #ifndef TEST_BACKEND_TYPES_H
 #define TEST_BACKEND_TYPES_H
 
+#include "../BackendAvailabilityProbe.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
 #include "../BackendExecutableProbe.h"
@@ -2898,6 +2899,251 @@ private slots:
             probe.probe(manifest, settings);
 
         QVERIFY(result.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendAvailabilityProbeReportsMissingExecutable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("missing-backend.exe");
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report = probe.probe(manifest);
+
+        QCOMPARE(report.backendId, QString("basic_pitch"));
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.pathChecksPassed());
+        QVERIFY(report.status ==
+                BackendAvailabilityProbeStatus::MissingExecutable);
+        QCOMPARE(report.statusName(), QString("missing_executable"));
+        QVERIFY(report.executableProbe.status ==
+                BackendExecutableProbeStatus::Missing);
+        QVERIFY(report.requiredFileProbe.entries.isEmpty());
+        QVERIFY(reportHasIssue(report.report, "executable_missing"));
+        QCOMPARE(report.errorCount(), 1);
+        QCOMPARE(report.warningCount(), 0);
+    }
+
+    void backendAvailabilityProbeReportsExecutableButMissingRequiredFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString executablePath = directory.filePath("backend.exe");
+        const QString requiredPath = directory.filePath("missing-model.bin");
+        QVERIFY(writeFile(executablePath, "not executed"));
+        QVERIFY(makeExecutable(executablePath));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = executablePath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << requiredPath;
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report = probe.probe(manifest);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.status == BackendAvailabilityProbeStatus::MissingModel);
+        QCOMPARE(report.statusName(), QString("missing_model"));
+        QVERIFY(report.executableProbe.isPresent());
+        QVERIFY(report.requiredFileProbe.hasMissingRequiredFile());
+        QVERIFY(reportHasIssue(report.report, "required_file_missing"));
+        QCOMPARE(report.errorCount(), 1);
+    }
+
+    void backendAvailabilityProbeReportsPathChecksPassed()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString executablePath = directory.filePath("backend.exe");
+        const QString requiredPath = directory.filePath("model.bin");
+        QVERIFY(writeFile(executablePath, "not executed"));
+        QVERIFY(makeExecutable(executablePath));
+        QVERIFY(writeFile(requiredPath, "model"));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = executablePath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << requiredPath;
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report = probe.probe(manifest);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.pathChecksPassed());
+        QVERIFY(report.status ==
+                BackendAvailabilityProbeStatus::PathChecksPassed);
+        QCOMPARE(report.statusName(), QString("path_checks_passed"));
+        QVERIFY(report.executableProbe.isPresent());
+        QVERIFY(!report.requiredFileProbe.hasMissingRequiredFile());
+        QCOMPARE(report.errorCount(), 0);
+        QCOMPARE(report.warningCount(), 0);
+        QVERIFY(report.debugSummaryString().contains("path_checks_passed"));
+    }
+
+    void backendAvailabilityProbeOptionalFileMissingCreatesWarningOnly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString executablePath = directory.filePath("backend.exe");
+        const QString optionalPath = directory.filePath("optional.log");
+        QVERIFY(writeFile(executablePath, "not executed"));
+        QVERIFY(makeExecutable(executablePath));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = executablePath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.optionalFiles << optionalPath;
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report = probe.probe(manifest);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.pathChecksPassed());
+        QVERIFY(report.status ==
+                BackendAvailabilityProbeStatus::PathChecksPassed);
+        QCOMPARE(report.errorCount(), 0);
+        QCOMPARE(report.warningCount(), 1);
+        QVERIFY(reportHasIssueWithSeverity(report.report,
+                                           "optional_file_missing",
+                                           ValidationSeverity::Warning));
+        QVERIFY(!QFile::exists(optionalPath));
+    }
+
+    void backendAvailabilityProbeSettingsExecutableOverrideTakesPriority()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString manifestPath = directory.filePath("manifest.exe");
+        const QString overridePath = directory.filePath("override.exe");
+        QVERIFY(writeFile(manifestPath, "manifest executable placeholder"));
+        QVERIFY(makeExecutable(manifestPath));
+        QVERIFY(writeFile(overridePath, "override executable placeholder"));
+        QVERIFY(makeExecutable(overridePath));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = manifestPath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = overridePath;
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report =
+            probe.probe(manifest, settings);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.pathChecksPassed());
+        QVERIFY(report.executableProbe.usedSettingsOverride);
+        QCOMPARE(report.executableProbe.manifestExecutablePath, manifestPath);
+        QCOMPARE(report.executableProbe.settingsExecutablePathOverride,
+                 overridePath);
+        QCOMPARE(report.executableProbe.effectiveExecutablePath, overridePath);
+    }
+
+    void backendAvailabilityProbeSettingsModelCheckpointOverrideIsChecked()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString executablePath = directory.filePath("backend.exe");
+        const QString checkpointPath = directory.filePath("checkpoint.onnx");
+        QVERIFY(writeFile(executablePath, "not executed"));
+        QVERIFY(makeExecutable(executablePath));
+        QVERIFY(writeFile(checkpointPath, "checkpoint"));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = executablePath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.modelCheckpointPathOverride = checkpointPath;
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report =
+            probe.probe(manifest, settings);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.pathChecksPassed());
+        QVERIFY(report.requiredFileProbe.hasModelCheckpointProbe());
+        QCOMPARE(report.requiredFileProbe.entries.size(), 1);
+        const BackendRequiredFileProbeEntry entry =
+            report.requiredFileProbe.entries.front();
+        QVERIFY(entry.role == BackendRequiredFileProbeRole::ModelCheckpoint);
+        QVERIFY(entry.status == BackendRequiredFileProbeStatus::Present);
+        QCOMPARE(entry.path, checkpointPath);
+    }
+
+    void backendAvailabilityProbeNeverRunsExecutable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath = directory.filePath("availability-ran.marker");
+        const QString scriptPath = directory.filePath("availability-backend.bat");
+        const QByteArray script =
+            QByteArray("@echo off\r\n") +
+            QByteArray("echo ran > \"") +
+            QDir::toNativeSeparators(markerPath).toUtf8() +
+            QByteArray("\"\r\n");
+        QVERIFY(writeFile(scriptPath, script));
+        QVERIFY(makeExecutable(scriptPath));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = scriptPath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report = probe.probe(manifest);
+
+        QVERIFY(report.executableProbe.exists);
+        QVERIFY(!QFile::exists(markerPath));
+    }
+
+    void backendAvailabilityProbeNeverMarksBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString executablePath = directory.filePath("backend.exe");
+        const QString requiredPath = directory.filePath("model.bin");
+        QVERIFY(writeFile(executablePath, "not executed"));
+        QVERIFY(makeExecutable(executablePath));
+        QVERIFY(writeFile(requiredPath, "model"));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = executablePath;
+        manifest.requiredFiles.clear();
+        manifest.optionalFiles.clear();
+        manifest.requiredFiles << requiredPath;
+        manifest.status = BackendStatus::NotConfigured;
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.enabled = true;
+
+        BackendAvailabilityProbe probe;
+        const BackendAvailabilityReport report =
+            probe.probe(manifest, settings);
+
+        QVERIFY(report.pathChecksPassed());
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
         QVERIFY(manifest.status != BackendStatus::Ready);
         QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
