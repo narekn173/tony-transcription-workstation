@@ -3817,6 +3817,227 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void backendRunRequestBuilderAppendsRequestFileArgument()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("manifest-adapter.exe");
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+        const QString requestPath = directory.filePath("request.json");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.includeRequestJsonFileArgument = true;
+        parameters.requestJsonFilePath = requestPath;
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult built =
+            builder.build(manifest, workspace, parameters);
+
+        QVERIFY(built.isValid());
+        const int requestIndex = built.request.arguments.indexOf("--request");
+        QVERIFY(requestIndex >= 0);
+        QVERIFY(requestIndex + 1 < built.request.arguments.size());
+        QCOMPARE(built.request.arguments.at(requestIndex + 1), requestPath);
+        QVERIFY(built.request.arguments.contains("--input"));
+        QVERIFY(built.request.arguments.contains(parameters.inputAudioFilePath));
+        QVERIFY(built.request.arguments.contains("--result"));
+        QVERIFY(built.request.arguments.contains(
+            parameters.expectedUnifiedResultJsonPath));
+    }
+
+    void backendRunRequestBuilderSupportsCustomRequestFileArgumentFlag()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("manifest-adapter.exe");
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+        const QString requestPath = directory.filePath("request.json");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.includeRequestJsonFileArgument = true;
+        parameters.requestJsonArgumentFlag = "--request-json";
+        parameters.requestJsonFilePath = requestPath;
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult built =
+            builder.build(manifest, workspace, parameters);
+
+        QVERIFY(built.isValid());
+        QVERIFY(!built.request.arguments.contains("--request"));
+        const int requestIndex =
+            built.request.arguments.indexOf("--request-json");
+        QVERIFY(requestIndex >= 0);
+        QCOMPARE(built.request.arguments.at(requestIndex + 1), requestPath);
+    }
+
+    void backendRunRequestBuilderRejectsEmptyRequestFilePath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("manifest-adapter.exe");
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.includeRequestJsonFileArgument = true;
+        parameters.requestJsonFilePath = " ";
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult built =
+            builder.build(manifest, workspace, parameters);
+
+        QVERIFY(!built.isValid());
+        QVERIFY(reportHasIssue(built.report, "empty_request_json_file_path"));
+        QVERIFY(!built.request.arguments.contains("--request"));
+    }
+
+    void backendRunRequestBuilderRejectsEmptyRequestFileArgumentFlag()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("manifest-adapter.exe");
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+        const QString requestPath = directory.filePath("request.json");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.includeRequestJsonFileArgument = true;
+        parameters.requestJsonArgumentFlag = " ";
+        parameters.requestJsonFilePath = requestPath;
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult built =
+            builder.build(manifest, workspace, parameters);
+
+        QVERIFY(!built.isValid());
+        QVERIFY(reportHasIssue(built.report, "empty_request_json_argument_flag"));
+        QVERIFY(!built.request.arguments.contains(requestPath));
+    }
+
+    void backendRunRequestBuilderKeepsExistingBehaviorWithoutRequestFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunRequestBuildResult built =
+            validBackendRunRequest(directory.path());
+
+        QVERIFY(built.isValid());
+        QVERIFY(!built.request.arguments.contains("--request"));
+        QVERIFY(built.request.arguments.contains("--input"));
+        QVERIFY(built.request.arguments.contains("--result"));
+        QVERIFY(built.request.arguments.contains("--workspace"));
+    }
+
+    void backendRunRequestBuilderRequestFileArgumentNeverRunsProcess()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath =
+            directory.filePath("request-argument-ran.marker");
+        const QString scriptPath =
+            directory.filePath("request-argument-backend.bat");
+        const QByteArray script =
+            QByteArray("@echo off\r\n") +
+            QByteArray("echo ran > \"") +
+            QDir::toNativeSeparators(markerPath).toUtf8() +
+            QByteArray("\"\r\n");
+        QVERIFY(writeFile(scriptPath, script));
+        QVERIFY(makeExecutable(scriptPath));
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = scriptPath;
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.includeRequestJsonFileArgument = true;
+        parameters.requestJsonFilePath = directory.filePath("request.json");
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult built =
+            builder.build(manifest, workspace, parameters);
+
+        QVERIFY(built.isValid());
+        QVERIFY(built.request.arguments.contains("--request"));
+        QVERIFY(!QFile::exists(markerPath));
+    }
+
+    void backendRunRequestBuilderRequestFileArgumentNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = directory.filePath("manifest-adapter.exe");
+        manifest.status = BackendStatus::NotConfigured;
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunRequestParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.includeRequestJsonFileArgument = true;
+        parameters.requestJsonFilePath = directory.filePath("request.json");
+
+        BackendRunRequestBuilder builder;
+        const BackendRunRequestBuildResult built =
+            builder.build(manifest, workspace, parameters);
+
+        QVERIFY(built.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
     void backendRunRequestSerializerSerializesValidRequest()
     {
         QTemporaryDir directory;

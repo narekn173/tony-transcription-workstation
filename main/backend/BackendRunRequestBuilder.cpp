@@ -120,6 +120,18 @@ BackendRunRequestBuilder::build(
         result.report.addError("invalid_timeout",
                                "Backend run request timeout must not be negative.");
     }
+    if (parameters.includeRequestJsonFileArgument &&
+        trimmed(parameters.requestJsonFilePath).isEmpty()) {
+        result.report.addError(
+            "empty_request_json_file_path",
+            "Backend run request JSON file path argument is empty.");
+    }
+    if (parameters.includeRequestJsonFileArgument &&
+        trimmed(parameters.requestJsonArgumentFlag).isEmpty()) {
+        result.report.addError(
+            "empty_request_json_argument_flag",
+            "Backend run request JSON argument flag is empty.");
+    }
 
     result.request.runId = workspace.runId;
     result.request.executablePath =
@@ -155,6 +167,13 @@ BackendRunRequestBuilder::build(
             << "--region-end" << formatSeconds(parameters.selectedRegion->endSec);
     }
 
+    if (parameters.includeRequestJsonFileArgument &&
+        !trimmed(parameters.requestJsonFilePath).isEmpty() &&
+        !trimmed(parameters.requestJsonArgumentFlag).isEmpty()) {
+        result.request.arguments
+            << trimmed(parameters.requestJsonArgumentFlag)
+            << trimmed(parameters.requestJsonFilePath);
+    }
 
     result.request.arguments << parameters.additionalArguments;
 

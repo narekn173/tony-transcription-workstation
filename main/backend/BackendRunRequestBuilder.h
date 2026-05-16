@@ -29,6 +29,9 @@ struct BackendRunRequestParameters
     QString inputAudioFilePath;
     std::optional<AnalysisRegion> selectedRegion;
     QString expectedUnifiedResultJsonPath;
+    bool includeRequestJsonFileArgument = false;
+    QString requestJsonFilePath;
+    QString requestJsonArgumentFlag = "--request";
     int timeoutMsec = 0;
     QStringList additionalArguments;
 };
