@@ -22,6 +22,7 @@
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
+#include "../BackendSettingsDirectoryPreparer.h"
 #include "../BackendSettingsFactory.h"
 #include "../BackendSettingsFileStore.h"
 #include "../BackendSettingsPathResolver.h"
@@ -31,6 +32,7 @@
 #include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
 
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -1952,6 +1954,125 @@ private slots:
         QVERIFY(components.isValid());
         QCOMPARE(components.config.preferredSettingsFilePath().path, path);
         QVERIFY(!QFile::exists(path));
+    }
+
+    void backendSettingsDirectoryPreparerEmptyPathFailsCleanly()
+    {
+        BackendSettingsDirectoryPreparer preparer;
+
+        const BackendSettingsDirectoryPreparationResult inspected =
+            preparer.inspectParentDirectory(" ");
+        const BackendSettingsDirectoryPreparationResult prepared =
+            preparer.prepareParentDirectory(" ");
+
+        QVERIFY(!inspected.isValid());
+        QVERIFY(!prepared.isValid());
+        QVERIFY(reportHasIssue(inspected.report, "empty_settings_file_path"));
+        QVERIFY(reportHasIssue(prepared.report, "empty_settings_file_path"));
+    }
+
+    void backendSettingsDirectoryPreparerRejectsPathWithoutParent()
+    {
+        BackendSettingsDirectoryPreparer preparer;
+        const BackendSettingsDirectoryPreparationResult prepared =
+            preparer.prepareParentDirectory("backend_settings.json");
+
+        QVERIFY(!prepared.isValid());
+        QVERIFY(prepared.parentDirectoryPath.isEmpty());
+        QVERIFY(!prepared.directoryCreated);
+        QVERIFY(reportHasIssue(prepared.report, "missing_parent_directory"));
+    }
+
+    void backendSettingsDirectoryPreparerExistingDirectorySucceeds()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettingsDirectoryPreparer preparer;
+        const BackendSettingsDirectoryPreparationResult prepared =
+            preparer.prepareParentDirectory(path);
+
+        QVERIFY(prepared.isValid());
+        QCOMPARE(prepared.settingsFilePath, path);
+        QCOMPARE(prepared.parentDirectoryPath, QDir::cleanPath(directory.path()));
+        QVERIFY(prepared.directoryAlreadyExisted);
+        QVERIFY(!prepared.directoryCreated);
+    }
+
+    void backendSettingsDirectoryPreparerCreatesOnlyWhenExplicitlyRequested()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString parent =
+            QDir(directory.path()).filePath("settings/nested");
+        const QString path =
+            QDir(parent).filePath("backend_settings.json");
+
+        BackendSettingsDirectoryPreparer preparer;
+        const BackendSettingsDirectoryPreparationResult inspected =
+            preparer.inspectParentDirectory(path);
+
+        QVERIFY(inspected.isValid());
+        QCOMPARE(inspected.parentDirectoryPath, QDir::cleanPath(parent));
+        QVERIFY(!inspected.directoryAlreadyExisted);
+        QVERIFY(!inspected.directoryCreated);
+        QVERIFY(!QDir(parent).exists());
+
+        const BackendSettingsDirectoryPreparationResult prepared =
+            preparer.prepareParentDirectory(path);
+
+        QVERIFY(prepared.isValid());
+        QCOMPARE(prepared.parentDirectoryPath, QDir::cleanPath(parent));
+        QVERIFY(!prepared.directoryAlreadyExisted);
+        QVERIFY(prepared.directoryCreated);
+        QVERIFY(QDir(parent).exists());
+    }
+
+    void backendSettingsDirectoryPreparerInvalidParentFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString blockingFilePath =
+            directory.filePath("not_a_directory");
+        QVERIFY(writeFile(blockingFilePath, "not a directory"));
+
+        const QString path =
+            QDir(blockingFilePath).filePath("backend_settings.json");
+
+        BackendSettingsDirectoryPreparer preparer;
+        const BackendSettingsDirectoryPreparationResult prepared =
+            preparer.prepareParentDirectory(path);
+
+        QVERIFY(!prepared.isValid());
+        QVERIFY(!prepared.directoryCreated);
+        QVERIFY(reportHasIssue(prepared.report,
+                               "parent_path_not_directory"));
+    }
+
+    void backendSettingsDirectoryPreparerNeverMarksBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString parent =
+            QDir(directory.path()).filePath("settings");
+        const QString path =
+            QDir(parent).filePath("backend_settings.json");
+
+        BackendSettingsDirectoryPreparer preparer;
+        const BackendSettingsDirectoryPreparationResult prepared =
+            preparer.prepareParentDirectory(path);
+        QVERIFY(prepared.isValid());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.enabled = true;
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
     }
 
     void backendSettingsPersistenceServiceLoadsFromTestPath()
