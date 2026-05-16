@@ -15,6 +15,7 @@
 #ifndef TEST_BACKEND_TYPES_H
 #define TEST_BACKEND_TYPES_H
 
+#include "../BackendDiscoveryConfig.h"
 #include "../BackendManifestDirectoryLoader.h"
 #include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
@@ -640,6 +641,96 @@ private slots:
         QVERIFY(manifest.has_value());
         QVERIFY(manifest->status == BackendStatus::NotConfigured);
         QVERIFY(manifest->status != BackendStatus::Ready);
+    }
+
+    void discoveryConfigDefaultsAreSafe()
+    {
+        const BackendDiscoveryConfig config =
+            BackendDiscoveryConfig::safeDefaults();
+
+        QCOMPARE(config.defaultLocalManifestDirectoryPath,
+                 QString("backends/manifests"));
+        QVERIFY(config.userConfiguredManifestDirectoryPath.isEmpty());
+        QVERIFY(config.testOnlyManifestDirectoryPath.isEmpty());
+        QVERIFY(config.hasAnyUsableManifestDirectory());
+
+        const QVector<BackendDiscoveryPath> candidates =
+            config.manifestDirectoryCandidates();
+        QCOMPARE(candidates.size(), 1);
+        QVERIFY(candidates.front().source ==
+                BackendDiscoveryPathSource::DefaultLocal);
+        QCOMPARE(candidates.front().path, QString("backends/manifests"));
+        QCOMPARE(candidates.front().sourceName(), QString("default_local"));
+        QVERIFY(candidates.front().isUsable());
+        QVERIFY(config.validate().isValid());
+    }
+
+    void discoveryConfigSupportsCustomManifestDirectory()
+    {
+        BackendDiscoveryConfig config = BackendDiscoveryConfig::safeDefaults();
+        config.userConfiguredManifestDirectoryPath =
+            "C:/Users/Test/AppData/Local/Tony/backends";
+
+        const QVector<BackendDiscoveryPath> candidates =
+            config.manifestDirectoryCandidates();
+
+        QCOMPARE(candidates.size(), 2);
+        QVERIFY(candidates[0].source ==
+                BackendDiscoveryPathSource::DefaultLocal);
+        QVERIFY(candidates[1].source ==
+                BackendDiscoveryPathSource::UserConfigured);
+        QCOMPARE(candidates[1].path,
+                 QString("C:/Users/Test/AppData/Local/Tony/backends"));
+        QCOMPARE(candidates[1].sourceName(), QString("user_configured"));
+        QVERIFY(config.validate().isValid());
+    }
+
+    void discoveryConfigSupportsExplicitTestOnlyDirectory()
+    {
+        BackendDiscoveryConfig config;
+        config.testOnlyManifestDirectoryPath = "C:/test/backend-manifests";
+
+        const QVector<BackendDiscoveryPath> candidates =
+            config.manifestDirectoryCandidates();
+
+        QCOMPARE(candidates.size(), 1);
+        QVERIFY(candidates.front().source == BackendDiscoveryPathSource::TestOnly);
+        QCOMPARE(candidates.front().path,
+                 QString("C:/test/backend-manifests"));
+        QCOMPARE(candidates.front().sourceName(), QString("test_only"));
+        QVERIFY(config.validate().isValid());
+    }
+
+    void discoveryConfigHandlesEmptyPathsWithoutCrashing()
+    {
+        BackendDiscoveryConfig config;
+        config.defaultLocalManifestDirectoryPath = " ";
+        config.userConfiguredManifestDirectoryPath = "  ";
+        config.testOnlyManifestDirectoryPath = "";
+
+        const QVector<BackendDiscoveryPath> candidates =
+            config.manifestDirectoryCandidates();
+        const ValidationReport report = config.validate();
+
+        QVERIFY(candidates.isEmpty());
+        QVERIFY(!config.hasAnyUsableManifestDirectory());
+        QVERIFY(report.isValid());
+        QVERIFY(reportHasIssue(report, "empty_default_manifest_directory"));
+        QVERIFY(reportHasIssue(report, "empty_user_manifest_directory"));
+        QVERIFY(reportHasIssue(report, "no_manifest_directories"));
+    }
+
+    void discoveryConfigDoesNotMarkAnyBackendReadyOrInstalled()
+    {
+        BackendRegistry registry;
+        BackendDiscoveryConfig config = BackendDiscoveryConfig::safeDefaults();
+        config.userConfiguredManifestDirectoryPath =
+            "C:/Users/Test/AppData/Local/Tony/backends";
+
+        QVERIFY(config.hasAnyUsableManifestDirectory());
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(!registry.manifestById("basic_pitch").has_value());
     }
 
 private:
