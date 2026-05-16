@@ -1222,10 +1222,12 @@ backend_types_test_moc_files = qt.preprocess(
 backend_types_test_exe = executable(
   'test-backend-types',
   backend_types_test_moc_files,
+  'main/backend/BackendAdapter.cpp',
   'main/backend/BackendTypes.cpp',
   'main/backend/BackendManifestFileLoader.cpp',
   'main/backend/BackendManifestParser.cpp',
   'main/backend/BackendManifestSchemaValidator.cpp',
+  'main/backend/BackendRegistry.cpp',
   'main/backend/ResultValidator.cpp',
   'main/backend/UnifiedResult.cpp',
   'main/backend/UnifiedResultFileLoader.cpp',

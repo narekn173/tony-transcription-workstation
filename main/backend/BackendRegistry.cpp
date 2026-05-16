@@ -28,11 +28,81 @@ BackendRegistry::registerAdapter(const QSharedPointer<BackendAdapter> &adapter)
     return true;
 }
 
+bool
+BackendRegistry::addManifest(const BackendManifest &manifest)
+{
+    const BackendId backendId = manifest.id();
+    if (!Tony::Backend::isValidBackendId(backendId) || hasBackend(backendId)) {
+        return false;
+    }
+
+    BackendManifest stored = manifest;
+    if (stored.backendId.isEmpty()) {
+        stored.backendId = backendId;
+    }
+    if (stored.engineId.isEmpty()) {
+        stored.engineId = backendId;
+    }
+    stored.status = BackendStatus::NotConfigured;
+
+    m_manifests.push_back(stored);
+    return true;
+}
+
+bool
+BackendRegistry::removeManifest(const BackendId &backendId)
+{
+    for (int i = 0; i < m_manifests.size(); ++i) {
+        if (m_manifests[i].id() == backendId) {
+            m_manifests.removeAt(i);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool
+BackendRegistry::hasBackend(const BackendId &backendId) const
+{
+    return contains(backendId) || manifestById(backendId).has_value();
+}
+
+std::optional<BackendManifest>
+BackendRegistry::manifestById(const BackendId &backendId) const
+{
+    for (const auto &manifest: m_manifests) {
+        if (manifest.id() == backendId) {
+            return manifest;
+        }
+    }
+    return std::nullopt;
+}
+
+QVector<BackendManifest>
+BackendRegistry::allManifests() const
+{
+    QVector<BackendManifest> result = m_manifests;
+    for (const auto &adapter: m_adapters) {
+        result.push_back(adapter->manifest());
+    }
+    return result;
+}
+
+void
+BackendRegistry::clear()
+{
+    m_adapters.clear();
+    m_manifests.clear();
+}
+
 QVector<BackendId>
 BackendRegistry::engineIds() const
 {
     QVector<BackendId> ids;
-    ids.reserve(m_adapters.size());
+    ids.reserve(m_adapters.size() + m_manifests.size());
+    for (const auto &manifest: m_manifests) {
+        ids.push_back(manifest.id());
+    }
     for (const auto &adapter: m_adapters) {
         ids.push_back(adapter->engineId());
     }

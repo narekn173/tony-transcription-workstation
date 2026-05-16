@@ -20,6 +20,8 @@
 #include <QSharedPointer>
 #include <QVector>
 
+#include <optional>
+
 namespace Tony {
 namespace Backend {
 
@@ -27,6 +29,13 @@ class BackendRegistry
 {
 public:
     bool registerAdapter(const QSharedPointer<BackendAdapter> &adapter);
+
+    bool addManifest(const BackendManifest &manifest);
+    bool removeManifest(const BackendId &backendId);
+    bool hasBackend(const BackendId &backendId) const;
+    std::optional<BackendManifest> manifestById(const BackendId &backendId) const;
+    QVector<BackendManifest> allManifests() const;
+    void clear();
 
     QVector<BackendId> engineIds() const;
     QVector<BackendManifest> manifests() const;
@@ -36,6 +45,7 @@ public:
 
 private:
     QVector<QSharedPointer<BackendAdapter>> m_adapters;
+    QVector<BackendManifest> m_manifests;
 };
 
 }

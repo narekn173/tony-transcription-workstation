@@ -18,6 +18,7 @@
 #include "../BackendManifestFileLoader.h"
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
+#include "../BackendRegistry.h"
 #include "../BackendTypes.h"
 
 #include <QFile>
@@ -437,6 +438,97 @@ private slots:
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
     }
 
+    void registryAddsValidManifest()
+    {
+        BackendRegistry registry;
+        const BackendManifest manifest = parsedBasicPitchManifest();
+
+        QVERIFY(registry.addManifest(manifest));
+        QVERIFY(registry.hasBackend("basic_pitch"));
+        QCOMPARE(registry.allManifests().size(), 1);
+        QVERIFY(registry.engineIds().contains("basic_pitch"));
+    }
+
+    void registryRejectsDuplicateBackendId()
+    {
+        BackendRegistry registry;
+        BackendManifest manifest = parsedBasicPitchManifest();
+
+        QVERIFY(registry.addManifest(manifest));
+
+        manifest.displayName = "Duplicate Basic Pitch";
+        QVERIFY(!registry.addManifest(manifest));
+        QCOMPARE(registry.allManifests().size(), 1);
+    }
+
+    void registryRejectsInvalidBackendId()
+    {
+        BackendRegistry registry;
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.backendId = "BasicPitch";
+        manifest.engineId = "BasicPitch";
+
+        QVERIFY(!registry.addManifest(manifest));
+        QVERIFY(!registry.hasBackend("BasicPitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void registryLooksUpManifestByBackendId()
+    {
+        BackendRegistry registry;
+        const BackendManifest manifest = parsedBasicPitchManifest();
+
+        QVERIFY(registry.addManifest(manifest));
+        const std::optional<BackendManifest> found =
+            registry.manifestById("basic_pitch");
+
+        QVERIFY(found.has_value());
+        QCOMPARE(found->id(), QString("basic_pitch"));
+        QCOMPARE(found->displayName, QString("Basic Pitch"));
+        QVERIFY(found->status == BackendStatus::NotConfigured);
+        QVERIFY(!registry.manifestById("missing_backend").has_value());
+    }
+
+    void registryRemovesManifestByBackendId()
+    {
+        BackendRegistry registry;
+        const BackendManifest manifest = parsedBasicPitchManifest();
+
+        QVERIFY(registry.addManifest(manifest));
+        QVERIFY(registry.removeManifest("basic_pitch"));
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.removeManifest("basic_pitch"));
+    }
+
+    void registryClearRemovesLoadedManifests()
+    {
+        BackendRegistry registry;
+        QVERIFY(registry.addManifest(parsedBasicPitchManifest()));
+        QVERIFY(registry.hasBackend("basic_pitch"));
+
+        registry.clear();
+
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(registry.engineIds().isEmpty());
+        QCOMPARE(registry.size(), 0);
+    }
+
+    void registryDoesNotMarkLoadedManifestReady()
+    {
+        BackendRegistry registry;
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::Ready;
+
+        QVERIFY(registry.addManifest(manifest));
+
+        const std::optional<BackendManifest> found =
+            registry.manifestById("basic_pitch");
+        QVERIFY(found.has_value());
+        QVERIFY(found->status == BackendStatus::NotConfigured);
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -445,6 +537,16 @@ private:
             return false;
         }
         return file.write(contents) == contents.size();
+    }
+
+    static BackendManifest parsedBasicPitchManifest()
+    {
+        const QJsonDocument document =
+            QJsonDocument::fromJson(basicPitchManifestJson());
+        BackendManifestParser parser;
+        const BackendManifestParseResult parsed =
+            parser.parse(document.object());
+        return parsed.manifest;
     }
 
     static QByteArray basicPitchManifestJson()
