@@ -22,10 +22,12 @@
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
+#include "../BackendSettingsSerializer.h"
 #include "../BackendSettingsStore.h"
 #include "../BackendTypes.h"
 
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QObject>
@@ -1030,6 +1032,198 @@ private slots:
         BackendRegistry registry;
         QVERIFY(registry.allManifests().isEmpty());
         QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendSettingsSerializerSerializesDefaultSettings()
+    {
+        BackendSettings settings;
+        BackendSettingsSerializer serializer;
+        const QJsonObject object = serializer.toJson(settings);
+
+        QCOMPARE(object.value("backend_id").toString(), QString());
+        QCOMPARE(object.value("executable_path_override").toString(), QString());
+        QCOMPARE(object.value("working_directory_override").toString(), QString());
+        QCOMPARE(object.value("model_checkpoint_path_override").toString(), QString());
+        QCOMPARE(object.value("python_executable_path_override").toString(), QString());
+        QVERIFY(object.value("environment_variables").isObject());
+        QVERIFY(object.value("environment_variables").toObject().isEmpty());
+        QVERIFY(!object.value("enabled").toBool());
+        QCOMPARE(object.value("display_label_override").toString(), QString());
+        QCOMPARE(object.value("user_notes").toString(), QString());
+        QVERIFY(!object.contains("status"));
+    }
+
+    void backendSettingsSerializerDeserializesValidSettings()
+    {
+        QJsonObject environment;
+        environment.insert("TONY_BACKEND_MODE", "test");
+
+        QJsonObject object;
+        object.insert("backend_id", "basic_pitch");
+        object.insert("executable_path_override",
+                      "C:/Tools/basic_pitch/adapter.exe");
+        object.insert("working_directory_override",
+                      "C:/Tools/basic_pitch");
+        object.insert("model_checkpoint_path_override",
+                      "C:/Models/basic_pitch/model");
+        object.insert("python_executable_path_override",
+                      "C:/Python/python.exe");
+        object.insert("environment_variables", environment);
+        object.insert("enabled", true);
+        object.insert("display_label_override", "Local Basic Pitch");
+        object.insert("user_notes", "Configured by user.");
+
+        BackendSettingsSerializer serializer;
+        const BackendSettingsSerializationResult parsed =
+            serializer.fromJson(object);
+
+        QVERIFY(parsed.isValid());
+        QCOMPARE(parsed.settings.backendId, QString("basic_pitch"));
+        QCOMPARE(parsed.settings.executablePathOverride,
+                 QString("C:/Tools/basic_pitch/adapter.exe"));
+        QCOMPARE(parsed.settings.workingDirectoryOverride,
+                 QString("C:/Tools/basic_pitch"));
+        QCOMPARE(parsed.settings.modelCheckpointPathOverride,
+                 QString("C:/Models/basic_pitch/model"));
+        QCOMPARE(parsed.settings.pythonExecutablePathOverride,
+                 QString("C:/Python/python.exe"));
+        QCOMPARE(parsed.settings.environmentVariables.value("TONY_BACKEND_MODE"),
+                 QString("test"));
+        QVERIFY(parsed.settings.enabled);
+        QCOMPARE(parsed.settings.displayLabelOverride,
+                 QString("Local Basic Pitch"));
+        QCOMPARE(parsed.settings.userNotes, QString("Configured by user."));
+        QVERIFY(parsed.settings.statusFromSettings() == BackendStatus::NotConfigured);
+    }
+
+    void backendSettingsSerializerRejectsInvalidBackendId()
+    {
+        QJsonObject object;
+        object.insert("backend_id", "BasicPitch");
+        object.insert("enabled", true);
+
+        BackendSettingsSerializer serializer;
+        const BackendSettingsSerializationResult parsed =
+            serializer.fromJson(object);
+
+        QVERIFY(!parsed.isValid());
+        QVERIFY(reportHasIssue(parsed.report, "invalid_backend_id"));
+        QVERIFY(parsed.settings.statusFromSettings() == BackendStatus::NotConfigured);
+    }
+
+    void backendSettingsSerializerRoundTripsSettings()
+    {
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+        settings.workingDirectoryOverride = "C:/Tools/basic_pitch";
+        settings.modelCheckpointPathOverride = "C:/Models/basic_pitch/model";
+        settings.pythonExecutablePathOverride = "C:/Python/python.exe";
+        settings.environmentVariables.insert("TONY_BACKEND_MODE", "test");
+        settings.environmentVariables.insert("TONY_BACKEND_TRACE", "1");
+        settings.enabled = true;
+        settings.displayLabelOverride = "Local Basic Pitch";
+        settings.userNotes = "Configured by user.";
+
+        BackendSettingsSerializer serializer;
+        const QJsonObject object = serializer.toJson(settings);
+        const BackendSettingsSerializationResult parsed =
+            serializer.fromJson(object);
+
+        QVERIFY(parsed.isValid());
+        QCOMPARE(parsed.settings.backendId, settings.backendId);
+        QCOMPARE(parsed.settings.executablePathOverride,
+                 settings.executablePathOverride);
+        QCOMPARE(parsed.settings.workingDirectoryOverride,
+                 settings.workingDirectoryOverride);
+        QCOMPARE(parsed.settings.modelCheckpointPathOverride,
+                 settings.modelCheckpointPathOverride);
+        QCOMPARE(parsed.settings.pythonExecutablePathOverride,
+                 settings.pythonExecutablePathOverride);
+        QCOMPARE(parsed.settings.environmentVariables,
+                 settings.environmentVariables);
+        QCOMPARE(parsed.settings.enabled, settings.enabled);
+        QCOMPARE(parsed.settings.displayLabelOverride,
+                 settings.displayLabelOverride);
+        QCOMPARE(parsed.settings.userNotes, settings.userNotes);
+        QVERIFY(parsed.settings.statusFromSettings() == BackendStatus::NotConfigured);
+    }
+
+    void backendSettingsSerializerSerializesStoreWithMultipleBackends()
+    {
+        BackendSettings first;
+        first.backendId = "basic_pitch";
+        first.executablePathOverride = "C:/Tools/basic_pitch/adapter.exe";
+        first.enabled = true;
+        BackendSettings second;
+        second.backendId = "crepe_notes";
+        second.pythonExecutablePathOverride = "C:/Python/python.exe";
+
+        BackendSettingsStore store;
+        QVERIFY(store.setSettings(first));
+        QVERIFY(store.setSettings(second));
+
+        BackendSettingsSerializer serializer;
+        const QJsonArray array = serializer.storeToJsonArray(store);
+        const QJsonObject object = serializer.storeToJsonObject(store);
+        const BackendSettingsStoreSerializationResult parsed =
+            serializer.storeFromJsonObject(object);
+
+        QCOMPARE(array.size(), 2);
+        QVERIFY(object.value("backend_settings").isArray());
+        QVERIFY(parsed.isValid());
+        QCOMPARE(parsed.loadedCount, 2);
+        QCOMPARE(parsed.rejectedCount, 0);
+        QCOMPARE(parsed.store.size(), 2);
+        QVERIFY(parsed.store.settingsForBackend("basic_pitch").has_value());
+        QVERIFY(parsed.store.settingsForBackend("crepe_notes").has_value());
+        QVERIFY(parsed.store.configuredBackendIds().contains("basic_pitch"));
+        QVERIFY(parsed.store.configuredBackendIds().contains("crepe_notes"));
+    }
+
+    void backendSettingsSerializerLoadsMultipleEntriesSafely()
+    {
+        QJsonObject first;
+        first.insert("backend_id", "basic_pitch");
+        first.insert("enabled", true);
+        QJsonObject second;
+        second.insert("backend_id", "BasicPitch");
+
+        QJsonArray array;
+        array.push_back(first);
+        array.push_back(second);
+        array.push_back(QString("not an object"));
+
+        BackendSettingsSerializer serializer;
+        const BackendSettingsStoreSerializationResult parsed =
+            serializer.storeFromJsonArray(array);
+
+        QVERIFY(!parsed.isValid());
+        QCOMPARE(parsed.loadedCount, 1);
+        QCOMPARE(parsed.rejectedCount, 2);
+        QCOMPARE(parsed.store.size(), 1);
+        QVERIFY(parsed.store.settingsForBackend("basic_pitch").has_value());
+        QVERIFY(reportHasIssue(parsed.report, "invalid_backend_id"));
+        QVERIFY(reportHasIssue(parsed.report, "invalid_settings_entry"));
+    }
+
+    void backendSettingsSerializerNeverMarksBackendReadyOrInstalled()
+    {
+        QJsonObject object;
+        object.insert("backend_id", "basic_pitch");
+        object.insert("executable_path_override",
+                      "C:/Tools/basic_pitch/adapter.exe");
+        object.insert("enabled", true);
+        object.insert("status", "ready");
+
+        BackendSettingsSerializer serializer;
+        const BackendSettingsSerializationResult parsed =
+            serializer.fromJson(object);
+
+        QVERIFY(parsed.isValid());
+        QVERIFY(parsed.settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(parsed.settings.statusFromSettings() != BackendStatus::Ready);
+        QVERIFY(!serializer.toJson(parsed.settings).contains("status"));
     }
 
 private:
