@@ -16,6 +16,7 @@
 #define TEST_BACKEND_TYPES_H
 
 #include "../BackendAvailabilityProbe.h"
+#include "../BackendAvailabilityStore.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
 #include "../BackendExecutableProbe.h"
@@ -3154,6 +3155,139 @@ private slots:
         QVERIFY(!registry.hasBackend("basic_pitch"));
     }
 
+    void backendAvailabilityStoreStoresValidReport()
+    {
+        BackendAvailabilityReport report =
+            makeAvailabilityReport("basic_pitch",
+                                   BackendAvailabilityProbeStatus::PathChecksPassed);
+
+        BackendAvailabilityStore store;
+
+        QVERIFY(store.setReport(report));
+        QVERIFY(store.hasReport("basic_pitch"));
+        QCOMPARE(store.size(), 1);
+        QVERIFY(store.backendIds().contains("basic_pitch"));
+
+        const std::optional<BackendAvailabilityReport> stored =
+            store.reportById("basic_pitch");
+        QVERIFY(stored.has_value());
+        QVERIFY(stored->status ==
+                BackendAvailabilityProbeStatus::PathChecksPassed);
+        QCOMPARE(stored->statusName(), QString("path_checks_passed"));
+        QVERIFY(store.debugSummaryString().contains("availability_reports=1"));
+    }
+
+    void backendAvailabilityStoreRejectsInvalidBackendId()
+    {
+        BackendAvailabilityReport report =
+            makeAvailabilityReport("BasicPitch",
+                                   BackendAvailabilityProbeStatus::PathChecksPassed);
+
+        BackendAvailabilityStore store;
+
+        QVERIFY(!store.setReport(report));
+        QVERIFY(!store.hasReport("BasicPitch"));
+        QVERIFY(!store.reportById("BasicPitch").has_value());
+        QCOMPARE(store.size(), 0);
+        QVERIFY(store.allReports().isEmpty());
+    }
+
+    void backendAvailabilityStoreReplacesExistingReport()
+    {
+        BackendAvailabilityStore store;
+
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "basic_pitch",
+            BackendAvailabilityProbeStatus::MissingExecutable)));
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "basic_pitch",
+            BackendAvailabilityProbeStatus::PathChecksPassed)));
+
+        QCOMPARE(store.size(), 1);
+        const std::optional<BackendAvailabilityReport> stored =
+            store.reportById("basic_pitch");
+        QVERIFY(stored.has_value());
+        QVERIFY(stored->status ==
+                BackendAvailabilityProbeStatus::PathChecksPassed);
+    }
+
+    void backendAvailabilityStoreRemovesReport()
+    {
+        BackendAvailabilityStore store;
+
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "basic_pitch",
+            BackendAvailabilityProbeStatus::MissingExecutable)));
+
+        QVERIFY(store.removeReport("basic_pitch"));
+        QVERIFY(!store.hasReport("basic_pitch"));
+        QCOMPARE(store.size(), 0);
+        QVERIFY(!store.removeReport("basic_pitch"));
+        QVERIFY(!store.removeReport("BasicPitch"));
+    }
+
+    void backendAvailabilityStoreClearsReports()
+    {
+        BackendAvailabilityStore store;
+
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "basic_pitch",
+            BackendAvailabilityProbeStatus::MissingExecutable)));
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "crepe_notes",
+            BackendAvailabilityProbeStatus::NotConfigured)));
+
+        QCOMPARE(store.size(), 2);
+        store.clear();
+        QCOMPARE(store.size(), 0);
+        QVERIFY(store.allReports().isEmpty());
+        QVERIFY(store.backendIds().isEmpty());
+    }
+
+    void backendAvailabilityStoreReturnsAllReports()
+    {
+        BackendAvailabilityStore store;
+
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "basic_pitch",
+            BackendAvailabilityProbeStatus::PathChecksPassed)));
+        QVERIFY(store.setReport(makeAvailabilityReport(
+            "crepe_notes",
+            BackendAvailabilityProbeStatus::MissingModel)));
+
+        const QVector<BackendAvailabilityReport> reports = store.allReports();
+
+        QCOMPARE(reports.size(), 2);
+        QVERIFY(store.hasReport("basic_pitch"));
+        QVERIFY(store.hasReport("crepe_notes"));
+        QVERIFY(store.backendIds().contains("basic_pitch"));
+        QVERIFY(store.backendIds().contains("crepe_notes"));
+    }
+
+    void backendAvailabilityStoreNeverMarksBackendReadyOrInstalled()
+    {
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        BackendAvailabilityReport report =
+            makeAvailabilityReport("basic_pitch",
+                                   BackendAvailabilityProbeStatus::PathChecksPassed);
+
+        BackendAvailabilityStore store;
+        QVERIFY(store.setReport(report));
+
+        const std::optional<BackendAvailabilityReport> stored =
+            store.reportById("basic_pitch");
+        QVERIFY(stored.has_value());
+        QVERIFY(stored->pathChecksPassed());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -3201,6 +3335,16 @@ private:
             }
         }
         return false;
+    }
+
+    static BackendAvailabilityReport makeAvailabilityReport(
+        const BackendId &backendId,
+        BackendAvailabilityProbeStatus status)
+    {
+        BackendAvailabilityReport report;
+        report.backendId = backendId;
+        report.status = status;
+        return report;
     }
 
     static BackendManifest parsedBasicPitchManifest()
