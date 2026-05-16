@@ -26,6 +26,7 @@
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
 #include "../BackendRequiredFileProbe.h"
+#include "../BackendRunWorkspace.h"
 #include "../BackendSettingsDirectoryPreparer.h"
 #include "../BackendSettingsFactory.h"
 #include "../BackendSettingsFileStore.h"
@@ -3286,6 +3287,194 @@ private slots:
             store.reportById("basic_pitch");
         QVERIFY(stored.has_value());
         QVERIFY(stored->pathChecksPassed());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void backendRunWorkspaceGeneratesValidPaths()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "basic_pitch",
+                                           "run_001");
+
+        QVERIFY(workspace.hasValidShape());
+        QCOMPARE(workspace.safeBackendId, QString("basic_pitch"));
+        QCOMPARE(workspace.safeRunId, QString("run_001"));
+        QCOMPARE(workspace.runDirectoryPath,
+                 QDir::cleanPath(QDir(directory.path())
+                                     .filePath("basic_pitch/run_001")));
+        QCOMPARE(workspace.logFilePath,
+                 QDir::cleanPath(QDir(workspace.logDirectoryPath)
+                                     .filePath("process.log")));
+        QCOMPARE(workspace.stdoutLogPath,
+                 QDir::cleanPath(QDir(workspace.logDirectoryPath)
+                                     .filePath("stdout.log")));
+        QCOMPARE(workspace.stderrLogPath,
+                 QDir::cleanPath(QDir(workspace.logDirectoryPath)
+                                     .filePath("stderr.log")));
+        QCOMPARE(workspace.unifiedResultJsonPath,
+                 QDir::cleanPath(QDir(workspace.runDirectoryPath)
+                                     .filePath("result.json")));
+        QVERIFY(workspace.debugSummaryString().contains("basic_pitch"));
+        QVERIFY(workspace.debugSummaryString().contains("run_001"));
+    }
+
+    void backendRunWorkspaceRejectsEmptyBackendId()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(), "", "run_001");
+        const ValidationReport report = workspace.validate();
+
+        QVERIFY(!report.isValid());
+        QVERIFY(reportHasIssue(report, "empty_backend_id"));
+        QVERIFY(!workspace.hasValidShape());
+    }
+
+    void backendRunWorkspaceRejectsEmptyRunId()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "basic_pitch",
+                                           "  ");
+        const ValidationReport report = workspace.validate();
+
+        QVERIFY(!report.isValid());
+        QVERIFY(reportHasIssue(report, "empty_run_id"));
+        QVERIFY(!workspace.hasValidShape());
+    }
+
+    void backendRunWorkspaceSanitizesTraversalLikeInput()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "../basic_pitch",
+                                           "run/../../001");
+        const ValidationReport report = workspace.validate();
+
+        QVERIFY(report.isValid());
+        QVERIFY(reportHasIssueWithSeverity(report,
+                                           "backend_id_sanitized",
+                                           ValidationSeverity::Warning));
+        QVERIFY(reportHasIssueWithSeverity(report,
+                                           "run_id_sanitized",
+                                           ValidationSeverity::Warning));
+        QCOMPARE(workspace.safeBackendId, QString("basic_pitch"));
+        QCOMPARE(workspace.safeRunId, QString("run_001"));
+        QVERIFY(!workspace.runDirectoryPath.contains(".."));
+        QVERIFY(!workspace.runDirectoryPath.contains("\\.."));
+        QVERIFY(workspace.runDirectoryPath.startsWith(
+            QDir::cleanPath(directory.path())));
+    }
+
+    void backendRunWorkspacePreparationIsExplicit()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "basic_pitch",
+                                           "run_001");
+
+        QVERIFY(workspace.hasValidShape());
+        QVERIFY(!QDir(workspace.runDirectoryPath).exists());
+        QVERIFY(!QDir(workspace.logDirectoryPath).exists());
+        QVERIFY(!QDir(workspace.temporaryDirectoryPath).exists());
+        QVERIFY(!QDir(workspace.resultArtifactsDirectoryPath).exists());
+
+        const BackendRunWorkspacePreparationResult prepared =
+            workspace.prepareWorkspace();
+
+        QVERIFY(prepared.isValid());
+        QVERIFY(prepared.runDirectoryCreated);
+        QVERIFY(prepared.logDirectoryCreated);
+        QVERIFY(prepared.temporaryDirectoryCreated);
+        QVERIFY(prepared.resultArtifactsDirectoryCreated);
+        QVERIFY(QDir(workspace.runDirectoryPath).exists());
+        QVERIFY(QDir(workspace.logDirectoryPath).exists());
+        QVERIFY(QDir(workspace.temporaryDirectoryPath).exists());
+        QVERIFY(QDir(workspace.resultArtifactsDirectoryPath).exists());
+    }
+
+    void backendRunWorkspaceGeneratedPathsAreStable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace first =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "basic_pitch",
+                                           "run_001");
+        const BackendRunWorkspace second =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "basic_pitch",
+                                           "run_001");
+
+        QCOMPARE(first.runDirectoryPath, second.runDirectoryPath);
+        QCOMPARE(first.logFilePath, second.logFilePath);
+        QCOMPARE(first.stdoutLogPath, second.stdoutLogPath);
+        QCOMPARE(first.stderrLogPath, second.stderrLogPath);
+        QCOMPARE(first.unifiedResultJsonPath, second.unifiedResultJsonPath);
+        QCOMPARE(first.temporaryDirectoryPath,
+                 second.temporaryDirectoryPath);
+        QCOMPARE(first.resultArtifactsDirectoryPath,
+                 second.resultArtifactsDirectoryPath);
+    }
+
+    void backendRunWorkspaceModelDoesNotRunProcesses()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           "basic_pitch",
+                                           "run_001");
+
+        QVERIFY(workspace.hasValidShape());
+        QVERIFY(!QFile::exists(workspace.logFilePath));
+        QVERIFY(!QFile::exists(workspace.stdoutLogPath));
+        QVERIFY(!QFile::exists(workspace.stderrLogPath));
+        QVERIFY(!QFile::exists(workspace.unifiedResultJsonPath));
+        QVERIFY(!workspace.debugSummaryString().contains(
+            "--external-process-helper"));
+    }
+
+    void backendRunWorkspaceNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+        QVERIFY(workspace.hasValidShape());
+
+        const BackendRunWorkspacePreparationResult prepared =
+            workspace.prepareWorkspace();
+        QVERIFY(prepared.isValid());
+
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
         QVERIFY(manifest.status != BackendStatus::Ready);
 
