@@ -22,6 +22,7 @@
 #include "../BackendManifestParser.h"
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
+#include "../BackendSettingsFactory.h"
 #include "../BackendSettingsFileStore.h"
 #include "../BackendSettingsPathResolver.h"
 #include "../BackendSettingsPersistenceConfig.h"
@@ -1837,6 +1838,120 @@ private slots:
         BackendRegistry registry;
         QVERIFY(registry.allManifests().isEmpty());
         QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendSettingsFactoryCreatesDefaultConfigAndService()
+    {
+        BackendSettingsFactory factory;
+        const BackendSettingsPersistenceComponents components =
+            factory.createDefaultPersistenceComponents();
+
+        QVERIFY(components.isValid());
+        QVERIFY(components.config.hasAnyUsableSettingsFilePath());
+
+        const BackendSettingsPersistencePath preferred =
+            components.config.preferredSettingsFilePath();
+        QVERIFY(preferred.isUsable());
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::DefaultLocal);
+        QVERIFY(preferred.path.endsWith(
+                    BackendSettingsPathResolver::defaultFileName()));
+    }
+
+    void backendSettingsFactoryCreatesServiceFromConfig()
+    {
+        BackendSettingsPersistenceConfig config;
+        config.userConfiguredSettingsFilePath =
+            "D:/Tony/backend_settings_user.json";
+
+        BackendSettingsFactory factory;
+        const BackendSettingsPersistenceComponents components =
+            factory.createPersistenceComponents(config);
+
+        QVERIFY(components.isValid());
+
+        const BackendSettingsPersistencePath preferred =
+            components.config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::UserConfigured);
+        QCOMPARE(preferred.path,
+                 QString("D:/Tony/backend_settings_user.json"));
+    }
+
+    void backendSettingsFactoryPreservesTestOverridePath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettingsFactory factory;
+        const BackendSettingsPersistenceComponents components =
+            factory.createTestPersistenceComponents(path);
+
+        QVERIFY(components.isValid());
+        QCOMPARE(components.config.testOnlySettingsFilePath, path);
+
+        const BackendSettingsPersistencePath preferred =
+            components.config.preferredSettingsFilePath();
+        QVERIFY(preferred.source ==
+                BackendSettingsPersistencePathSource::TestOnly);
+        QCOMPARE(preferred.path, path);
+    }
+
+    void backendSettingsFactoryReportsInvalidResolvedPathCleanly()
+    {
+        BackendSettingsPathResolver resolver;
+        const BackendSettingsPathResolutionResult resolved =
+            resolver.resolveDefaultPathFromBaseDirectory(
+                " ",
+                BackendSettingsPathResolver::defaultFileName());
+
+        BackendSettingsFactory factory;
+        const BackendSettingsPersistenceComponents components =
+            factory.createPersistenceComponentsFromResolvedPath(resolved);
+
+        QVERIFY(!components.isValid());
+        QVERIFY(!components.config.hasAnyUsableSettingsFilePath());
+        QVERIFY(reportHasIssue(components.report,
+                               "empty_platform_settings_directory"));
+        QVERIFY(reportHasIssue(components.report, "no_settings_file_path"));
+    }
+
+    void backendSettingsFactoryAloneNeverMarksBackendReadyOrInstalled()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendSettingsFactory factory;
+        const BackendSettingsPersistenceComponents components =
+            factory.createTestPersistenceComponents(
+                directory.filePath("backend_settings.json"));
+        QVERIFY(components.isValid());
+
+        BackendSettings settings;
+        settings.backendId = "basic_pitch";
+        settings.enabled = true;
+        QVERIFY(settings.statusFromSettings() == BackendStatus::NotConfigured);
+        QVERIFY(settings.statusFromSettings() != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(registry.allManifests().isEmpty());
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+    }
+
+    void backendSettingsFactoryDoesNotLoadOrSaveAutomatically()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath("backend_settings.json");
+
+        BackendSettingsFactory factory;
+        const BackendSettingsPersistenceComponents components =
+            factory.createTestPersistenceComponents(path);
+
+        QVERIFY(components.isValid());
+        QCOMPARE(components.config.preferredSettingsFilePath().path, path);
+        QVERIFY(!QFile::exists(path));
     }
 
     void backendSettingsPersistenceServiceLoadsFromTestPath()
