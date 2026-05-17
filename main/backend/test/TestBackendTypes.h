@@ -29,6 +29,7 @@
 #include "../BackendRunOrchestrator.h"
 #include "../BackendRunOutputHandoff.h"
 #include "../BackendRunResultLoader.h"
+#include "../BackendRunResultReporter.h"
 #include "../BackendRunRequestFileWriter.h"
 #include "../BackendRunRequestBuilder.h"
 #include "../BackendRunRequestPreparer.h"
@@ -5225,6 +5226,241 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void backendRunResultReporterReportsSuccessfulLoadedResult()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        const ExternalProcessResult process = successfulProcessResult();
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, process);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch", process, resultPath, loaded);
+
+        QVERIFY(report.isValid());
+        QCOMPARE(report.backendId, QString("basic_pitch"));
+        QVERIFY(report.processResultAvailable);
+        QVERIFY(report.processSucceeded);
+        QVERIFY(!report.processFailed);
+        QVERIFY(report.outputFilePresent);
+        QVERIFY(!report.outputFileMissing);
+        QVERIFY(!report.outputFileEmpty);
+        QVERIFY(!report.outputFileInvalid);
+        QVERIFY(report.unifiedResultLoaded);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(report.errors.isEmpty());
+        QVERIFY(report.debugSummaryString().contains("valid=true"));
+    }
+
+    void backendRunResultReporterReportsMissingResultAfterSuccessfulProcess()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("missing-result.json");
+        QVERIFY(!QFile::exists(resultPath));
+
+        const ExternalProcessResult process = successfulProcessResult();
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, process);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch", process, resultPath, loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processSucceeded);
+        QVERIFY(!report.outputFilePresent);
+        QVERIFY(report.outputFileMissing);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(report.errors.contains("output_file_missing"));
+        QVERIFY(!QFile::exists(resultPath));
+    }
+
+    void backendRunResultReporterReportsNonZeroProcessExit()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        const ExternalProcessResult process = failedProcessResult();
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, process);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch", process, resultPath, loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processResultAvailable);
+        QVERIFY(!report.processSucceeded);
+        QVERIFY(report.processFailed);
+        QVERIFY(!report.processTimedOut);
+        QVERIFY(!report.processCancelled);
+        QVERIFY(report.outputFilePresent);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(report.errors.contains("process_failed"));
+        QVERIFY(report.errors.contains("external_process_failed"));
+    }
+
+    void backendRunResultReporterReportsTimeoutAndCancellationStatus()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString timeoutPath = directory.filePath("timeout-result.json");
+        const QString cancelPath = directory.filePath("cancel-result.json");
+        QVERIFY(writeFile(timeoutPath, validBackendRunResultJson()));
+        QVERIFY(writeFile(cancelPath, validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        BackendRunResultReporter reporter;
+
+        const ExternalProcessResult timedOut = timedOutProcessResult();
+        const BackendRunResultLoadResult timeoutLoad =
+            loader.load(timeoutPath, timedOut);
+        const BackendRunResultReport timeoutReport =
+            reporter.buildReport("basic_pitch",
+                                 timedOut,
+                                 timeoutPath,
+                                 timeoutLoad);
+
+        QVERIFY(!timeoutReport.isValid());
+        QVERIFY(timeoutReport.processTimedOut);
+        QVERIFY(!timeoutReport.processCancelled);
+        QVERIFY(timeoutReport.errors.contains("process_timed_out"));
+
+        const ExternalProcessResult cancelled = cancelledProcessResult();
+        const BackendRunResultLoadResult cancelLoad =
+            loader.load(cancelPath, cancelled);
+        const BackendRunResultReport cancelReport =
+            reporter.buildReport("basic_pitch",
+                                 cancelled,
+                                 cancelPath,
+                                 cancelLoad);
+
+        QVERIFY(!cancelReport.isValid());
+        QVERIFY(cancelReport.processCancelled);
+        QVERIFY(!cancelReport.processTimedOut);
+        QVERIFY(cancelReport.errors.contains("process_cancelled"));
+    }
+
+    void backendRunResultReporterReportsInvalidUnifiedResult()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("invalid-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray("{}")));
+
+        const ExternalProcessResult process = successfulProcessResult();
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, process);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch", process, resultPath, loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processSucceeded);
+        QVERIFY(report.outputFilePresent);
+        QVERIFY(report.outputFileInvalid);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(report.errors.contains("missing_result_id"));
+        QVERIFY(report.errors.contains("invalid_status"));
+    }
+
+    void backendRunResultReporterNeverCreatesFakeResultFiles()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("not-created.json");
+        QVERIFY(!QFile::exists(resultPath));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, successfulProcessResult());
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch",
+                                 successfulProcessResult(),
+                                 resultPath,
+                                 loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(!QFile::exists(resultPath));
+        QVERIFY(report.errors.contains("output_file_missing"));
+    }
+
+    void backendRunResultReporterNeverImportsIntoTonyLayers()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, successfulProcessResult());
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch",
+                                 successfulProcessResult(),
+                                 resultPath,
+                                 loaded);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.loadResult.importedIntoTonyLayers);
+    }
+
+    void backendRunResultReporterNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(resultPath, successfulProcessResult());
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 successfulProcessResult(),
+                                 resultPath,
+                                 loaded);
+
+        QVERIFY(report.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
     void externalProcessRunnerRunsSuccessfulCommand()
     {
         ExternalProcessRunner runner;
@@ -5942,6 +6178,66 @@ private:
         report.backendId = backendId;
         report.status = status;
         return report;
+    }
+
+    static ExternalProcessResult successfulProcessResult()
+    {
+        ExternalProcessResult result;
+        result.state = AnalysisRunState::Completed;
+        result.started = true;
+        result.exitCode = 0;
+        result.exitStatus = QProcess::NormalExit;
+        result.error = {
+            BackendErrorCode::None,
+            QString(),
+            false
+        };
+        return result;
+    }
+
+    static ExternalProcessResult failedProcessResult()
+    {
+        ExternalProcessResult result;
+        result.state = AnalysisRunState::Failed;
+        result.started = true;
+        result.exitCode = 7;
+        result.exitStatus = QProcess::NormalExit;
+        result.error = {
+            BackendErrorCode::ExecutionFailed,
+            "External backend process exited with code 7.",
+            false
+        };
+        return result;
+    }
+
+    static ExternalProcessResult timedOutProcessResult()
+    {
+        ExternalProcessResult result;
+        result.state = AnalysisRunState::Failed;
+        result.started = true;
+        result.timedOut = true;
+        result.exitCode = -1;
+        result.error = {
+            BackendErrorCode::TimedOut,
+            "External backend process timed out.",
+            true
+        };
+        return result;
+    }
+
+    static ExternalProcessResult cancelledProcessResult()
+    {
+        ExternalProcessResult result;
+        result.state = AnalysisRunState::Cancelled;
+        result.started = true;
+        result.cancelled = true;
+        result.exitCode = -1;
+        result.error = {
+            BackendErrorCode::Cancelled,
+            "External backend process was cancelled.",
+            true
+        };
+        return result;
     }
 
     static BackendRunRequestBuildResult validBackendRunRequest(
