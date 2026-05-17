@@ -51,6 +51,7 @@
 #include "data/model/EventCommands.h"
 #include "data/model/NoteModel.h"
 #include "framework/Document.h"
+#include "framework/SVFileReader.h"
 #include "layer/FlexiNoteLayer.h"
 #include "layer/NoteLayer.h"
 #include "view/Pane.h"
@@ -66,13 +67,66 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QObject>
+#include <QSize>
 #include <QTemporaryDir>
+#include <QTextStream>
 #include <QtTest>
 
 #include <future>
+#include <memory>
 #include <set>
+#include <vector>
 
 using namespace Tony::Backend;
+
+namespace {
+
+class TestSVFileReaderPaneCallback : public sv::SVFileReaderPaneCallback
+{
+public:
+    std::vector<std::unique_ptr<sv::Pane>> panes;
+    std::vector<QPair<sv::sv_frame_t, sv::sv_frame_t>> selections;
+
+    sv::Pane *addPane() override
+    {
+        panes.push_back(std::make_unique<sv::Pane>());
+        return panes.back().get();
+    }
+
+    void setWindowSize(int width, int height) override
+    {
+        windowSize = QSize(width, height);
+    }
+
+    void addSelection(sv::sv_frame_t start, sv::sv_frame_t end) override
+    {
+        selections.push_back(qMakePair(start, end));
+    }
+
+    QSize windowSize;
+};
+
+QString serializeDocumentPaneSessionXml(const sv::Document &document,
+                                        const sv::Pane &pane)
+{
+    QString xml;
+    QTextStream stream(&xml);
+
+    stream << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    stream << "<!DOCTYPE sonic-visualiser>\n";
+    stream << "<sv>\n";
+    document.toXml(stream, "", "");
+    stream << "<display>\n";
+    stream << "  <window width=\"800\" height=\"600\"/>\n";
+    pane.toXml(stream, "  ");
+    stream << "</display>\n";
+    stream << "<selections/>\n";
+    stream << "</sv>\n";
+
+    return xml;
+}
+
+}
 
 class TestBackendTypes : public QObject
 {
@@ -6248,6 +6302,97 @@ private slots:
         QVERIFY(!imported.insertedIntoView);
         QVERIFY(reportHasIssue(imported.report,
                                "missing_view_for_layer_insertion"));
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
+    void tonyLayerImporterImportedNoteLayerSurvivesSessionSaveLoad()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Pane pane;
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.view = &pane;
+        options.insertLayerIntoView = true;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(imported.insertedIntoView);
+        QVERIFY(imported.layer);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(imported.layer) != nullptr);
+
+        const QString sessionXml =
+            serializeDocumentPaneSessionXml(document, pane);
+        QVERIFY(!sessionXml.isEmpty());
+        QVERIFY(sessionXml.contains("<sv>"));
+        QVERIFY(sessionXml.contains("<data>"));
+        QVERIFY(sessionXml.contains("<display>"));
+        QVERIFY(sessionXml.contains("type=\"sparse\""));
+        QVERIFY(sessionXml.contains("dimensions=\"3\""));
+        QVERIFY(sessionXml.contains("subtype=\"note\""));
+        QVERIFY(sessionXml.contains("type=\"notes\""));
+        QVERIFY(sessionXml.contains("dev-mock-note-a"));
+        QVERIFY(sessionXml.contains("dev-mock-note-b"));
+
+        TestSVFileReaderPaneCallback callback;
+        sv::Document reloadedDocument;
+        sv::SVFileReader reader(&reloadedDocument, callback,
+                                "backend-import-save-load-test");
+        reader.parseXml(sessionXml);
+
+        QVERIFY2(reader.isOK(), qPrintable(reader.getErrorString()));
+        QCOMPARE(int(callback.panes.size()), 1);
+
+        sv::Pane *reloadedPane = callback.panes.front().get();
+        QVERIFY(reloadedPane);
+        QCOMPARE(reloadedPane->getLayerCount(), 1);
+
+        sv::Layer *reloadedLayer = reloadedPane->getLayer(0);
+        QVERIFY(reloadedLayer);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(reloadedLayer) != nullptr);
+        QVERIFY(dynamic_cast<sv::FlexiNoteLayer *>(reloadedLayer) == nullptr);
+        QVERIFY(reloadedLayer->isLayerEditable());
+
+        const std::set<sv::Layer *> reloadedLayers =
+            reloadedDocument.getLayers();
+        QVERIFY(reloadedLayers.find(reloadedLayer) != reloadedLayers.end());
+
+        auto reloadedModel =
+            sv::ModelById::getAs<sv::NoteModel>(reloadedLayer->getModel());
+        QVERIFY(reloadedModel);
+        QCOMPARE(reloadedModel->getSubtype(), sv::NoteModel::NORMAL_NOTE);
+        QCOMPARE(reloadedModel->getScaleUnits(), QString("MIDI Pitch"));
+        QVERIFY(reloadedModel->isEditable());
+        QCOMPARE(reloadedModel->getEventCount(), 2);
+
+        const sv::EventVector events = reloadedModel->getAllEvents();
+        QCOMPARE(int(events.size()), 2);
+        QCOMPARE(events[0].getFrame(), sv::sv_frame_t(11025));
+        QCOMPARE(events[0].getDuration(), sv::sv_frame_t(22050));
+        QVERIFY(qAbs(events[0].getValue() - 60.0f) < 0.001f);
+        QVERIFY(qAbs(events[0].getLevel() - (100.0f / 127.0f)) < 0.001f);
+        QCOMPARE(events[0].getLabel(), QString("dev-mock-note-a"));
+
+        QCOMPARE(events[1].getFrame(), sv::sv_frame_t(44100));
+        QCOMPARE(events[1].getDuration(), sv::sv_frame_t(11025));
+        QVERIFY(qAbs(events[1].getValue() - 64.0f) < 0.001f);
+        QCOMPARE(events[1].getLabel(), QString("dev-mock-note-b"));
+
+        BackendManifest manifest = devMockBackendManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
 
         sv::CommandHistory::getInstance()->clear();
     }
