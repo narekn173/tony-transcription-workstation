@@ -26,6 +26,7 @@
 #include "../BackendManifestSchemaValidator.h"
 #include "../BackendRegistry.h"
 #include "../BackendRequiredFileProbe.h"
+#include "../BackendRunOrchestrator.h"
 #include "../BackendRunRequestFileWriter.h"
 #include "../BackendRunRequestBuilder.h"
 #include "../BackendRunRequestPreparer.h"
@@ -4560,6 +4561,342 @@ private slots:
             preparer.prepare(manifest, workspace, parameters);
 
         QVERIFY(prepared.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void backendRunOrchestratorPrepareOnlyCreatesRequestWithoutRunning()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath = directory.filePath("orchestrator.marker");
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath = directory.filePath("request.json");
+        parameters.additionalArguments
+            << "--external-process-helper" << "stdout" << markerPath;
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.requestPrepared);
+        QVERIFY(!result.processRunAttempted);
+        QVERIFY(!result.processResult.has_value());
+        QVERIFY(QFile::exists(parameters.requestJsonFilePath));
+        QVERIFY(!QFile::exists(markerPath));
+        QVERIFY(result.debugSummaryString().contains("prepared=true"));
+    }
+
+    void backendRunOrchestratorExplicitRunUsesSafeLocalCommand()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.additionalArguments
+            << "--external-process-helper" << "stdout"
+            << "orchestrator_stdout";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.run(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.requestPrepared);
+        QVERIFY(result.processRunAttempted);
+        QVERIFY(result.processResult.has_value());
+        QVERIFY(result.processResult->succeeded());
+        QVERIFY(result.processResult->standardOutput
+                    .contains("orchestrator_stdout"));
+        QVERIFY(result.processRequest.arguments.contains("--request"));
+    }
+
+    void backendRunOrchestratorMissingParentRequiresExplicitPrepare()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult missingParent =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(!missingParent.isValid());
+        QVERIFY(reportHasIssue(missingParent.report,
+                               "parent_directory_missing"));
+        QVERIFY(!QFile::exists(parameters.requestJsonFilePath));
+
+        parameters.prepareWorkspace = true;
+        const BackendRunOrchestrationResult prepared =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(prepared.isValid());
+        QVERIFY(prepared.workspacePrepared);
+        QVERIFY(prepared.requestPrepared);
+        QVERIFY(QFile::exists(parameters.requestJsonFilePath));
+    }
+
+    void backendRunOrchestratorPreservesSelectedRegionInRequestJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+        const QString requestPath = directory.filePath("request.json");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath = requestPath;
+        parameters.selectedRegion = AnalysisRegion { 2.5, 4.75 };
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+
+        const QJsonDocument document =
+            QJsonDocument::fromJson(readTextFile(requestPath).toUtf8());
+        QVERIFY(document.isObject());
+        const QJsonObject region =
+            document.object().value("selected_region").toObject();
+        QCOMPARE(region.value("start_sec").toDouble(), 2.5);
+        QCOMPARE(region.value("end_sec").toDouble(), 4.75);
+    }
+
+    void backendRunOrchestratorPreservesProcessOutputEventsAndLog()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.writeProcessLog = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.additionalArguments
+            << "--external-process-helper" << "stdout-stderr"
+            << "orchestrator_stdout" << "orchestrator_stderr";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.run(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.processResult.has_value());
+        QVERIFY(result.processResult->standardOutput
+                    .contains("orchestrator_stdout"));
+        QVERIFY(result.processResult->standardError
+                    .contains("orchestrator_stderr"));
+        QVERIFY(!result.processEvents.isEmpty());
+        bool sawStdoutEvent = false;
+        bool sawStderrEvent = false;
+        for (const auto &event: result.processEvents) {
+            sawStdoutEvent = sawStdoutEvent ||
+                (event.type == ExternalProcessEventType::StdoutChunk &&
+                 event.data.contains("orchestrator_stdout"));
+            sawStderrEvent = sawStderrEvent ||
+                (event.type == ExternalProcessEventType::StderrChunk &&
+                 event.data.contains("orchestrator_stderr"));
+        }
+        QVERIFY(sawStdoutEvent);
+        QVERIFY(sawStderrEvent);
+        QVERIFY(result.processLogWritten);
+        QVERIFY(QFile::exists(workspace.logFilePath));
+
+        const QString logContents = readTextFile(workspace.logFilePath);
+        QVERIFY(logContents.contains("orchestrator_stdout"));
+        QVERIFY(logContents.contains("orchestrator_stderr"));
+    }
+
+    void backendRunOrchestratorReportsNonZeroExit()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.additionalArguments
+            << "--external-process-helper" << "failure";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.run(manifest, workspace, parameters);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.processRunAttempted);
+        QVERIFY(result.processResult.has_value());
+        QCOMPARE(result.processResult->exitCode, 7);
+        QVERIFY(result.processResult->error.code ==
+                BackendErrorCode::ExecutionFailed);
+        QVERIFY(reportHasIssue(result.report, "external_process_failed"));
+    }
+
+    void backendRunOrchestratorNeverCreatesFakeAnalysisResults()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.additionalArguments
+            << "--external-process-helper" << "success";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.run(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.processResult.has_value());
+        QVERIFY(result.processResult->succeeded());
+        QVERIFY(!result.resultJsonExists);
+        QVERIFY(!QFile::exists(workspace.unifiedResultJsonPath));
+    }
+
+    void backendRunOrchestratorNeverImportsIntoTonyLayers()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath = directory.filePath("request.json");
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+        QVERIFY(!result.importedIntoTonyLayers);
+    }
+
+    void backendRunOrchestratorNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+        manifest.status = BackendStatus::NotConfigured;
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath = directory.filePath("request.json");
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult result =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
         QVERIFY(manifest.status != BackendStatus::Ready);
 

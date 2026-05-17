@@ -25,12 +25,19 @@ namespace {
 
 int runExternalProcessHelper(int argc, char *argv[])
 {
-    if (argc < 3 ||
-        QString::fromLocal8Bit(argv[1]) != "--external-process-helper") {
+    int helperIndex = -1;
+    for (int i = 1; i < argc; ++i) {
+        if (QString::fromLocal8Bit(argv[i]) == "--external-process-helper") {
+            helperIndex = i;
+            break;
+        }
+    }
+
+    if (helperIndex < 0 || helperIndex + 1 >= argc) {
         return -1;
     }
 
-    const QString command = QString::fromLocal8Bit(argv[2]);
+    const QString command = QString::fromLocal8Bit(argv[helperIndex + 1]);
 
     if (command == "success") {
         return 0;
@@ -40,19 +47,38 @@ int runExternalProcessHelper(int argc, char *argv[])
     }
     if (command == "stdout") {
         const QString text =
-            argc >= 4 ? QString::fromLocal8Bit(argv[3]) : QString("stdout");
+            helperIndex + 2 < argc ?
+                QString::fromLocal8Bit(argv[helperIndex + 2]) :
+                QString("stdout");
         std::cout << text.toStdString() << std::endl;
         return 0;
     }
     if (command == "stderr") {
         const QString text =
-            argc >= 4 ? QString::fromLocal8Bit(argv[3]) : QString("stderr");
+            helperIndex + 2 < argc ?
+                QString::fromLocal8Bit(argv[helperIndex + 2]) :
+                QString("stderr");
         std::cerr << text.toStdString() << std::endl;
+        return 0;
+    }
+    if (command == "stdout-stderr") {
+        const QString stdoutText =
+            helperIndex + 2 < argc ?
+                QString::fromLocal8Bit(argv[helperIndex + 2]) :
+                QString("stdout");
+        const QString stderrText =
+            helperIndex + 3 < argc ?
+                QString::fromLocal8Bit(argv[helperIndex + 3]) :
+                QString("stderr");
+        std::cout << stdoutText.toStdString() << std::endl;
+        std::cerr << stderrText.toStdString() << std::endl;
         return 0;
     }
     if (command == "sleep") {
         const unsigned long msec =
-            argc >= 4 ? QString::fromLocal8Bit(argv[3]).toULong() : 1000UL;
+            helperIndex + 2 < argc ?
+                QString::fromLocal8Bit(argv[helperIndex + 2]).toULong() :
+                1000UL;
         QThread::msleep(msec);
         return 0;
     }
