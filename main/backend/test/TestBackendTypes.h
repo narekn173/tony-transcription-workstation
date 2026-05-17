@@ -51,6 +51,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -5808,6 +5809,277 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void devMockBackendEndToEndProofCreatesLoadsAndReportsResult()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = devMockBackendManifest();
+        BackendSettings settings;
+        settings.backendId = manifest.id();
+        settings.enabled = true;
+        settings.environmentVariables.insert("TONY_DEV_MOCK_TEST", "1");
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "dev_mock_run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath =
+            QDir(directory.path()).filePath("dev-mock-input.wav");
+        parameters.selectedRegion = AnalysisRegion{ 0.5, 1.25 };
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.prepareWorkspace = true;
+        parameters.additionalArguments << "--dev-mock-backend";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.run(manifest, settings, workspace, parameters);
+
+        QVERIFY(runResult.isValid());
+        QVERIFY(runResult.workspacePrepared);
+        QVERIFY(runResult.requestPrepared);
+        QVERIFY(runResult.processRunAttempted);
+        QVERIFY(runResult.processResult.has_value());
+        QVERIFY(runResult.processResult->succeeded());
+        QVERIFY(runResult.processResult->standardOutput.contains(
+            "wrote test-only result"));
+        QVERIFY(QFile::exists(parameters.requestJsonFilePath));
+        QVERIFY(QFile::exists(parameters.expectedUnifiedResultJsonPath));
+        QVERIFY(QFileInfo(parameters.expectedUnifiedResultJsonPath).size() > 0);
+        QVERIFY(runResult.resultJsonExists);
+
+        const QString requestText = readTextFile(parameters.requestJsonFilePath);
+        const QJsonDocument requestDocument =
+            QJsonDocument::fromJson(requestText.toUtf8());
+        QVERIFY(requestDocument.isObject());
+        const QJsonObject requestObject = requestDocument.object();
+        QCOMPARE(requestObject.value("backend_id").toString(), manifest.id());
+        QCOMPARE(requestObject.value("selected_region")
+                     .toObject()
+                     .value("start_sec")
+                     .toDouble(),
+                 0.5);
+        QVERIFY(requestObject.value("environment_overrides")
+                    .toObject()
+                    .contains("TONY_DEV_MOCK_TEST"));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult handoffResult =
+            handoff.inspect(parameters.expectedUnifiedResultJsonPath,
+                            runResult.processResult);
+        QVERIFY(handoffResult.isValid());
+        QVERIFY(handoffResult.exists);
+        QVERIFY(handoffResult.readable);
+        QVERIFY(handoffResult.nonEmpty);
+        QVERIFY(!handoffResult.importedIntoTonyLayers);
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(runResult);
+        QVERIFY(loaded.isValid());
+        QVERIFY(loaded.handoffAccepted);
+        QVERIFY(loaded.fileLoaded);
+        QVERIFY(loaded.loadedResult.has_value());
+        QVERIFY(!loaded.importedIntoTonyLayers);
+        QCOMPARE(loaded.loadedResult->engine.engineId, manifest.id());
+        QVERIFY(loaded.loadedResult->engine.runtimeType ==
+                BackendRuntimeType::DevelopmentTest);
+        QVERIFY(loaded.loadedResult->hasNotes());
+        QCOMPARE(loaded.loadedResult->notes.size(), 1);
+        QCOMPARE(loaded.loadedResult->notes.first().label.value_or(QString()),
+                 QString("dev-mock-test-only"));
+        QVERIFY(loaded.loadedResult->provenance.value("test_only").toBool());
+        QVERIFY(loaded.loadedResult->provenance.value("dev_mock").toBool());
+        QVERIFY(!loaded.loadedResult->provenance
+                    .value("production_transcription")
+                    .toBool());
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 parameters.expectedUnifiedResultJsonPath,
+                                 loaded);
+        QVERIFY(report.isValid());
+        QVERIFY(report.processResultAvailable);
+        QVERIFY(report.processSucceeded);
+        QVERIFY(report.outputFilePresent);
+        QVERIFY(report.unifiedResultLoaded);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(report.errors.isEmpty());
+
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend(manifest.id()));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void devMockBackendMissingRequestFileFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        ExternalProcessRequest request;
+        request.executablePath = QCoreApplication::applicationFilePath();
+        request.arguments << "--dev-mock-backend"
+                          << "--request"
+                          << directory.filePath("missing-request.json");
+        request.timeoutMsec = 3000;
+
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(!result.succeeded());
+        QVERIFY(result.started);
+        QVERIFY(!result.startFailed);
+        QCOMPARE(result.exitCode, 41);
+        QVERIFY(result.standardError.contains("request file is missing"));
+    }
+
+    void devMockBackendInvalidRequestFileFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString requestPath = directory.filePath("invalid-request.json");
+        QVERIFY(writeFile(requestPath, "{ invalid request json\n"));
+
+        ExternalProcessRequest request;
+        request.executablePath = QCoreApplication::applicationFilePath();
+        request.arguments << "--dev-mock-backend"
+                          << "--request"
+                          << requestPath;
+        request.timeoutMsec = 3000;
+
+        ExternalProcessRunner runner;
+        const ExternalProcessResult result = runner.run(request);
+
+        QVERIFY(!result.succeeded());
+        QCOMPARE(result.exitCode, 42);
+        QVERIFY(result.standardError.contains("invalid request JSON"));
+    }
+
+    void devMockBackendNonZeroExitIsReportedThroughPipeline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = devMockBackendManifest();
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "dev_mock_run_nonzero");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath =
+            QDir(directory.path()).filePath("dev-mock-input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.prepareWorkspace = true;
+        parameters.additionalArguments << "--dev-mock-backend"
+                                       << "--dev-mock-mode"
+                                       << "nonzero";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.run(manifest, workspace, parameters);
+
+        QVERIFY(!runResult.isValid());
+        QVERIFY(runResult.processRunAttempted);
+        QVERIFY(runResult.processResult.has_value());
+        QVERIFY(!runResult.processResult->succeeded());
+        QCOMPARE(runResult.processResult->exitCode, 45);
+        QVERIFY(!QFile::exists(parameters.expectedUnifiedResultJsonPath));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(runResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 parameters.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processFailed);
+        QVERIFY(report.outputFileMissing);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(report.errors.contains("process_failed"));
+        QVERIFY(report.errors.contains("output_file_missing"));
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+    }
+
+    void devMockBackendMissingResultIsReportedThroughPipeline()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = devMockBackendManifest();
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "dev_mock_run_missing_result");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath =
+            QDir(directory.path()).filePath("dev-mock-input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.prepareWorkspace = true;
+        parameters.additionalArguments << "--dev-mock-backend"
+                                       << "--dev-mock-mode"
+                                       << "missing-result";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.run(manifest, workspace, parameters);
+
+        QVERIFY(runResult.isValid());
+        QVERIFY(runResult.processRunAttempted);
+        QVERIFY(runResult.processResult.has_value());
+        QVERIFY(runResult.processResult->succeeded());
+        QVERIFY(QFile::exists(parameters.requestJsonFilePath));
+        QVERIFY(!QFile::exists(parameters.expectedUnifiedResultJsonPath));
+        QVERIFY(!runResult.resultJsonExists);
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(runResult);
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!loaded.fileLoaded);
+        QVERIFY(!loaded.loadedResult.has_value());
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 parameters.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processSucceeded);
+        QVERIFY(report.outputFileMissing);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(report.errors.contains("output_file_missing"));
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+    }
+
     void externalProcessRunnerRunsSuccessfulCommand()
     {
         ExternalProcessRunner runner;
@@ -6611,6 +6883,32 @@ private:
 
         BackendRunRequestBuilder builder;
         return builder.build(manifest, settings, workspace, parameters);
+    }
+
+    static BackendManifest devMockBackendManifest()
+    {
+        BackendManifest manifest;
+        manifest.contractVersion = "0.1";
+        manifest.backendId = "dev_mock_backend";
+        manifest.engineId = manifest.backendId;
+        manifest.displayName = "Dev Mock Backend (test only)";
+        manifest.description =
+            "Test-only backend helper for backend pipeline proof.";
+        manifest.backendType = BackendRuntimeType::DevelopmentTest;
+        manifest.runtimeType = BackendRuntimeType::DevelopmentTest;
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+        manifest.version = "0.1.0-test";
+        manifest.engineVersion = "0.1.0-test";
+        manifest.adapterVersion = "0.1.0-test";
+        manifest.status = BackendStatus::NotConfigured;
+        manifest.capabilities.supportsFullFile = true;
+        manifest.capabilities.supportsSelectedRegion = true;
+        manifest.capabilities.outputsNotes = true;
+        manifest.capabilities.supportsCpu = true;
+        manifest.supportedInputFormats << "wav";
+        manifest.supportedOutputTypes << "notes";
+        manifest.primaryOutputs << "notes";
+        return manifest;
     }
 
     static BackendManifest parsedBasicPitchManifest()
