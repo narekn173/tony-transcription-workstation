@@ -61,6 +61,12 @@ public:
         const QString &expectedUnifiedResultJsonPath,
         const BackendRunResultLoadResult &loadResult) const;
 
+    BackendRunResultReport buildReport(
+        const BackendId &backendId,
+        const BackendRunOrchestrationResult &runResult,
+        const QString &expectedUnifiedResultJsonPath,
+        const BackendRunResultLoadResult &loadResult) const;
+
 private:
     static void appendIssues(ValidationReport &target,
                              const ValidationReport &source);

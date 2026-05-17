@@ -138,11 +138,34 @@ BackendRunResultReporter::buildReport(
     return result;
 }
 
+BackendRunResultReport
+BackendRunResultReporter::buildReport(
+    const BackendId &backendId,
+    const BackendRunOrchestrationResult &runResult,
+    const QString &expectedUnifiedResultJsonPath,
+    const BackendRunResultLoadResult &loadResult) const
+{
+    const QString outputPath =
+        expectedUnifiedResultJsonPath.trimmed().isEmpty() ?
+            runResult.expectedUnifiedResultJsonPath :
+            expectedUnifiedResultJsonPath;
+
+    BackendRunResultReport result =
+        buildReport(backendId, runResult.processResult, outputPath, loadResult);
+
+    appendIssues(result.report, runResult.report);
+    populateIssueLists(result);
+    return result;
+}
+
 void
 BackendRunResultReporter::appendIssues(ValidationReport &target,
                                        const ValidationReport &source)
 {
     for (const auto &issue: source.issues) {
+        if (hasIssue(target, issue.code)) {
+            continue;
+        }
         target.addIssue(issue.severity, issue.code, issue.message);
     }
 }

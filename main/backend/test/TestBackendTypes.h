@@ -5461,6 +5461,353 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void backendRunResultReporterConnectsPrepareOnlyOrchestratorResult()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath = directory.filePath("request.json");
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(runResult.isValid());
+        QVERIFY(runResult.requestPrepared);
+        QVERIFY(!runResult.processRunAttempted);
+        QVERIFY(!report.processResultAvailable);
+        QVERIFY(!report.processSucceeded);
+        QVERIFY(report.outputFileMissing);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(report.errors.contains("output_file_missing"));
+    }
+
+    void backendRunResultReporterConnectsExplicitRunWithLoadedResult()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.additionalArguments
+            << "--external-process-helper" << "success";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.run(manifest, workspace, parameters);
+        QVERIFY(runResult.isValid());
+        QVERIFY(runResult.processResult.has_value());
+        QVERIFY(runResult.processResult->succeeded());
+
+        QVERIFY(writeFile(runResult.expectedUnifiedResultJsonPath,
+                          validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.processResultAvailable);
+        QVERIFY(report.processSucceeded);
+        QVERIFY(report.outputFilePresent);
+        QVERIFY(!report.outputFileMissing);
+        QVERIFY(report.unifiedResultLoaded);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(report.errors.isEmpty());
+    }
+
+    void backendRunResultReporterConnectsExplicitRunWithMissingResult()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.additionalArguments
+            << "--external-process-helper" << "success";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.run(manifest, workspace, parameters);
+        QVERIFY(runResult.isValid());
+        QVERIFY(runResult.processResult.has_value());
+        QVERIFY(runResult.processResult->succeeded());
+        QVERIFY(!QFile::exists(runResult.expectedUnifiedResultJsonPath));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processSucceeded);
+        QVERIFY(report.outputFileMissing);
+        QVERIFY(!report.unifiedResultLoaded);
+        QVERIFY(report.errors.contains("output_file_missing"));
+    }
+
+    void backendRunResultReporterConnectsNonZeroOrchestratorExit()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.executablePath = QCoreApplication::applicationFilePath();
+
+        const BackendRunWorkspace workspace =
+            BackendRunWorkspace::fromParts(directory.path(),
+                                           manifest.id(),
+                                           "run_001");
+
+        BackendRunOrchestrationParameters parameters;
+        parameters.prepareWorkspace = true;
+        parameters.inputAudioFilePath = directory.filePath("input.wav");
+        parameters.expectedUnifiedResultJsonPath =
+            workspace.unifiedResultJsonPath;
+        parameters.requestJsonFilePath =
+            QDir(workspace.runDirectoryPath).filePath("request.json");
+        parameters.timeoutMsec = 3000;
+        parameters.additionalArguments
+            << "--external-process-helper" << "failure";
+
+        BackendRunOrchestrator orchestrator;
+        const BackendRunOrchestrationResult runResult =
+            orchestrator.run(manifest, workspace, parameters);
+        QVERIFY(!runResult.isValid());
+        QVERIFY(runResult.processResult.has_value());
+        QCOMPARE(runResult.processResult->exitCode, 7);
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.processResultAvailable);
+        QVERIFY(report.processFailed);
+        QVERIFY(!report.processTimedOut);
+        QVERIFY(!report.processCancelled);
+        QVERIFY(report.errors.contains("process_failed"));
+        QVERIFY(report.errors.contains("external_process_failed"));
+    }
+
+    void backendRunResultReporterKeepsTimeoutAndCancelDistinctFromOrchestrator()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString timeoutPath = directory.filePath("timeout-result.json");
+        const QString cancelPath = directory.filePath("cancel-result.json");
+        QVERIFY(writeFile(timeoutPath, validBackendRunResultJson()));
+        QVERIFY(writeFile(cancelPath, validBackendRunResultJson()));
+
+        BackendRunOrchestrationResult timeoutRun;
+        timeoutRun.expectedUnifiedResultJsonPath = timeoutPath;
+        timeoutRun.processRunAttempted = true;
+        timeoutRun.processResult = timedOutProcessResult();
+
+        BackendRunOrchestrationResult cancelRun;
+        cancelRun.expectedUnifiedResultJsonPath = cancelPath;
+        cancelRun.processRunAttempted = true;
+        cancelRun.processResult = cancelledProcessResult();
+
+        BackendRunResultLoader loader;
+        BackendRunResultReporter reporter;
+
+        const BackendRunResultLoadResult timeoutLoad =
+            loader.load(timeoutPath, timeoutRun.processResult);
+        const BackendRunResultReport timeoutReport =
+            reporter.buildReport("basic_pitch",
+                                 timeoutRun,
+                                 timeoutPath,
+                                 timeoutLoad);
+
+        QVERIFY(!timeoutReport.isValid());
+        QVERIFY(timeoutReport.processTimedOut);
+        QVERIFY(!timeoutReport.processCancelled);
+        QVERIFY(timeoutReport.errors.contains("process_timed_out"));
+
+        const BackendRunResultLoadResult cancelLoad =
+            loader.load(cancelPath, cancelRun.processResult);
+        const BackendRunResultReport cancelReport =
+            reporter.buildReport("basic_pitch",
+                                 cancelRun,
+                                 cancelPath,
+                                 cancelLoad);
+
+        QVERIFY(!cancelReport.isValid());
+        QVERIFY(cancelReport.processCancelled);
+        QVERIFY(!cancelReport.processTimedOut);
+        QVERIFY(cancelReport.errors.contains("process_cancelled"));
+    }
+
+    void backendRunResultReporterOrchestratorBridgeNeverCreatesResultFiles()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendRunOrchestrationResult runResult;
+        runResult.expectedUnifiedResultJsonPath =
+            directory.filePath("not-created-result.json");
+        QVERIFY(!QFile::exists(runResult.expectedUnifiedResultJsonPath));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch",
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.outputFileMissing);
+        QVERIFY(!QFile::exists(runResult.expectedUnifiedResultJsonPath));
+    }
+
+    void backendRunResultReporterOrchestratorBridgeNeverImportsIntoTonyLayers()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendRunOrchestrationResult runResult;
+        runResult.expectedUnifiedResultJsonPath =
+            directory.filePath("valid-result.json");
+        runResult.processResult = successfulProcessResult();
+        QVERIFY(writeFile(runResult.expectedUnifiedResultJsonPath,
+                          validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport("basic_pitch",
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.loadResult.importedIntoTonyLayers);
+    }
+
+    void backendRunResultReporterOrchestratorBridgeNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        BackendRunOrchestrationResult runResult;
+        runResult.expectedUnifiedResultJsonPath =
+            directory.filePath("valid-result.json");
+        runResult.processResult = successfulProcessResult();
+        QVERIFY(writeFile(runResult.expectedUnifiedResultJsonPath,
+                          validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded =
+            loader.load(runResult.expectedUnifiedResultJsonPath,
+                        runResult.processResult);
+
+        BackendRunResultReporter reporter;
+        const BackendRunResultReport report =
+            reporter.buildReport(manifest.id(),
+                                 runResult,
+                                 runResult.expectedUnifiedResultJsonPath,
+                                 loaded);
+
+        QVERIFY(report.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
     void externalProcessRunnerRunsSuccessfulCommand()
     {
         ExternalProcessRunner runner;
