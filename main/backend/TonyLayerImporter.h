@@ -24,6 +24,7 @@
 namespace sv {
 class Document;
 class Layer;
+class View;
 }
 
 namespace Tony {
@@ -36,6 +37,8 @@ struct TonyLayerImportOptions
     bool useFlexiNoteLayer = false;
     sv::Document *document = nullptr;
     bool createDocumentLayer = false;
+    sv::View *view = nullptr;
+    bool insertLayerIntoView = false;
 };
 
 struct TonyLayerImportResult
@@ -46,12 +49,25 @@ struct TonyLayerImportResult
     bool modelRegistered = false;
     bool documentLayerCreated = false;
     bool insertedIntoView = false;
+    bool commandHistoryEditProof = false;
     bool sourceMarkedDevMock = false;
     QString createdModelType;
     QString createdLayerType;
     int noteCount = 0;
     sv::ModelId modelId;
     sv::Layer *layer = nullptr;
+    ValidationReport report;
+    BackendError error;
+
+    bool isValid() const;
+    QString debugSummaryString() const;
+};
+
+struct TonyLayerCommandHistoryEditProofResult
+{
+    bool succeeded = false;
+    bool commandHistoryEditProof = false;
+    int noteCount = 0;
     ValidationReport report;
     BackendError error;
 
@@ -66,6 +82,11 @@ public:
     TonyLayerImportResult importResult(
         const UnifiedResult &result,
         const TonyLayerImportOptions &options) const;
+
+    TonyLayerCommandHistoryEditProofResult proveCommandHistoryEdit(
+        const TonyLayerImportResult &importResult,
+        int noteIndex = 0,
+        float valueDelta = 1.0f) const;
 };
 
 }

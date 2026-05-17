@@ -48,10 +48,13 @@
 #include "../ExternalProcessRunner.h"
 #include "../TonyLayerImporter.h"
 
+#include "data/model/EventCommands.h"
 #include "data/model/NoteModel.h"
 #include "framework/Document.h"
 #include "layer/FlexiNoteLayer.h"
 #include "layer/NoteLayer.h"
+#include "view/Pane.h"
+#include "widgets/CommandHistory.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -6147,6 +6150,106 @@ private slots:
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
         QVERIFY(manifest.status != BackendStatus::Ready);
         QVERIFY(manifest.status != BackendStatus::Completed);
+    }
+
+    void tonyLayerImporterInsertsRealLayerIntoPaneAndCommandHistoryEditWorks()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Document document;
+        sv::Pane pane;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.view = &pane;
+        options.insertLayerIntoView = true;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(imported.documentLayerCreated);
+        QVERIFY(imported.insertedIntoView);
+        QVERIFY(!imported.commandHistoryEditProof);
+        QVERIFY(imported.layer);
+        QCOMPARE(pane.getLayerCount(), 1);
+        QCOMPARE(pane.getLayer(0), imported.layer);
+        QVERIFY(imported.layer->isLayerEditable());
+
+        auto model = sv::ModelById::getAs<sv::NoteModel>(imported.modelId);
+        QVERIFY(model);
+        const sv::EventVector originalEvents = model->getAllEvents();
+        QCOMPARE(int(originalEvents.size()), 2);
+        QCOMPARE(originalEvents[0].getFrame(), sv::sv_frame_t(11025));
+        QCOMPARE(originalEvents[0].getDuration(), sv::sv_frame_t(22050));
+        QVERIFY(qAbs(originalEvents[0].getValue() - 60.0f) < 0.001f);
+
+        const TonyLayerCommandHistoryEditProofResult editProof =
+            importer.proveCommandHistoryEdit(imported, 0, 2.0f);
+
+        QVERIFY(editProof.isValid());
+        QVERIFY(editProof.commandHistoryEditProof);
+        QCOMPARE(editProof.noteCount, 2);
+
+        const sv::EventVector restoredEvents = model->getAllEvents();
+        QCOMPARE(int(restoredEvents.size()), 2);
+        QCOMPARE(restoredEvents[0].getFrame(), originalEvents[0].getFrame());
+        QCOMPARE(restoredEvents[0].getDuration(),
+                 originalEvents[0].getDuration());
+        QVERIFY(qAbs(restoredEvents[0].getValue() -
+                     originalEvents[0].getValue()) < 0.001f);
+        QCOMPARE(restoredEvents[0].getLabel(), originalEvents[0].getLabel());
+
+        sv::CommandHistory::getInstance()->undo();
+        QCOMPARE(pane.getLayerCount(), 0);
+
+        sv::CommandHistory::getInstance()->redo();
+        QCOMPARE(pane.getLayerCount(), 1);
+        QCOMPARE(pane.getLayer(0), imported.layer);
+
+        sv::CommandHistory::getInstance()->undo();
+        QCOMPARE(pane.getLayerCount(), 0);
+        sv::CommandHistory::getInstance()->clear();
+
+        BackendManifest manifest = devMockBackendManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+    }
+
+    void tonyLayerImporterViewInsertionRequiresARealView()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.insertLayerIntoView = true;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(!imported.documentLayerCreated);
+        QVERIFY(!imported.modelCreated);
+        QVERIFY(!imported.insertedIntoView);
+        QVERIFY(reportHasIssue(imported.report,
+                               "missing_view_for_layer_insertion"));
+
+        sv::CommandHistory::getInstance()->clear();
     }
 
     void tonyLayerImporterModelOnlyDefersImportedFlag()

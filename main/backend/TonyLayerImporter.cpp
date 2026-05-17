@@ -16,9 +16,12 @@
 
 #include "base/Event.h"
 #include "data/model/NoteModel.h"
+#include "data/model/EventCommands.h"
 #include "framework/Document.h"
 #include "layer/Layer.h"
 #include "layer/LayerFactory.h"
+#include "view/View.h"
+#include "widgets/CommandHistory.h"
 
 #include <QtGlobal>
 
@@ -165,6 +168,22 @@ noteLabel(const NoteEvent &note)
     return note.label.value_or(QString());
 }
 
+bool
+viewContainsLayer(sv::View *view, sv::Layer *layer)
+{
+    if (!view || !layer) {
+        return false;
+    }
+
+    for (int i = 0; i < view->getLayerCount(); ++i) {
+        if (view->getLayer(i) == layer) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 QString
 backendDisplayName(const UnifiedResult &result)
 {
@@ -194,6 +213,22 @@ TonyLayerImportResult::debugSummaryString() const
         .arg(importedIntoTonyLayers ? QString("true") : QString("false"))
         .arg(createdModelType)
         .arg(createdLayerType)
+        .arg(noteCount);
+}
+
+bool
+TonyLayerCommandHistoryEditProofResult::isValid() const
+{
+    return succeeded && report.isValid();
+}
+
+QString
+TonyLayerCommandHistoryEditProofResult::debugSummaryString() const
+{
+    return QString("TonyLayerCommandHistoryEditProofResult(success=%1, "
+                   "proof=%2, notes=%3)")
+        .arg(succeeded ? QString("true") : QString("false"))
+        .arg(commandHistoryEditProof ? QString("true") : QString("false"))
         .arg(noteCount);
 }
 
@@ -227,6 +262,30 @@ TonyLayerImporter::importResult(
                    BackendErrorCode::ValidationFailed,
                    "Tony layer import requires a positive model resolution.",
                    "invalid_resolution");
+        return result;
+    }
+
+    if (options.insertLayerIntoView && !options.createDocumentLayer) {
+        setFailure(result,
+                   BackendErrorCode::ValidationFailed,
+                   "View insertion requires a created Document layer.",
+                   "missing_document_layer_for_view_insertion");
+        return result;
+    }
+
+    if (options.insertLayerIntoView && !options.document) {
+        setFailure(result,
+                   BackendErrorCode::ValidationFailed,
+                   "View insertion requires a Document pointer.",
+                   "missing_document_for_layer_insertion");
+        return result;
+    }
+
+    if (options.insertLayerIntoView && !options.view) {
+        setFailure(result,
+                   BackendErrorCode::ValidationFailed,
+                   "View insertion requires a real View or Pane pointer.",
+                   "missing_view_for_layer_insertion");
         return result;
     }
 
@@ -335,7 +394,167 @@ TonyLayerImporter::importResult(
                 sv::LayerFactory::getInstance()->getLayerType(layer));
     }
 
+    if (options.insertLayerIntoView) {
+        if (!options.createDocumentLayer || !options.document || !result.layer) {
+            setFailure(result,
+                       BackendErrorCode::ValidationFailed,
+                       "View insertion requires a created Document layer.",
+                       "missing_document_layer_for_view_insertion");
+            return result;
+        }
+
+        if (!options.view) {
+            setFailure(result,
+                       BackendErrorCode::ValidationFailed,
+                       "View insertion requires a real View or Pane pointer.",
+                       "missing_view_for_layer_insertion");
+            return result;
+        }
+
+        options.document->addLayerToView(options.view, result.layer);
+        if (!viewContainsLayer(options.view, result.layer)) {
+            setFailure(result,
+                       BackendErrorCode::ImportFailed,
+                       "Document did not insert the imported layer into the "
+                       "provided View.",
+                       "view_layer_insertion_failed");
+            return result;
+        }
+
+        result.insertedIntoView = true;
+    }
+
     result.succeeded = true;
+    result.error = { BackendErrorCode::None, QString(), false };
+    return result;
+}
+
+TonyLayerCommandHistoryEditProofResult
+TonyLayerImporter::proveCommandHistoryEdit(
+    const TonyLayerImportResult &importResult,
+    int noteIndex,
+    float valueDelta) const
+{
+    TonyLayerCommandHistoryEditProofResult result;
+
+    if (!importResult.isValid() || !importResult.modelRegistered) {
+        result.error = {
+            BackendErrorCode::ValidationFailed,
+            "CommandHistory edit proof requires a valid registered import.",
+            true
+        };
+        result.report.addError("invalid_import_for_edit_proof",
+                               result.error.message);
+        return result;
+    }
+
+    if (valueDelta == 0.0f) {
+        result.error = {
+            BackendErrorCode::ValidationFailed,
+            "CommandHistory edit proof requires a non-zero value delta.",
+            true
+        };
+        result.report.addError("invalid_edit_delta", result.error.message);
+        return result;
+    }
+
+    auto model = sv::ModelById::getAs<sv::NoteModel>(importResult.modelId);
+    if (!model) {
+        result.error = {
+            BackendErrorCode::ImportFailed,
+            "Imported model is not an accessible NoteModel.",
+            true
+        };
+        result.report.addError("missing_note_model_for_edit_proof",
+                               result.error.message);
+        return result;
+    }
+
+    const sv::EventVector events = model->getAllEvents();
+    result.noteCount = int(events.size());
+    if (noteIndex < 0 || noteIndex >= int(events.size())) {
+        result.error = {
+            BackendErrorCode::ValidationFailed,
+            "Requested note index is outside the imported note model.",
+            true
+        };
+        result.report.addError("invalid_note_index_for_edit_proof",
+                               result.error.message);
+        return result;
+    }
+
+    const sv::Event original = events[noteIndex];
+    const sv::Event edited = original.withValue(original.getValue() +
+                                               valueDelta);
+
+    auto command = new sv::ChangeEventsCommand(importResult.modelId.untyped,
+                                               "Backend Note Edit Proof");
+    command->remove(original);
+    command->add(edited);
+
+    sv::ChangeEventsCommand *finished = command->finish();
+    if (!finished) {
+        result.error = {
+            BackendErrorCode::ImportFailed,
+            "CommandHistory edit proof produced no edit command.",
+            true
+        };
+        result.report.addError("empty_edit_command", result.error.message);
+        return result;
+    }
+
+    sv::CommandHistory *history = sv::CommandHistory::getInstance();
+    history->addCommand(finished, false);
+
+    if (!model->containsEvent(edited) || model->containsEvent(original)) {
+        result.error = {
+            BackendErrorCode::ImportFailed,
+            "Edited note was not present after ChangeEventsCommand.",
+            true
+        };
+        result.report.addError("edit_command_did_not_apply",
+                               result.error.message);
+        return result;
+    }
+
+    history->undo();
+    if (!model->containsEvent(original) || model->containsEvent(edited)) {
+        result.error = {
+            BackendErrorCode::ImportFailed,
+            "Undo did not restore the original imported note.",
+            true
+        };
+        result.report.addError("edit_command_undo_failed",
+                               result.error.message);
+        return result;
+    }
+
+    history->redo();
+    if (!model->containsEvent(edited) || model->containsEvent(original)) {
+        result.error = {
+            BackendErrorCode::ImportFailed,
+            "Redo did not restore the edited imported note.",
+            true
+        };
+        result.report.addError("edit_command_redo_failed",
+                               result.error.message);
+        return result;
+    }
+
+    history->undo();
+    if (!model->containsEvent(original) || model->containsEvent(edited)) {
+        result.error = {
+            BackendErrorCode::ImportFailed,
+            "Final undo did not leave the imported note model unchanged.",
+            true
+        };
+        result.report.addError("edit_command_restore_failed",
+                               result.error.message);
+        return result;
+    }
+
+    result.succeeded = true;
+    result.commandHistoryEditProof = true;
     result.error = { BackendErrorCode::None, QString(), false };
     return result;
 }
