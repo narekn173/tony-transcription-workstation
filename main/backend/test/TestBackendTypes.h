@@ -27,6 +27,7 @@
 #include "../BackendRegistry.h"
 #include "../BackendRequiredFileProbe.h"
 #include "../BackendRunOrchestrator.h"
+#include "../BackendRunOutputHandoff.h"
 #include "../BackendRunRequestFileWriter.h"
 #include "../BackendRunRequestBuilder.h"
 #include "../BackendRunRequestPreparer.h"
@@ -4895,6 +4896,151 @@ private slots:
         BackendRunOrchestrator orchestrator;
         const BackendRunOrchestrationResult result =
             orchestrator.prepareOnly(manifest, workspace, parameters);
+
+        QVERIFY(result.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void backendRunOutputHandoffAcceptsReadableResultFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        QVERIFY(writeFile(resultPath,
+                          QByteArray("{\"contract_version\":\"0.1\"}\n")));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(resultPath);
+
+        QVERIFY(result.isValid());
+        QCOMPARE(result.outputPath, resultPath);
+        QVERIFY(result.exists);
+        QVERIFY(result.isFile);
+        QVERIFY(result.readable);
+        QVERIFY(result.nonEmpty);
+        QVERIFY(result.fileSizeBytes > 0);
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(result.debugSummaryString().contains("valid=true"));
+    }
+
+    void backendRunOutputHandoffReportsMissingResultFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("missing-result.json");
+        QVERIFY(!QFile::exists(resultPath));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(resultPath);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(!result.exists);
+        QVERIFY(reportHasIssue(result.report, "output_file_missing"));
+    }
+
+    void backendRunOutputHandoffRejectsEmptyResultPath()
+    {
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result = handoff.inspect(" ");
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.outputPath.isEmpty());
+        QVERIFY(reportHasIssue(result.report, "empty_output_result_path"));
+    }
+
+    void backendRunOutputHandoffRejectsDirectoryPath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(directory.path());
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.exists);
+        QVERIFY(!result.isFile);
+        QVERIFY(reportHasIssue(result.report, "output_path_is_directory"));
+    }
+
+    void backendRunOutputHandoffRejectsEmptyResultFile()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("empty-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray()));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(resultPath);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.exists);
+        QVERIFY(result.isFile);
+        QVERIFY(!result.nonEmpty);
+        QCOMPARE(result.fileSizeBytes, qint64(0));
+        QVERIFY(reportHasIssue(result.report, "empty_output_file"));
+    }
+
+    void backendRunOutputHandoffNeverCreatesFakeResultFiles()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("not-created.json");
+        QVERIFY(!QFile::exists(resultPath));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(resultPath);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(!QFile::exists(resultPath));
+        QVERIFY(reportHasIssue(result.report, "output_file_missing"));
+    }
+
+    void backendRunOutputHandoffNeverImportsIntoTonyLayers()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        QVERIFY(writeFile(resultPath,
+                          QByteArray("{\"contract_version\":\"0.1\"}\n")));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(resultPath);
+
+        QVERIFY(result.isValid());
+        QVERIFY(!result.importedIntoTonyLayers);
+    }
+
+    void backendRunOutputHandoffNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        const QString resultPath = directory.filePath("result.json");
+        QVERIFY(writeFile(resultPath,
+                          QByteArray("{\"contract_version\":\"0.1\"}\n")));
+
+        BackendRunOutputHandoff handoff;
+        const BackendRunOutputHandoffResult result =
+            handoff.inspect(resultPath);
 
         QVERIFY(result.isValid());
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
