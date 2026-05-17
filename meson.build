@@ -1247,6 +1247,10 @@ backend_types_test_moc_files = qt.preprocess(
 backend_types_test_exe = executable(
   'test-backend-types',
   backend_types_test_moc_files,
+  svgui_moc_files,
+  svapp_moc_files,
+  svgui_files,
+  svapp_files,
   'main/backend/BackendAdapter.cpp',
   'main/backend/BackendAvailabilityProbe.cpp',
   'main/backend/BackendAvailabilityStore.cpp',
@@ -1280,16 +1284,26 @@ backend_types_test_exe = executable(
   'main/backend/ExternalProcessLogFileSink.cpp',
   'main/backend/ExternalProcessRunner.cpp',
   'main/backend/ResultValidator.cpp',
+  'main/backend/TonyLayerImporter.cpp',
   'main/backend/UnifiedResult.cpp',
   'main/backend/UnifiedResultFileLoader.cpp',
   'main/backend/UnifiedResultParser.cpp',
   'main/backend/UnifiedResultSchemaValidator.cpp',
   'main/backend/test/backend-types-test.cpp',
   dependencies: [
+    svcore_dep,
     qt_dep,
+    feature_dependencies,
+    os_dep,
+    dl_dep,
   ],
   cpp_args: [
+    feature_defines,
     general_defines,
+  ],
+  link_args: [
+    feature_additional_libs,
+    general_link_args,
   ],
   win_subsystem: 'console'
 )

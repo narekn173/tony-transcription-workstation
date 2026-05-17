@@ -46,8 +46,15 @@
 #include "../BackendTypes.h"
 #include "../ExternalProcessLogFileSink.h"
 #include "../ExternalProcessRunner.h"
+#include "../TonyLayerImporter.h"
+
+#include "data/model/NoteModel.h"
+#include "framework/Document.h"
+#include "layer/FlexiNoteLayer.h"
+#include "layer/NoteLayer.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
@@ -60,6 +67,7 @@
 #include <QtTest>
 
 #include <future>
+#include <set>
 
 using namespace Tony::Backend;
 
@@ -6080,6 +6088,157 @@ private slots:
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
     }
 
+    void tonyLayerImporterCreatesRealDocumentNoteLayerProof()
+    {
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.modelCreated);
+        QVERIFY(imported.modelRegistered);
+        QVERIFY(imported.documentLayerCreated);
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(!imported.insertedIntoView);
+        QVERIFY(imported.sourceMarkedDevMock);
+        QCOMPARE(imported.noteCount, 2);
+        QCOMPARE(imported.createdModelType,
+                 QString("NoteModel::NORMAL_NOTE"));
+        QCOMPARE(imported.createdLayerType, QString("notes"));
+
+        auto model = sv::ModelById::getAs<sv::NoteModel>(imported.modelId);
+        QVERIFY(model);
+        QCOMPARE(model->getSubtype(), sv::NoteModel::NORMAL_NOTE);
+        QCOMPARE(model->getScaleUnits(), QString("MIDI Pitch"));
+        QVERIFY(model->isEditable());
+        QCOMPARE(model->getEventCount(), 2);
+
+        QVERIFY(imported.layer);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(imported.layer) != nullptr);
+        QVERIFY(dynamic_cast<sv::FlexiNoteLayer *>(imported.layer) == nullptr);
+        QVERIFY(imported.layer->isLayerEditable());
+
+        const std::set<sv::Layer *> documentLayers = document.getLayers();
+        QVERIFY(documentLayers.find(imported.layer) != documentLayers.end());
+
+        const sv::EventVector events = model->getAllEvents();
+        QCOMPARE(int(events.size()), 2);
+        QCOMPARE(events[0].getFrame(), sv::sv_frame_t(11025));
+        QCOMPARE(events[0].getDuration(), sv::sv_frame_t(22050));
+        QVERIFY(qAbs(events[0].getValue() - 60.0f) < 0.001f);
+        QVERIFY(qAbs(events[0].getLevel() - (100.0f / 127.0f)) < 0.001f);
+        QCOMPARE(events[0].getLabel(), QString("dev-mock-note-a"));
+
+        QCOMPARE(events[1].getFrame(), sv::sv_frame_t(44100));
+        QCOMPARE(events[1].getDuration(), sv::sv_frame_t(11025));
+        QVERIFY(qAbs(events[1].getValue() - 64.0f) < 0.001f);
+        QCOMPARE(events[1].getLabel(), QString("dev-mock-note-b"));
+
+        BackendManifest manifest = devMockBackendManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+    }
+
+    void tonyLayerImporterModelOnlyDefersImportedFlag()
+    {
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.createDocumentLayer = false;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.modelCreated);
+        QVERIFY(imported.modelRegistered);
+        QVERIFY(!imported.documentLayerCreated);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(!imported.layer);
+        QCOMPARE(imported.noteCount, 2);
+
+        auto model = sv::ModelById::getAs<sv::NoteModel>(imported.modelId);
+        QVERIFY(model);
+        QCOMPARE(model->getEventCount(), 2);
+
+        sv::ModelById::release(imported.modelId);
+    }
+
+    void tonyLayerImporterEmptyUnifiedResultFailsSafely()
+    {
+        UnifiedResult unifiedResult;
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.succeeded);
+        QVERIFY(!imported.modelCreated);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(reportHasIssue(imported.report, "no_notes_to_import"));
+    }
+
+    void tonyLayerImporterInvalidNoteTimingFailsCleanly()
+    {
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+        unifiedResult.notes[0].endSec = unifiedResult.notes[0].startSec - 0.1;
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.succeeded);
+        QVERIFY(!imported.modelCreated);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(reportHasIssue(imported.report, "invalid_note_time_range"));
+    }
+
+    void tonyLayerImporterMissingPitchFailsCleanly()
+    {
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+        unifiedResult.notes.clear();
+
+        NoteEvent note;
+        note.id = "missing_pitch";
+        note.startSec = 0.0;
+        note.endSec = 0.5;
+        unifiedResult.notes.push_back(note);
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.succeeded);
+        QVERIFY(!imported.modelCreated);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(reportHasIssue(imported.report, "missing_note_pitch"));
+    }
+
     void externalProcessRunnerRunsSuccessfulCommand()
     {
         ExternalProcessRunner runner;
@@ -6909,6 +7068,53 @@ private:
         manifest.supportedOutputTypes << "notes";
         manifest.primaryOutputs << "notes";
         return manifest;
+    }
+
+    static UnifiedResult validTonyLayerImportUnifiedResult()
+    {
+        UnifiedResult result;
+        result.contractVersion = "0.1";
+        result.resultId = "dev_mock_layer_import_result";
+        result.requestId = "dev_mock_layer_import_request";
+        result.createdAt = QDateTime::fromString("2026-05-17T12:00:00Z",
+                                                 Qt::ISODate);
+        result.engine.engineId = "dev_mock_backend";
+        result.engine.displayName = "Dev Mock Backend (test only)";
+        result.engine.adapterVersion = "0.1.0-test";
+        result.engine.runtimeType = BackendRuntimeType::DevelopmentTest;
+        result.status = BackendStatus::CompletedWithWarnings;
+        result.provenance.insert("dev_mock", true);
+        result.provenance.insert("test_only", true);
+        result.provenance.insert("production_transcription", false);
+
+        NoteEvent first;
+        first.id = "dev_mock_note_a";
+        first.startSec = 0.25;
+        first.endSec = 0.75;
+        first.midiPitch = 60;
+        first.velocity = 100;
+        first.confidence = 0.81;
+        first.label = QString("dev-mock-note-a");
+        first.flags << "dev_mock" << "test_only";
+        first.source.insert("dev_mock", true);
+        first.source.insert("test_only", true);
+
+        NoteEvent second;
+        second.id = "dev_mock_note_b";
+        second.startSec = 1.0;
+        second.endSec = 1.25;
+        second.midiPitch = 64;
+        second.confidence = 0.74;
+        second.label = QString("dev-mock-note-b");
+        second.flags << "dev_mock" << "test_only";
+        second.source.insert("dev_mock", true);
+        second.source.insert("test_only", true);
+
+        result.notes.push_back(first);
+        result.notes.push_back(second);
+        result.summary.noteCount = int(result.notes.size());
+
+        return result;
     }
 
     static BackendManifest parsedBasicPitchManifest()

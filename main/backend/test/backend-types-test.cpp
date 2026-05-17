@@ -15,6 +15,7 @@
 #include "TestBackendTypes.h"
 #include "TestUnifiedResult.h"
 
+#include <QApplication>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -319,7 +320,7 @@ int main(int argc, char *argv[])
         return helperExitCode;
     }
 
-    QCoreApplication app(argc, argv);
+    QApplication app(argc, argv);
     app.setOrganizationName("tony");
     app.setApplicationName("test-backend-types");
 
