@@ -28,6 +28,7 @@
 #include "../BackendRequiredFileProbe.h"
 #include "../BackendRunOrchestrator.h"
 #include "../BackendRunOutputHandoff.h"
+#include "../BackendRunResultLoader.h"
 #include "../BackendRunRequestFileWriter.h"
 #include "../BackendRunRequestBuilder.h"
 #include "../BackendRunRequestPreparer.h"
@@ -5051,6 +5052,179 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void backendRunResultLoaderLoadsValidResultJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(loaded.isValid());
+        QVERIFY(loaded.handoffAccepted);
+        QVERIFY(loaded.fileLoaded);
+        QVERIFY(loaded.loadedResult.has_value());
+        QCOMPARE(loaded.loadedResult->resultId,
+                 QString("res_backend_run_loader_001"));
+        QCOMPARE(loaded.loadedResult->engine.engineId,
+                 QString("basic_pitch"));
+        QCOMPARE(loaded.loadedResult->notes.size(), 1);
+        QVERIFY(!loaded.importedIntoTonyLayers);
+        QVERIFY(loaded.debugSummaryString().contains("valid=true"));
+    }
+
+    void backendRunResultLoaderReportsMissingResultJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("missing-result.json");
+        QVERIFY(!QFile::exists(resultPath));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!loaded.handoffAccepted);
+        QVERIFY(!loaded.fileLoaded);
+        QVERIFY(!loaded.loadedResult.has_value());
+        QVERIFY(reportHasIssue(loaded.report, "output_file_missing"));
+    }
+
+    void backendRunResultLoaderReportsEmptyResultJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("empty-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!loaded.handoffAccepted);
+        QVERIFY(!loaded.fileLoaded);
+        QVERIFY(!loaded.loadedResult.has_value());
+        QVERIFY(reportHasIssue(loaded.report, "empty_output_file"));
+    }
+
+    void backendRunResultLoaderReportsInvalidJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("invalid-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray("{ invalid json")));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(loaded.handoffAccepted);
+        QVERIFY(!loaded.fileLoaded);
+        QVERIFY(!loaded.loadedResult.has_value());
+        QVERIFY(reportHasIssue(loaded.report, "invalid_json"));
+    }
+
+    void backendRunResultLoaderReportsInvalidUnifiedResultStructure()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath =
+            directory.filePath("invalid-structure-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray("{}")));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(loaded.handoffAccepted);
+        QVERIFY(!loaded.fileLoaded);
+        QVERIFY(!loaded.loadedResult.has_value());
+        QVERIFY(reportHasIssue(loaded.report, "missing_result_id"));
+        QVERIFY(reportHasIssue(loaded.report, "invalid_status"));
+    }
+
+    void backendRunResultLoaderExposesResultOnlyOnSuccess()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString validPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(validPath, validBackendRunResultJson()));
+
+        const QString invalidPath = directory.filePath("invalid-result.json");
+        QVERIFY(writeFile(invalidPath, QByteArray("{ invalid json")));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult validLoad = loader.load(validPath);
+        const BackendRunResultLoadResult invalidLoad = loader.load(invalidPath);
+
+        QVERIFY(validLoad.isValid());
+        QVERIFY(validLoad.loadedResult.has_value());
+        QVERIFY(!invalidLoad.isValid());
+        QVERIFY(!invalidLoad.loadedResult.has_value());
+    }
+
+    void backendRunResultLoaderNeverCreatesFakeResultFiles()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("not-created.json");
+        QVERIFY(!QFile::exists(resultPath));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(!loaded.isValid());
+        QVERIFY(!QFile::exists(resultPath));
+        QVERIFY(!loaded.loadedResult.has_value());
+    }
+
+    void backendRunResultLoaderNeverImportsIntoTonyLayers()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(loaded.isValid());
+        QVERIFY(!loaded.importedIntoTonyLayers);
+    }
+
+    void backendRunResultLoaderNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+
+        const QString resultPath = directory.filePath("valid-result.json");
+        QVERIFY(writeFile(resultPath, validBackendRunResultJson()));
+
+        BackendRunResultLoader loader;
+        const BackendRunResultLoadResult loaded = loader.load(resultPath);
+
+        QVERIFY(loaded.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
     void externalProcessRunnerRunsSuccessfulCommand()
     {
         ExternalProcessRunner runner;
@@ -5804,6 +5978,65 @@ private:
         const BackendManifestParseResult parsed =
             parser.parse(document.object());
         return parsed.manifest;
+    }
+
+    static QByteArray validBackendRunResultJson()
+    {
+        return R"json(
+{
+  "contract_version": "0.1",
+  "result_id": "res_backend_run_loader_001",
+  "request_id": "req_backend_run_loader_001",
+  "created_at": "2026-05-17T12:01:00Z",
+  "engine": {
+    "engine_id": "basic_pitch",
+    "display_name": "Basic Pitch",
+    "engine_version": null,
+    "adapter_version": "0.1.0",
+    "runtime_type": "python_cli",
+    "device_used": "cpu"
+  },
+  "status": "completed",
+  "audio": {
+    "path": "C:/audio/input.wav",
+    "duration_sec": 12.345,
+    "sample_rate_hz": 44100,
+    "channels": 1
+  },
+  "region": null,
+  "summary": {
+    "note_count": 1,
+    "pitch_point_count": 0,
+    "pitch_bend_count": 0,
+    "technique_label_count": 0,
+    "mean_confidence": 0.91,
+    "low_confidence_count": 0,
+    "duration_analyzed_sec": 12.345
+  },
+  "notes": [
+    {
+      "id": "note_0001",
+      "start_sec": 1.24,
+      "end_sec": 1.68,
+      "midi_pitch": 64,
+      "frequency_hz": 329.63,
+      "velocity": 82,
+      "confidence": 0.91,
+      "source": { "engine_id": "basic_pitch" },
+      "flags": []
+    }
+  ],
+  "pitch_curve": [],
+  "pitch_bends": [],
+  "technique_labels": [],
+  "files": [],
+  "warnings": [],
+  "errors": [],
+  "provenance": {
+    "created_by": "backend_run_result_loader_test"
+  }
+}
+)json";
     }
 
     static QByteArray basicPitchManifestJson()
