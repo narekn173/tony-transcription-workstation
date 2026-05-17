@@ -85,9 +85,11 @@ Before implementing or changing behavior, use the project documents below.
 | `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | Mandatory rules against fake UI/results/layers and feature-complete claims. |
 | `docs/engineering/LAYER_TYPE_POLICY.md` | Mandatory output-to-layer mapping policy. |
 | `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Mandatory backend-specific output expectations and proof requirements. |
+| `docs/engineering/BACKEND_TO_TONY_LAYER_MAPPING_MATRIX.md` | Mandatory backend-to-Tony-layer mapping matrix. |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory proof gates for layer import, edit, save/load, and export. |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory visible-state truth policy. |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory provenance policy for imported backend results. |
+| `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Final checklist before any backend/UI/layer feature-complete claim. |
 | `docs/06_EXECUTION_PLAN.md` | Approved implementation sequence and stage gates. |
 | `docs/07_CODEX_TASK_LIST.md` | Approved small Codex task list. |
 | `docs/adr/` | Architecture Decision Records when present. |
@@ -274,9 +276,11 @@ Before any task touches TonyLayerImporter, UI integration, MainWindow/Analyser i
 - `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md`
 - `docs/engineering/LAYER_TYPE_POLICY.md`
 - `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md`
+- `docs/engineering/BACKEND_TO_TONY_LAYER_MAPPING_MATRIX.md`
 - `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md`
 - `docs/engineering/UI_VISUAL_TRUTH_STATES.md`
 - `docs/engineering/PROVENANCE_METADATA_POLICY.md`
+- `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md`
 
 Mandatory rules:
 
@@ -288,8 +292,17 @@ Mandatory rules:
 - imported is not Editable unless edit proof exists;
 - exported is not proven unless an export file is created and inspected;
 - preserve pYIN behavior unless explicitly tasked otherwise.
+- do not claim feature completion until `REAL_RESULT_ACCEPTANCE_CHECKLIST.md` evidence is reported.
 
 Final reports for these tasks must state the highest proof gate reached.
+
+After CODEX-087D, the next phase is proof work, not more documentation hardening:
+
+```text
+CODEX-088 - dev/mock backend end-to-end proof
+CODEX-089 - UnifiedResult to real editable Tony NoteLayer proof
+CODEX-090 - edit/save/load/export proof
+```
 
 ---
 

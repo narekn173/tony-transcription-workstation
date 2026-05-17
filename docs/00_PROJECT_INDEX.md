@@ -58,12 +58,14 @@ These files are the current source-of-truth set. Read them in this order.
 | 6 | `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | Mandatory engineering rules | No fake UI/results/layers; real Tony proof chain |
 | 7 | `docs/engineering/LAYER_TYPE_POLICY.md` | Mandatory engineering rules | Output-to-layer mapping policy |
 | 8 | `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Mandatory engineering rules | Backend-specific output truth table |
-| 9 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
-| 10 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
-| 11 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
-| 12 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 13 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 14 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 9 | `docs/engineering/BACKEND_TO_TONY_LAYER_MAPPING_MATRIX.md` | Mandatory engineering rules | Backend output to real Tony layer mapping matrix |
+| 10 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 11 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 12 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 13 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
+| 14 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 15 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 16 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -127,14 +129,16 @@ These documents are required reading before TonyLayerImporter, UI integration, M
 | `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | All importer/UI/backend workflow claims | Defines no-fake rules and real end-to-end proof chain |
 | `docs/engineering/LAYER_TYPE_POLICY.md` | TonyLayerImporter and display work | Defines how notes, f0, bends, confidence, labels, and annotations map to Tony concepts |
 | `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Backend adapter and importer work | Defines backend-specific expected outputs, risks, and proof |
+| `docs/engineering/BACKEND_TO_TONY_LAYER_MAPPING_MATRIX.md` | Backend adapter and importer work | Defines allowed, deferred, and forbidden backend-to-layer mappings |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |
+| `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | All backend/UI/layer completion claims | Defines the final evidence checklist before feature-complete claims |
 
 Rule:
 
 ```text
-No task may claim imported, editable, saved, exported, ready, installed, or completed unless the matching proof gate has passed.
+No task may claim imported, editable, saved, exported, ready, installed, completed, or feature complete unless the matching proof gate and final acceptance checklist item has passed.
 ```
 
 ---
@@ -255,13 +259,15 @@ Basic Pitch / NeuralNote path
 8. docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md
 9. docs/engineering/LAYER_TYPE_POLICY.md
 10. docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md
-11. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
-12. docs/engineering/UI_VISUAL_TRUTH_STATES.md
-13. docs/engineering/PROVENANCE_METADATA_POLICY.md
-14. docs/adr/*.md
-15. docs/06_EXECUTION_PLAN.md
-16. docs/07_CODEX_TASK_LIST.md
-17. AGENTS.md
+11. docs/engineering/BACKEND_TO_TONY_LAYER_MAPPING_MATRIX.md
+12. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+13. docs/engineering/UI_VISUAL_TRUTH_STATES.md
+14. docs/engineering/PROVENANCE_METADATA_POLICY.md
+15. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
+16. docs/adr/*.md
+17. docs/06_EXECUTION_PLAN.md
+18. docs/07_CODEX_TASK_LIST.md
+19. AGENTS.md
 ```
 
 ---
@@ -282,9 +288,11 @@ docs/05_TDD_ARCHITECTURE.md
 docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md
 docs/engineering/LAYER_TYPE_POLICY.md
 docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md
+docs/engineering/BACKEND_TO_TONY_LAYER_MAPPING_MATRIX.md
 docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
 docs/engineering/UI_VISUAL_TRUTH_STATES.md
 docs/engineering/PROVENANCE_METADATA_POLICY.md
+docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
 docs/adr/*.md
 docs/06_EXECUTION_PLAN.md
 docs/07_CODEX_TASK_LIST.md
@@ -299,18 +307,29 @@ Do not give Codex ZIP packages or prompt files as primary context.
 Current project status:
 
 ```text
-Planning documents stabilized.
-Implementation has not started.
-Original Tony build has not yet been verified in this workflow.
-Real Tony source paths have not yet been mapped in this workflow.
-No backend integration has been implemented yet.
+Backend infrastructure foundation exists through CODEX-086.
+Real-result engineering rules and Tony layer proof gates exist through CODEX-087D.
+Tony source architecture, layer/edit/save/export paths, and backend output mappings have been audited.
+Next phase is proof work, not more documentation hardening.
 ```
 
-Therefore the next real coding work must start with build/codebase discovery.
+Therefore the next work must prove real end-to-end behavior through the staged proof tasks.
 
 ---
 
 ## 12. Immediate next action
+
+Current next action after CODEX-087D:
+
+```text
+CODEX-088 - Dev/mock backend end-to-end proof
+CODEX-089 - UnifiedResult to real editable Tony NoteLayer proof
+CODEX-090 - Edit/save/load/export proof
+```
+
+This supersedes the earlier baseline setup sequence below for the current repository state. Do not start real Basic Pitch, UI integration, selected-region replacement, or feature-complete claims until these proof gates have been exercised.
+
+Historical baseline setup sequence:
 
 If the actual Tony fork repository does not yet contain the documents, first run:
 

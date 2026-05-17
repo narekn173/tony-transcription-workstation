@@ -46,6 +46,7 @@ Before changing code, read these documents:
 - docs/04_BACKEND_CONTRACT.md
 - docs/05_TDD_ARCHITECTURE.md
 - docs/06_EXECUTION_PLAN.md
+- docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
 
 Core rules:
 - Do not rewrite Tony from scratch.
@@ -55,6 +56,7 @@ Core rules:
 - Do not redesign UI unless the task explicitly asks for UI design work.
 - Use the Backend Contract and UnifiedResult for all backend results.
 - Before TonyLayerImporter, UI, MainWindow/Analyser, real backend workflow, selected-region replacement, save/load, or export work, read docs/engineering/*.md and follow the Engineering Gates.
+- After CODEX-087D, move to proof work: CODEX-088, CODEX-089, then CODEX-090. Do not add more documentation-only hardening unless a proof task exposes a specific gap.
 - Keep the change small and reviewable.
 - If you are unsure, inspect the codebase and report findings before implementing.
 
@@ -610,14 +612,15 @@ Acceptance criteria:
 
 ```text
 Task ID: CODEX-087D
-Title: Verify real-result acceptance rules
+Title: Final real-result acceptance checklist verification
 
 Goal:
-Review all real-result, layer, UI state, provenance, and edit/save/export proof rules before implementation resumes.
+Create the final concise acceptance checklist that every future backend/UI/layer/save/export task must use before claiming completion.
 
 Allowed:
 - documentation review
 - small documentation corrections
+- create docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
 
 Not allowed:
 - no C++ behavior changes
@@ -625,10 +628,13 @@ Not allowed:
 - no backend integration
 
 Acceptance criteria:
-1. Engineering Gates are consistent across AGENTS, Project Index, TDD, Execution Plan, and task list.
-2. No rule permits fake Ready/Completed/Imported/Editable/Exported claims.
-3. Next importer task has clear proof prerequisites.
+1. Final checklist covers real backend, result.json, UnifiedResult validation, layer mapping, real Tony layer creation, edit, undo/redo, save/load, export, provenance, UI truth state, and dev/mock boundaries.
+2. No rule permits fake Ready/Installed/Completed/Imported/Editable/Exported claims.
+3. AGENTS, Project Index, and task list point to the checklist.
+4. The next phase is explicitly proof work: CODEX-088, CODEX-089, CODEX-090.
 ```
+
+After CODEX-087D is accepted, do not continue with documentation-only gate hardening by default. Move to the proof sequence below.
 
 ### CODEX-088 — Dev/mock backend end-to-end proof
 
@@ -1432,12 +1438,12 @@ Before accepting a Codex change, check:
 
 ## 21. Recommended immediate next action
 
-Do **not** start `CODEX-010` until `AGENTS.md` exists and the project documents have been added to the actual repository.
+After CODEX-087D is accepted, the next phase is proof work, not more documentation hardening.
 
 Next recommended step:
 
 ```text
-If the repository does not yet contain the planning documents, run CODEX-000.
-If AGENTS.md is missing in the repository, run CODEX-001.
-If docs and AGENTS.md already exist, start CODEX-010: inspect repository build system.
+CODEX-088 - Dev/mock backend end-to-end proof
+CODEX-089 - UnifiedResult to real editable Tony NoteLayer proof
+CODEX-090 - Edit/save/load/export proof
 ```
