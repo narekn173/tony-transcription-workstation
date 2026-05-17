@@ -6398,6 +6398,121 @@ private slots:
         sv::CommandHistory::getInstance()->clear();
     }
 
+    void tonyLayerImporterProvenanceIdentitySurvivesSessionSaveLoad()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Pane pane;
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.view = &pane;
+        options.insertLayerIntoView = true;
+        options.provenance.backendId = "dev_mock_backend";
+        options.provenance.backendName = "Dev Mock Backend (test only)";
+        options.provenance.backendVersion = "0.1.0-test";
+        options.provenance.inputAudioPath =
+            "C:/codex093/codex093-audio.wav";
+        options.provenance.selectedRegionStartSec = 0.25;
+        options.provenance.selectedRegionEndSec = 1.25;
+        options.provenance.resultJsonPath =
+            "C:/codex093/codex093-result.json";
+        options.provenance.requestJsonPath =
+            "C:/codex093/codex093-request.json";
+        options.provenance.runId = "codex093_run_001";
+        options.provenance.testOnly = true;
+        options.provenance.devMock = true;
+        options.provenance.warningSummary = "completed_with_warnings";
+        options.provenance.confidenceSummary = "mean=0.775";
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(imported.insertedIntoView);
+        QVERIFY(imported.provenanceAttached);
+        QVERIFY(imported.layer);
+
+        const QString identity = imported.provenanceIdentity;
+        QVERIFY(identity.contains("backend=dev_mock_backend"));
+        QVERIFY(identity.contains("version=0.1.0-test"));
+        QVERIFY(identity.contains("run=codex093_run_001"));
+        QVERIFY(identity.contains("result=codex093-result.json"));
+        QVERIFY(identity.contains("request=codex093-request.json"));
+        QVERIFY(identity.contains("input=codex093-audio.wav"));
+        QVERIFY(identity.contains("region=0.250-1.250s"));
+        QVERIFY(identity.contains("test_only=true"));
+        QVERIFY(identity.contains("dev_mock=true"));
+
+        auto model = sv::ModelById::getAs<sv::NoteModel>(imported.modelId);
+        QVERIFY(model);
+        QCOMPARE(model->objectName(), identity);
+        QCOMPARE(imported.layer->objectName(), identity);
+        QCOMPARE(imported.layer->getLayerPresentationName(), identity);
+
+        const QString sessionXml =
+            serializeDocumentPaneSessionXml(document, pane);
+        QVERIFY(!sessionXml.isEmpty());
+        QVERIFY(sessionXml.contains("presentationName=\""));
+        QVERIFY(sessionXml.contains("backend=dev_mock_backend"));
+        QVERIFY(sessionXml.contains("run=codex093_run_001"));
+        QVERIFY(sessionXml.contains("result=codex093-result.json"));
+        QVERIFY(sessionXml.contains("request=codex093-request.json"));
+        QVERIFY(sessionXml.contains("test_only=true"));
+        QVERIFY(sessionXml.contains("dev_mock=true"));
+
+        TestSVFileReaderPaneCallback callback;
+        sv::Document reloadedDocument;
+        sv::SVFileReader reader(&reloadedDocument, callback,
+                                "backend-import-provenance-test");
+        reader.parseXml(sessionXml);
+
+        QVERIFY2(reader.isOK(), qPrintable(reader.getErrorString()));
+        QCOMPARE(int(callback.panes.size()), 1);
+
+        sv::Pane *reloadedPane = callback.panes.front().get();
+        QVERIFY(reloadedPane);
+        QCOMPARE(reloadedPane->getLayerCount(), 1);
+
+        sv::Layer *reloadedLayer = reloadedPane->getLayer(0);
+        QVERIFY(reloadedLayer);
+        QCOMPARE(reloadedLayer->objectName(), identity);
+        QCOMPARE(reloadedLayer->getLayerPresentationName(), identity);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(reloadedLayer) != nullptr);
+        QVERIFY(reloadedLayer->isLayerEditable());
+
+        auto reloadedModel =
+            sv::ModelById::getAs<sv::NoteModel>(reloadedLayer->getModel());
+        QVERIFY(reloadedModel);
+        QCOMPARE(reloadedModel->objectName(), identity);
+        QCOMPARE(reloadedModel->getEventCount(), 2);
+
+        const sv::EventVector events = reloadedModel->getAllEvents();
+        QCOMPARE(int(events.size()), 2);
+        QCOMPARE(events[0].getFrame(), sv::sv_frame_t(11025));
+        QCOMPARE(events[0].getDuration(), sv::sv_frame_t(22050));
+        QVERIFY(qAbs(events[0].getValue() - 60.0f) < 0.001f);
+        QCOMPARE(events[0].getLabel(), QString("dev-mock-note-a"));
+        QCOMPARE(events[1].getFrame(), sv::sv_frame_t(44100));
+        QCOMPARE(events[1].getDuration(), sv::sv_frame_t(11025));
+        QVERIFY(qAbs(events[1].getValue() - 64.0f) < 0.001f);
+        QCOMPARE(events[1].getLabel(), QString("dev-mock-note-b"));
+
+        BackendManifest manifest = devMockBackendManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
     void tonyLayerImporterImportedNoteLayerExportsThroughRealCsvPath()
     {
         sv::CommandHistory::getInstance()->clear();

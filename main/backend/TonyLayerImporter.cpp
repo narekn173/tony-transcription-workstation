@@ -23,6 +23,8 @@
 #include "view/View.h"
 #include "widgets/CommandHistory.h"
 
+#include <QFileInfo>
+#include <QStringList>
 #include <QtGlobal>
 
 #include <cmath>
@@ -168,6 +170,63 @@ noteLabel(const NoteEvent &note)
     return note.label.value_or(QString());
 }
 
+QString
+cleanProvenanceValue(QString value)
+{
+    value = value.trimmed();
+    value.replace('\n', ' ');
+    value.replace('\r', ' ');
+    value.replace(';', ',');
+    value.replace('[', '(');
+    value.replace(']', ')');
+    return value.simplified();
+}
+
+QString
+pathLeaf(const QString &path)
+{
+    const QString trimmed = path.trimmed();
+    if (trimmed.isEmpty()) {
+        return QString();
+    }
+    return cleanProvenanceValue(QFileInfo(trimmed).fileName());
+}
+
+void
+appendProvenancePart(QStringList &parts,
+                     const QString &key,
+                     const QString &value)
+{
+    const QString cleaned = cleanProvenanceValue(value);
+    if (!cleaned.isEmpty()) {
+        parts << QString("%1=%2").arg(key).arg(cleaned);
+    }
+}
+
+void
+appendProvenanceFlag(QStringList &parts,
+                     const QString &key,
+                     bool value)
+{
+    if (value) {
+        parts << QString("%1=true").arg(key);
+    }
+}
+
+QString
+formatRegionSeconds(double startSec, double endSec)
+{
+    return QString("%1-%2s")
+        .arg(QString::number(startSec, 'f', 3))
+        .arg(QString::number(endSec, 'f', 3));
+}
+
+QString
+metadataValue(const QVariantMap &metadata, const QString &key)
+{
+    return metadata.value(key).toString().trimmed();
+}
+
 bool
 viewContainsLayer(sv::View *view, sv::Layer *layer)
 {
@@ -196,6 +255,130 @@ backendDisplayName(const UnifiedResult &result)
     return QString("Backend result");
 }
 
+QString
+backendVersion(const UnifiedResult &result,
+               const TonyLayerImportProvenance &provenance)
+{
+    if (!provenance.backendVersion.trimmed().isEmpty()) {
+        return provenance.backendVersion.trimmed();
+    }
+    if (result.engine.engineVersion.has_value() &&
+        !result.engine.engineVersion->trimmed().isEmpty()) {
+        return result.engine.engineVersion->trimmed();
+    }
+    if (!result.engine.adapterVersion.trimmed().isEmpty()) {
+        return result.engine.adapterVersion.trimmed();
+    }
+    return metadataValue(result.provenance, "backend_version");
+}
+
+QString
+provenanceBackendId(const UnifiedResult &result,
+                    const TonyLayerImportProvenance &provenance)
+{
+    if (!provenance.backendId.trimmed().isEmpty()) {
+        return provenance.backendId.trimmed();
+    }
+    if (!result.engine.engineId.trimmed().isEmpty()) {
+        return result.engine.engineId.trimmed();
+    }
+    return metadataValue(result.provenance, "backend_id");
+}
+
+QString
+provenanceRunId(const UnifiedResult &result,
+                const TonyLayerImportProvenance &provenance)
+{
+    if (!provenance.runId.trimmed().isEmpty()) {
+        return provenance.runId.trimmed();
+    }
+    if (!result.requestId.trimmed().isEmpty()) {
+        return result.requestId.trimmed();
+    }
+    return result.resultId.trimmed();
+}
+
+QString
+provenanceDisplayName(const UnifiedResult &result,
+                      const TonyLayerImportProvenance &provenance)
+{
+    if (!provenance.backendName.trimmed().isEmpty()) {
+        return provenance.backendName.trimmed();
+    }
+    return backendDisplayName(result);
+}
+
+QString
+durableProvenanceIdentity(const UnifiedResult &result,
+                          const TonyLayerImportProvenance &provenance)
+{
+    const QString displayName =
+        cleanProvenanceValue(provenanceDisplayName(result, provenance));
+
+    QStringList parts;
+    appendProvenancePart(parts, "backend",
+                         provenanceBackendId(result, provenance));
+    appendProvenancePart(parts, "version",
+                         backendVersion(result, provenance));
+    appendProvenancePart(parts, "run",
+                         provenanceRunId(result, provenance));
+    appendProvenancePart(parts, "result",
+                         pathLeaf(provenance.resultJsonPath));
+    appendProvenancePart(parts, "request",
+                         pathLeaf(provenance.requestJsonPath));
+    appendProvenancePart(parts, "input",
+                         pathLeaf(provenance.inputAudioPath));
+
+    if (provenance.selectedRegionStartSec.has_value() &&
+        provenance.selectedRegionEndSec.has_value()) {
+        appendProvenancePart(
+            parts,
+            "region",
+            formatRegionSeconds(*provenance.selectedRegionStartSec,
+                                *provenance.selectedRegionEndSec));
+    }
+
+    appendProvenancePart(parts, "warnings",
+                         provenance.warningSummary);
+    appendProvenancePart(parts, "confidence",
+                         provenance.confidenceSummary);
+
+    const bool testOnly =
+        provenance.testOnly ||
+        result.provenance.value("test_only").toBool();
+    const bool devMock =
+        provenance.devMock ||
+        result.provenance.value("dev_mock").toBool();
+
+    appendProvenanceFlag(parts, "test_only", testOnly);
+    appendProvenanceFlag(parts, "dev_mock", devMock);
+
+    QString identity = QString("Backend notes - %1")
+        .arg(displayName.isEmpty() ? QString("Backend result") : displayName);
+    if (!parts.isEmpty()) {
+        identity += QString(" [%1]").arg(parts.join("; "));
+    }
+    return identity;
+}
+
+}
+
+bool
+TonyLayerImportProvenance::hasAnyField() const
+{
+    return !backendId.trimmed().isEmpty() ||
+        !backendName.trimmed().isEmpty() ||
+        !backendVersion.trimmed().isEmpty() ||
+        !inputAudioPath.trimmed().isEmpty() ||
+        selectedRegionStartSec.has_value() ||
+        selectedRegionEndSec.has_value() ||
+        !resultJsonPath.trimmed().isEmpty() ||
+        !requestJsonPath.trimmed().isEmpty() ||
+        !runId.trimmed().isEmpty() ||
+        testOnly ||
+        devMock ||
+        !warningSummary.trimmed().isEmpty() ||
+        !confidenceSummary.trimmed().isEmpty();
 }
 
 bool
@@ -208,12 +391,13 @@ QString
 TonyLayerImportResult::debugSummaryString() const
 {
     return QString("TonyLayerImportResult(success=%1, imported=%2, "
-                   "model=%3, layer=%4, notes=%5)")
+                   "model=%3, layer=%4, notes=%5, provenance=%6)")
         .arg(succeeded ? QString("true") : QString("false"))
         .arg(importedIntoTonyLayers ? QString("true") : QString("false"))
         .arg(createdModelType)
         .arg(createdLayerType)
-        .arg(noteCount);
+        .arg(noteCount)
+        .arg(provenanceAttached ? QString("true") : QString("false"));
 }
 
 bool
@@ -247,7 +431,9 @@ TonyLayerImporter::importResult(
     TonyLayerImportResult result;
     result.sourceMarkedDevMock =
         unifiedResult.provenance.value("dev_mock").toBool() ||
-        unifiedResult.provenance.value("test_only").toBool();
+        unifiedResult.provenance.value("test_only").toBool() ||
+        options.provenance.devMock ||
+        options.provenance.testOnly;
 
     if (options.sampleRate <= 0.0) {
         setFailure(result,
@@ -311,8 +497,12 @@ TonyLayerImporter::importResult(
             sv::NoteModel::NORMAL_NOTE);
 
     model->setScaleUnits(useMidiPitch ? "MIDI Pitch" : "Hz");
-    model->setObjectName(QString("Backend notes - %1")
-                         .arg(backendDisplayName(unifiedResult)));
+    const QString provenanceIdentity =
+        durableProvenanceIdentity(unifiedResult, options.provenance);
+    result.provenanceIdentity = provenanceIdentity;
+    result.provenanceAttached = !provenanceIdentity.trimmed().isEmpty();
+
+    model->setObjectName(provenanceIdentity);
 
     int importedNotes = 0;
     for (const auto &note: unifiedResult.notes) {
@@ -383,8 +573,10 @@ TonyLayerImporter::importResult(
             return result;
         }
 
-        layer->setPresentationName(QString("Backend notes - %1")
-                                   .arg(backendDisplayName(unifiedResult)));
+        if (options.provenance.hasAnyField()) {
+            layer->setObjectName(provenanceIdentity);
+        }
+        layer->setPresentationName(provenanceIdentity);
 
         result.layer = layer;
         result.documentLayerCreated = true;

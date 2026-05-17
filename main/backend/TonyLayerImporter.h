@@ -21,6 +21,8 @@
 
 #include "data/model/Model.h"
 
+#include <optional>
+
 namespace sv {
 class Document;
 class Layer;
@@ -29,6 +31,25 @@ class View;
 
 namespace Tony {
 namespace Backend {
+
+struct TonyLayerImportProvenance
+{
+    QString backendId;
+    QString backendName;
+    QString backendVersion;
+    QString inputAudioPath;
+    std::optional<double> selectedRegionStartSec;
+    std::optional<double> selectedRegionEndSec;
+    QString resultJsonPath;
+    QString requestJsonPath;
+    QString runId;
+    bool testOnly = false;
+    bool devMock = false;
+    QString warningSummary;
+    QString confidenceSummary;
+
+    bool hasAnyField() const;
+};
 
 struct TonyLayerImportOptions
 {
@@ -39,6 +60,7 @@ struct TonyLayerImportOptions
     bool createDocumentLayer = false;
     sv::View *view = nullptr;
     bool insertLayerIntoView = false;
+    TonyLayerImportProvenance provenance;
 };
 
 struct TonyLayerImportResult
@@ -51,8 +73,10 @@ struct TonyLayerImportResult
     bool insertedIntoView = false;
     bool commandHistoryEditProof = false;
     bool sourceMarkedDevMock = false;
+    bool provenanceAttached = false;
     QString createdModelType;
     QString createdLayerType;
+    QString provenanceIdentity;
     int noteCount = 0;
     sv::ModelId modelId;
     sv::Layer *layer = nullptr;
