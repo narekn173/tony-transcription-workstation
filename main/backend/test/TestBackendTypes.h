@@ -48,6 +48,7 @@
 #include "../ExternalProcessRunner.h"
 #include "../TonyLayerImporter.h"
 
+#include "data/fileio/CSVFileWriter.h"
 #include "data/model/EventCommands.h"
 #include "data/model/NoteModel.h"
 #include "framework/Document.h"
@@ -6388,6 +6389,88 @@ private slots:
         QCOMPARE(events[1].getDuration(), sv::sv_frame_t(11025));
         QVERIFY(qAbs(events[1].getValue() - 64.0f) < 0.001f);
         QCOMPARE(events[1].getLabel(), QString("dev-mock-note-b"));
+
+        BackendManifest manifest = devMockBackendManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
+    void tonyLayerImporterImportedNoteLayerExportsThroughRealCsvPath()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Pane pane;
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.view = &pane;
+        options.insertLayerIntoView = true;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(imported.insertedIntoView);
+        QVERIFY(imported.layer);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(imported.layer) != nullptr);
+
+        const sv::ModelId exportModelId =
+            imported.layer->getExportModel(&pane);
+        QCOMPARE(exportModelId, imported.modelId);
+
+        auto exportModel = sv::ModelById::get(exportModelId);
+        QVERIFY(exportModel);
+        QVERIFY(sv::ModelById::getAs<sv::NoteModel>(exportModelId));
+
+        const QString exportPath = directory.filePath("backend-notes.csv");
+        sv::CSVFileWriter writer(
+            exportPath,
+            exportModel.get(),
+            ",",
+            sv::DataExportWriteTimeInFrames | sv::DataExportIncludeHeader);
+        writer.write();
+
+        QVERIFY2(writer.isOK(), qPrintable(writer.getError()));
+        QVERIFY(QFile::exists(exportPath));
+        QVERIFY(QFileInfo(exportPath).size() > 0);
+
+        QString exported = readTextFile(exportPath);
+        exported.replace("\r\n", "\n");
+        exported.replace('\r', '\n');
+        QVERIFY(!exported.trimmed().isEmpty());
+
+        const QStringList lines = exported.trimmed().split('\n');
+        QCOMPARE(lines.size(), 3);
+        QCOMPARE(lines[0], QString("FRAME,VALUE,DURATION,LEVEL,LABEL"));
+
+        const QStringList first = lines[1].split(',');
+        QCOMPARE(first.size(), 5);
+        QCOMPARE(first[0], QString("11025"));
+        QVERIFY(qAbs(first[1].toFloat() - 60.0f) < 0.001f);
+        QCOMPARE(first[2], QString("22050"));
+        QVERIFY(qAbs(first[3].toFloat() - (100.0f / 127.0f)) < 0.001f);
+        QCOMPARE(first[4], QString("dev-mock-note-a"));
+
+        const QStringList second = lines[2].split(',');
+        QCOMPARE(second.size(), 5);
+        QCOMPARE(second[0], QString("44100"));
+        QVERIFY(qAbs(second[1].toFloat() - 64.0f) < 0.001f);
+        QCOMPARE(second[2], QString("11025"));
+        QVERIFY(qAbs(second[3].toFloat() - 0.74f) < 0.001f);
+        QCOMPARE(second[4], QString("dev-mock-note-b"));
 
         BackendManifest manifest = devMockBackendManifest();
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
