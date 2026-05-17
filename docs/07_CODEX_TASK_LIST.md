@@ -54,6 +54,7 @@ Core rules:
 - Do not integrate multiple backends in one task.
 - Do not redesign UI unless the task explicitly asks for UI design work.
 - Use the Backend Contract and UnifiedResult for all backend results.
+- Before TonyLayerImporter, UI, MainWindow/Analyser, real backend workflow, selected-region replacement, save/load, or export work, read docs/engineering/*.md and follow the Engineering Gates.
 - Keep the change small and reviewable.
 - If you are unsure, inspect the codebase and report findings before implementing.
 
@@ -518,7 +519,182 @@ Acceptance criteria:
 
 ---
 
-## 9. Phase 5 — Dev-only mock vertical slice
+## 9. Phase 4A — Engineering rules and Tony layer proof gates
+
+These tasks are upcoming control tasks. Do not mark them implemented until they have been explicitly run and reviewed.
+
+### CODEX-087A — Tony source architecture audit
+
+```text
+Task ID: CODEX-087A
+Title: Audit Tony source architecture before layer integration
+
+Goal:
+Inspect the real Tony/Sonic Visualiser source paths that will matter for TonyLayerImporter and future UI/import work.
+
+Read first:
+- AGENTS.md
+- docs/00_PROJECT_INDEX.md
+- docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md
+- docs/engineering/LAYER_TYPE_POLICY.md
+- docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+- docs/engineering/CODEBASE_MAP.md
+
+Allowed:
+- inspect source code
+- create/update docs/engineering source-audit documentation
+
+Not allowed:
+- no C++ behavior changes
+- no layer import implementation
+- no UI
+
+Acceptance criteria:
+1. Real source files/classes for document ownership, layer creation, view insertion, command history, and model lifecycle are identified.
+2. Unknowns are marked.
+3. Risky files/classes are listed.
+```
+
+### CODEX-087B — Tony layer/edit/save/export audit
+
+```text
+Task ID: CODEX-087B
+Title: Audit Tony layer edit save export paths
+
+Goal:
+Map how real Tony/Sonic Visualiser note and pitch layers are edited, saved, loaded, and exported.
+
+Allowed:
+- inspect source code
+- create/update docs/engineering audit documentation
+
+Not allowed:
+- no C++ behavior changes
+- no importer implementation
+- no UI
+
+Acceptance criteria:
+1. Note layer edit paths are identified.
+2. Pitch/f0 layer paths are identified.
+3. Save/load paths are identified.
+4. MIDI/CSV/export paths are identified.
+5. Proof requirements are documented before implementation.
+```
+
+### CODEX-087C — Backend output truth table verification
+
+```text
+Task ID: CODEX-087C
+Title: Verify backend output truth table
+
+Goal:
+Review backend-specific expected outputs and update the truth table with verified local or documented evidence.
+
+Allowed:
+- inspect docs/examples/backend notes
+- update docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md
+- create backend integration notes if needed
+
+Not allowed:
+- no backend integration
+- no fake output
+- no UI
+
+Acceptance criteria:
+1. Each backend entry distinguishes verified facts from planning assumptions.
+2. f0-only backends are not treated as note backends.
+3. Basic Pitch polyphony risk remains explicit.
+```
+
+### CODEX-087D — Real-result acceptance rules verification
+
+```text
+Task ID: CODEX-087D
+Title: Verify real-result acceptance rules
+
+Goal:
+Review all real-result, layer, UI state, provenance, and edit/save/export proof rules before implementation resumes.
+
+Allowed:
+- documentation review
+- small documentation corrections
+
+Not allowed:
+- no C++ behavior changes
+- no UI
+- no backend integration
+
+Acceptance criteria:
+1. Engineering Gates are consistent across AGENTS, Project Index, TDD, Execution Plan, and task list.
+2. No rule permits fake Ready/Completed/Imported/Editable/Exported claims.
+3. Next importer task has clear proof prerequisites.
+```
+
+### CODEX-088 — Dev/mock backend end-to-end proof
+
+```text
+Task ID: CODEX-088
+Title: Prove dev/mock backend end-to-end path
+
+Goal:
+Use a clearly dev/test-only result to prove the parser/import path without claiming real backend success.
+
+Not allowed:
+- no production success claims
+- no fake real backend
+- no pYIN behavior changes
+
+Acceptance criteria:
+1. Mock/dev output is labeled test-only.
+2. It uses the same UnifiedResult loader/validator path as real results.
+3. Highest proof gate reached is reported.
+```
+
+### CODEX-089 — UnifiedResult to real editable Tony NoteLayer proof
+
+```text
+Task ID: CODEX-089
+Title: Prove UnifiedResult imports to real editable Tony NoteLayer
+
+Goal:
+Import validated UnifiedResult notes into a real Tony/Sonic Visualiser editable note layer.
+
+Not allowed:
+- no custom overlay pretending to be a layer
+- no fake notes
+- no save/export claims unless proven
+
+Acceptance criteria:
+1. Real Tony/Sonic Visualiser layer/model class is used.
+2. Imported notes are visible.
+3. Edit proof is completed before claiming editable.
+4. pYIN behavior remains unchanged.
+```
+
+### CODEX-090 — Save/load/export proof
+
+```text
+Task ID: CODEX-090
+Title: Prove save load export for imported result layers
+
+Goal:
+Prove that imported or accepted backend result data survives save/load and exports correctly where claimed.
+
+Not allowed:
+- no fake export files
+- no persistence claims without reload proof
+- no pYIN behavior changes
+
+Acceptance criteria:
+1. Save/load proof is documented.
+2. Export file is created and inspected.
+3. Provenance limitations are documented.
+4. Unsupported export paths are reported honestly.
+```
+
+---
+
+## 10. Phase 5 — Dev-only mock vertical slice
 
 ### CODEX-050 — Add dev-only mock backend adapter
 
@@ -574,7 +750,7 @@ Acceptance criteria:
 
 ---
 
-## 10. Phase 6 — External process infrastructure
+## 11. Phase 6 — External process infrastructure
 
 ### CODEX-060 — Add ExternalProcessRunner skeleton
 
@@ -656,7 +832,7 @@ Acceptance criteria:
 
 ---
 
-## 11. Phase 7 — First real backend: Basic Pitch / NeuralNote path
+## 12. Phase 7 — First real backend: Basic Pitch / NeuralNote path
 
 ### CODEX-070 — Inspect Basic Pitch CLI/output behavior locally
 
@@ -790,7 +966,7 @@ Acceptance criteria:
 
 ---
 
-## 12. Phase 8 — MVP hardening
+## 13. Phase 8 — MVP hardening
 
 ### CODEX-080 — MVP no-fake and error-state audit
 
@@ -842,12 +1018,12 @@ Acceptance criteria:
 
 ---
 
-## 13. Phase 9 — CREPE Notes backend
+## 14. Phase 9 — CREPE Notes backend
 
-### CODEX-090 — Inspect CREPE Notes CLI/output behavior
+### CODEX-091A — Inspect CREPE Notes CLI/output behavior
 
 ```text
-Task ID: CODEX-090
+Task ID: CODEX-091A
 Title: Inspect CREPE Notes CLI and output behavior
 
 Goal:
@@ -867,10 +1043,10 @@ Acceptance criteria:
 3. Dependency and licensing notes are documented.
 ```
 
-### CODEX-091 — Add CREPE Notes external adapter
+### CODEX-091B — Add CREPE Notes external adapter
 
 ```text
-Task ID: CODEX-091
+Task ID: CODEX-091B
 Title: Add CREPE Notes external adapter
 
 Goal:
@@ -897,7 +1073,7 @@ Acceptance criteria:
 
 ---
 
-## 14. Phase 10 — Selected-region preview
+## 15. Phase 10 — Selected-region preview
 
 ### CODEX-100 — Add selected-region request plumbing
 
@@ -974,7 +1150,7 @@ Acceptance criteria:
 
 ---
 
-## 15. Phase 11 — Compare mode v1
+## 16. Phase 11 — Compare mode v1
 
 ### CODEX-110 — Add sequential compare queue
 
@@ -1049,7 +1225,7 @@ Acceptance criteria:
 
 ---
 
-## 16. Phase 12 — Specialized backends
+## 17. Phase 12 — Specialized backends
 
 ### CODEX-120 — Add MUSC integration notes before implementation
 
@@ -1172,7 +1348,7 @@ Acceptance criteria:
 
 ---
 
-## 17. Phase 13 — Future AI Copilot
+## 18. Phase 13 — Future AI Copilot
 
 ### CODEX-130 — Create AI Copilot design document only
 
@@ -1204,7 +1380,7 @@ Acceptance criteria:
 
 ---
 
-## 18. Phase 14 — UI modernization
+## 19. Phase 14 — UI modernization
 
 ### CODEX-140 — Create UI modernization proposal only
 
@@ -1234,7 +1410,7 @@ Acceptance criteria:
 
 ---
 
-## 19. Review checklist for every Codex diff
+## 20. Review checklist for every Codex diff
 
 Before accepting a Codex change, check:
 
@@ -1244,6 +1420,7 @@ Before accepting a Codex change, check:
 [ ] Does the project build?
 [ ] Did it preserve existing Tony/pYIN behavior?
 [ ] Did it avoid fake analysis output?
+[ ] For UI/layer/import/save/export work, did it follow the Engineering Gates and report the highest proof gate reached?
 [ ] Did it use Backend Contract / UnifiedResult where required?
 [ ] Are errors visible and honest?
 [ ] Are docs updated if behavior changed?
@@ -1253,7 +1430,7 @@ Before accepting a Codex change, check:
 
 ---
 
-## 20. Recommended immediate next action
+## 21. Recommended immediate next action
 
 Do **not** start `CODEX-010` until `AGENTS.md` exists and the project documents have been added to the actual repository.
 

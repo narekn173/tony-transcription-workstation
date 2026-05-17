@@ -52,6 +52,12 @@ Codex and any human contributor must treat these documents as the current projec
 | `docs/04_BACKEND_CONTRACT.md` | Contract between Tony host and all analysis backends. |
 | `docs/schemas/*.schema.json` | Machine-checkable schemas for backend manifest, request, and result. |
 | `docs/05_TDD_ARCHITECTURE.md` | Technical architecture and component design. |
+| `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | Mandatory no-fake and real Tony layer proof rules. |
+| `docs/engineering/LAYER_TYPE_POLICY.md` | Mandatory mapping from backend output types to Tony concepts. |
+| `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Mandatory backend-specific output/proof reference. |
+| `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory edit/save/export proof gates. |
+| `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory UI state truth policy. |
+| `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory provenance metadata policy. |
 | `docs/06_EXECUTION_PLAN.md` | Implementation sequence and stage gates. |
 | `docs/07_CODEX_TASK_LIST.md` | Ready-to-use Codex task prompts. |
 | `AGENTS.md` | Persistent repository rules for Codex. Created and part of the approved implementation-control set. |
@@ -132,7 +138,8 @@ Implementation is split into independent workstreams so Codex does not mix conce
 | W1 Build and codebase mapping | Build original Tony, map source paths | W0 |
 | W2 Architecture skeleton | Manager, registry, manifest loading, settings | W1 |
 | W3 Contract and validation | Schema validation, parsers, example fixtures | W2 |
-| W4 Dev mock vertical slice | Mock adapter → UnifiedResult → Tony result layer | W3 |
+| W3A Engineering proof gates | No-fake rules, layer policy, truth table, proof gates | W3 |
+| W4 Dev mock vertical slice | Mock adapter → UnifiedResult → Tony result layer | W3A |
 | W5 External process infrastructure | Runner, temp dirs, timeout, cancellation, logs | W3/W4 |
 | W6 First real backend | Basic Pitch / NeuralNote path | W5 |
 | W7 Export and MVP closure | Corrected layer export MIDI/CSV, MVP validation | W6 |
@@ -156,7 +163,8 @@ A phase cannot start until the previous gate passes.
 | G2 Codebase mapped | Analysis path, pYIN call path, layer creation, import/export, menus, settings, undo/redo are documented. |
 | G3 Architecture skeleton builds | Manager/registry/settings skeleton compiles without behavior changes. |
 | G4 Contract validation works | Example manifest/request/result schemas validate in tests or tooling. |
-| G5 Mock vertical slice works | Dev-only mock result can be displayed as a Tony result layer. |
+| G4A Engineering proof gates ready | Real-result, layer, UI state, provenance, and edit/save/export proof rules are documented. |
+| G5 Mock vertical slice works | Dev-only mock result can be displayed as a real Tony/Sonic Visualiser result layer. |
 | G6 Runner works | Controlled external process can run/cancel/fail safely. |
 | G7 First backend works | Basic Pitch result can be run, validated, displayed, corrected, and exported. |
 | G8 MVP ready | Existing pYIN works, first backend works, errors are visible, MIDI/CSV export works. |
@@ -269,6 +277,25 @@ Exit criteria:
 - Invalid example fails safely.
 - No invalid backend result can be imported silently.
 
+### Phase 4A — Engineering Rules and Tony Layer Proof Gates
+
+Goal: create mandatory engineering rules before TonyLayerImporter, UI integration, MainWindow/Analyser integration, real backend workflow, selected-region replacement, save/load, or export work.
+
+Components:
+
+- real-result and Tony layer integration rules;
+- layer type policy;
+- backend output truth table;
+- Tony edit/save/export proof plan;
+- UI visual truth states;
+- provenance metadata policy.
+
+Exit criteria:
+
+- all proof documents exist under `docs/engineering/`;
+- `AGENTS.md`, Project Index, TDD, Execution Plan, and Codex Task List require these documents before layer/import/UI/save/export work;
+- no C++ runtime behavior changed.
+
 ### Phase 5 — Dev-only mock vertical slice
 
 Goal: prove result import and display without ML backend complexity.
@@ -277,7 +304,7 @@ Components:
 
 - dev-only mock adapter;
 - reads `docs/examples/unified_result_minimal.example.json` or equivalent fixture;
-- imports into a non-destructive result layer;
+- imports into a real non-destructive Tony/Sonic Visualiser result layer;
 - labels UI as development/test only.
 
 Exit criteria:
@@ -431,6 +458,8 @@ Codex must not:
 - rewrite large Tony subsystems without explicit approval;
 - add dependencies without documenting rationale;
 - add fake UI output;
+- add fake overlays and call them Tony layers;
+- claim Ready, Installed, Completed, Imported, Editable, Saved, or Exported without the corresponding Engineering Gate evidence;
 - silently bypass schema validation;
 - change licensing headers or upstream notices without explicit review;
 - claim a backend is supported before it actually runs and imports real output.

@@ -55,9 +55,15 @@ These files are the current source-of-truth set. Read them in this order.
 | 3 | `docs/03_SRS.md` | Canonical v0.1 | Testable software requirements |
 | 4 | `docs/04_BACKEND_CONTRACT.md` | Canonical v0.1 | Backend data contract and integration boundary |
 | 5 | `docs/05_TDD_ARCHITECTURE.md` | Canonical v0.1 | Technical architecture blueprint |
-| 6 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 7 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 8 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 6 | `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | Mandatory engineering rules | No fake UI/results/layers; real Tony proof chain |
+| 7 | `docs/engineering/LAYER_TYPE_POLICY.md` | Mandatory engineering rules | Output-to-layer mapping policy |
+| 8 | `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Mandatory engineering rules | Backend-specific output truth table |
+| 9 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 10 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 11 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 12 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 13 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 14 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -73,6 +79,9 @@ docs/04_BACKEND_CONTRACT.md
 
 docs/05_TDD_ARCHITECTURE.md
     = how the system is technically structured
+
+docs/engineering/*.md
+    = mandatory proof rules before layer/import/UI/save/export work
 
 docs/06_EXECUTION_PLAN.md
     = in what order implementation should proceed
@@ -105,6 +114,27 @@ Rule:
 ```text
 Backends must not bypass the Backend Contract.
 Every real backend output must be normalized to UnifiedResult before Tony layer import.
+```
+
+---
+
+## 3A. Mandatory engineering proof documents
+
+These documents are required reading before TonyLayerImporter, UI integration, MainWindow/Analyser integration, real backend workflow, selected-region replacement, save/load, or export work.
+
+| File | Mandatory before | Purpose |
+|---|---|---|
+| `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | All importer/UI/backend workflow claims | Defines no-fake rules and real end-to-end proof chain |
+| `docs/engineering/LAYER_TYPE_POLICY.md` | TonyLayerImporter and display work | Defines how notes, f0, bends, confidence, labels, and annotations map to Tony concepts |
+| `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Backend adapter and importer work | Defines backend-specific expected outputs, risks, and proof |
+| `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
+| `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
+| `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |
+
+Rule:
+
+```text
+No task may claim imported, editable, saved, exported, ready, installed, or completed unless the matching proof gate has passed.
 ```
 
 ---
@@ -222,10 +252,16 @@ Basic Pitch / NeuralNote path
 5. docs/schemas/*.schema.json
 6. docs/examples/*.example.json
 7. docs/05_TDD_ARCHITECTURE.md
-8. docs/adr/*.md
-9. docs/06_EXECUTION_PLAN.md
-10. docs/07_CODEX_TASK_LIST.md
-11. AGENTS.md
+8. docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md
+9. docs/engineering/LAYER_TYPE_POLICY.md
+10. docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md
+11. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+12. docs/engineering/UI_VISUAL_TRUTH_STATES.md
+13. docs/engineering/PROVENANCE_METADATA_POLICY.md
+14. docs/adr/*.md
+15. docs/06_EXECUTION_PLAN.md
+16. docs/07_CODEX_TASK_LIST.md
+17. AGENTS.md
 ```
 
 ---
@@ -243,6 +279,12 @@ docs/04_BACKEND_CONTRACT.md
 docs/schemas/*.schema.json
 docs/examples/*.example.json
 docs/05_TDD_ARCHITECTURE.md
+docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md
+docs/engineering/LAYER_TYPE_POLICY.md
+docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md
+docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+docs/engineering/UI_VISUAL_TRUTH_STATES.md
+docs/engineering/PROVENANCE_METADATA_POLICY.md
 docs/adr/*.md
 docs/06_EXECUTION_PLAN.md
 docs/07_CODEX_TASK_LIST.md

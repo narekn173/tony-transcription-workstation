@@ -82,6 +82,12 @@ Before implementing or changing behavior, use the project documents below.
 | `docs/schemas/*.schema.json` | Machine-checkable JSON schemas. |
 | `docs/examples/*.example.json` | Valid example backend manifests, requests, and results. |
 | `docs/05_TDD_ARCHITECTURE.md` | Technical design and architecture. |
+| `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md` | Mandatory rules against fake UI/results/layers and feature-complete claims. |
+| `docs/engineering/LAYER_TYPE_POLICY.md` | Mandatory output-to-layer mapping policy. |
+| `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md` | Mandatory backend-specific output expectations and proof requirements. |
+| `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory proof gates for layer import, edit, save/load, and export. |
+| `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory visible-state truth policy. |
+| `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory provenance policy for imported backend results. |
 | `docs/06_EXECUTION_PLAN.md` | Approved implementation sequence and stage gates. |
 | `docs/07_CODEX_TASK_LIST.md` | Approved small Codex task list. |
 | `docs/adr/` | Architecture Decision Records when present. |
@@ -96,10 +102,11 @@ If documents conflict, follow this precedence:
 3. docs/03_SRS.md for testable requirements
 4. docs/04_BACKEND_CONTRACT.md + docs/schemas/ for backend data boundaries
 5. docs/05_TDD_ARCHITECTURE.md for technical design
-6. docs/06_EXECUTION_PLAN.md for implementation order
-7. docs/02_PRD.md for product intent
-8. docs/07_CODEX_TASK_LIST.md for task prompts
-9. This AGENTS.md for coding-agent behavior rules
+6. docs/engineering/* truth/proof documents for real-result, layer, UI, provenance, save/load, and export rules
+7. docs/06_EXECUTION_PLAN.md for implementation order
+8. docs/02_PRD.md for product intent
+9. docs/07_CODEX_TASK_LIST.md for task prompts
+10. This AGENTS.md for coding-agent behavior rules
 ```
 
 If a conflict is found:
@@ -128,6 +135,11 @@ If a conflict is found:
 13. Do not make licensing, redistribution, or commercial-use claims without checking the relevant license/source.
 14. Do not position the project as watermark removal, detector bypass, legal-clearing, or copyright-evasion software.
 15. Do not silently change requirements to make implementation easier.
+16. Do not create fake overlays or custom drawings and call them Tony layers.
+17. Do not show Ready, Installed, Completed, Imported, Editable, Saved, or Exported unless the corresponding proof gate has passed.
+18. Do not call a feature complete without evidence from the Engineering Gates.
+19. Before UI, layer import, MainWindow/Analyser integration, selected-region replacement, save/load, or export work, inspect the real Tony/Sonic Visualiser source path first.
+20. Use real Tony/Sonic Visualiser layers and models for imported results; do not bypass them with parallel fake representations.
 
 ---
 
@@ -194,6 +206,7 @@ For every coding task:
 7. Preserve existing Tony/pYIN behavior unless the task explicitly changes it.
 8. Run the most relevant available verification.
 9. Report exactly what changed, what was verified, what remains unresolved, and the next recommended task.
+10. For UI/layer/import/save/export tasks, identify the highest Engineering Gate reached and do not claim beyond it.
 
 If confirmed build/test commands are not yet documented, do not invent them. Use the build-discovery tasks from `docs/07_CODEX_TASK_LIST.md` first.
 
@@ -209,6 +222,7 @@ Phase 1 — Build original Tony unchanged
 Phase 2 — Map existing Tony analysis/import/export code paths
 Phase 3 — Add architecture skeleton
 Phase 4 — Add UnifiedResult data structures and validation
+Phase 4A — Engineering rules and Tony layer proof gates
 Phase 5 — Add dev-only mock backend vertical slice
 Phase 6 — Add ExternalProcessRunner
 Phase 7 — Add Basic Pitch / NeuralNote path as first real backend
@@ -250,6 +264,32 @@ The UI must never show a successful analysis state unless a real backend succeed
 ### 5. Local-first by default
 
 Local audio processing is the default. Network/API features are future, optional, explicit, and user-confirmed.
+
+---
+
+## Engineering Gates for Real Results and Tony Layers
+
+Before any task touches TonyLayerImporter, UI integration, MainWindow/Analyser integration, selected-region replacement, save/load, or export behavior, Codex must read and follow:
+
+- `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md`
+- `docs/engineering/LAYER_TYPE_POLICY.md`
+- `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md`
+- `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md`
+- `docs/engineering/UI_VISUAL_TRUTH_STATES.md`
+- `docs/engineering/PROVENANCE_METADATA_POLICY.md`
+
+Mandatory rules:
+
+- inspect the relevant Tony/Sonic Visualiser source before implementation;
+- no fake states, fake results, fake overlays, or fake notes;
+- use real Tony/Sonic Visualiser layers/models where layer import is claimed;
+- path checks are not Ready/Installed;
+- loaded UnifiedResult is not Imported;
+- imported is not Editable unless edit proof exists;
+- exported is not proven unless an export file is created and inspected;
+- preserve pYIN behavior unless explicitly tasked otherwise.
+
+Final reports for these tasks must state the highest proof gate reached.
 
 ---
 
@@ -692,6 +732,7 @@ A task is complete only when:
 7. Documentation was updated when required.
 8. Remaining limitations are reported honestly.
 9. The next recommended task is identified.
+10. For layer/import/UI/save/export work, the Engineering Gates were followed and evidence was reported.
 
 ---
 

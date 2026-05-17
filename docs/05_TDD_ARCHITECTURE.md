@@ -1655,6 +1655,52 @@ The JSON examples under `docs/examples/` must continue to validate against schem
 
 ---
 
+## Real Result and Tony Layer Integration Quality Gates
+
+Before TonyLayerImporter, UI integration, MainWindow/Analyser integration, Basic Pitch workflow, selected-region replacement, save/load, or export behavior is implemented, the engineering proof documents under `docs/engineering/` are mandatory.
+
+Required documents:
+
+- `docs/engineering/REAL_RESULT_AND_TONY_LAYER_INTEGRATION_RULES.md`
+- `docs/engineering/LAYER_TYPE_POLICY.md`
+- `docs/engineering/BACKEND_OUTPUT_TRUTH_TABLE.md`
+- `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md`
+- `docs/engineering/UI_VISUAL_TRUTH_STATES.md`
+- `docs/engineering/PROVENANCE_METADATA_POLICY.md`
+
+### Mandatory end-to-end proof chain
+
+Future real-backend features must prove the highest relevant part of this chain:
+
+```text
+real audio
+-> real backend execution or existing pYIN path
+-> real backend output file(s)
+-> valid UnifiedResult
+-> real Tony/Sonic Visualiser model/layer
+-> visible layer in Tony
+-> editable through Tony mechanisms where claimed
+-> save/load where claimed
+-> export where claimed
+```
+
+Compile-only tasks, parser-only tasks, and dev/mock tasks may stop earlier, but their final reports must state exactly where they stop.
+
+### Quality gate rules
+
+- Path checks are not Ready or Installed.
+- Backend process success is not result import.
+- Loaded UnifiedResult is not a Tony layer.
+- A custom overlay is not a Tony/Sonic Visualiser layer.
+- Editable requires a real editable Tony model/layer and edit proof.
+- Saved/exported requires file/session evidence.
+- f0 is not automatically notes.
+- Technique labels are not notes.
+- Polyphonic backend output must not be blindly forced into one monophonic Tony note layer.
+- pYIN behavior remains the baseline and must be regression checked when relevant.
+
+---
+
 ## 24. Build, packaging, and installation strategy
 
 ### 24.1 MVP build strategy
@@ -1752,6 +1798,21 @@ Deliver:
 ResultValidator
 UnifiedResultParser
 schema validation for example results
+```
+
+### Phase 4A — Engineering rules and Tony layer proof gates
+
+Goal: codify proof requirements before Tony layer import, UI state, real backend workflow, selected-region replacement, save/load, or export work.
+
+Deliver:
+
+```text
+real-result and Tony layer integration rules
+layer type policy
+backend output truth table
+edit/save/export proof plan
+UI visual truth states
+provenance metadata policy
 ```
 
 ### Phase 5 — Dev-only mock adapter
