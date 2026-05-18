@@ -6438,6 +6438,10 @@ private slots:
         QVERIFY(imported.importedIntoTonyLayers);
         QVERIFY(imported.insertedIntoView);
         QVERIFY(imported.provenanceAttached);
+        QVERIFY(imported.durableIdentityPersisted);
+        QVERIFY(!imported.structuredProvenancePersisted);
+        QVERIFY(reportHasIssue(imported.report,
+                               "structured_provenance_persistence_deferred"));
         QVERIFY(imported.layer);
 
         const QString identity = imported.provenanceIdentity;
@@ -6504,6 +6508,62 @@ private slots:
         QCOMPARE(events[1].getDuration(), sv::sv_frame_t(11025));
         QVERIFY(qAbs(events[1].getValue() - 64.0f) < 0.001f);
         QCOMPARE(events[1].getLabel(), QString("dev-mock-note-b"));
+
+        BackendManifest manifest = devMockBackendManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
+    void tonyLayerImporterDoesNotClaimStructuredProvenancePersistence()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
+
+        sv::Pane pane;
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.view = &pane;
+        options.insertLayerIntoView = true;
+        options.provenance.backendId = "dev_mock_backend";
+        options.provenance.resultJsonPath =
+            "C:/codex094/codex094-result.json";
+        options.provenance.runId = "codex094_run_001";
+        options.provenance.testOnly = true;
+        options.provenance.devMock = true;
+
+        TonyLayerImporter importer;
+        const TonyLayerImportResult imported =
+            importer.importResult(unifiedResult, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(imported.insertedIntoView);
+        QVERIFY(imported.provenanceAttached);
+        QVERIFY(imported.durableIdentityPersisted);
+        QVERIFY(!imported.structuredProvenancePersisted);
+        QVERIFY(reportHasIssue(imported.report,
+                               "structured_provenance_persistence_deferred"));
+        QVERIFY(imported.debugSummaryString().contains(
+            "durableIdentity=true"));
+        QVERIFY(imported.debugSummaryString().contains(
+            "structuredProvenance=false"));
+
+        const QString sessionXml =
+            serializeDocumentPaneSessionXml(document, pane);
+        QVERIFY(sessionXml.contains("backend=dev_mock_backend"));
+        QVERIFY(sessionXml.contains("run=codex094_run_001"));
+        QVERIFY(sessionXml.contains("result=codex094-result.json"));
+        QVERIFY(!sessionXml.contains("model_checkpoint"));
+        QVERIFY(!sessionXml.contains("backend_settings_hash"));
+        QVERIFY(!sessionXml.contains("user_edit_status"));
 
         BackendManifest manifest = devMockBackendManifest();
         QVERIFY(manifest.status == BackendStatus::NotConfigured);

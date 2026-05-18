@@ -361,6 +361,13 @@ durableProvenanceIdentity(const UnifiedResult &result,
     return identity;
 }
 
+bool
+hasStructuredProvenanceInput(const UnifiedResult &result,
+                             const TonyLayerImportProvenance &provenance)
+{
+    return provenance.hasAnyField() || !result.provenance.isEmpty();
+}
+
 }
 
 bool
@@ -391,13 +398,17 @@ QString
 TonyLayerImportResult::debugSummaryString() const
 {
     return QString("TonyLayerImportResult(success=%1, imported=%2, "
-                   "model=%3, layer=%4, notes=%5, provenance=%6)")
+                   "model=%3, layer=%4, notes=%5, provenance=%6, "
+                   "durableIdentity=%7, structuredProvenance=%8)")
         .arg(succeeded ? QString("true") : QString("false"))
         .arg(importedIntoTonyLayers ? QString("true") : QString("false"))
         .arg(createdModelType)
         .arg(createdLayerType)
         .arg(noteCount)
-        .arg(provenanceAttached ? QString("true") : QString("false"));
+        .arg(provenanceAttached ? QString("true") : QString("false"))
+        .arg(durableIdentityPersisted ? QString("true") : QString("false"))
+        .arg(structuredProvenancePersisted ? QString("true") :
+             QString("false"));
 }
 
 bool
@@ -501,6 +512,16 @@ TonyLayerImporter::importResult(
         durableProvenanceIdentity(unifiedResult, options.provenance);
     result.provenanceIdentity = provenanceIdentity;
     result.provenanceAttached = !provenanceIdentity.trimmed().isEmpty();
+    result.structuredProvenancePersisted = false;
+
+    if (hasStructuredProvenanceInput(unifiedResult, options.provenance)) {
+        result.report.addIssue(
+            ValidationSeverity::Warning,
+            "structured_provenance_persistence_deferred",
+            "TonyLayerImporter persisted only durable provenance identity "
+            "through existing model/layer XML fields; full structured "
+            "provenance storage remains deferred.");
+    }
 
     model->setObjectName(provenanceIdentity);
 
@@ -614,6 +635,7 @@ TonyLayerImporter::importResult(
         }
 
         result.insertedIntoView = true;
+        result.durableIdentityPersisted = result.provenanceAttached;
     }
 
     result.succeeded = true;

@@ -53,9 +53,23 @@ Do not imply the raw backend output remains unchanged after user edits.
 Before claiming save/load support:
 
 - provenance must survive session/project save and reload where possible;
+- durable identity through model/layer names is only partial provenance, not
+  full structured provenance;
+- full structured provenance may be claimed only after a source-backed metadata
+  mechanism is proven through save/load;
 - missing backend executables after reload must not invalidate existing saved notes;
 - re-running analysis must be explicit and must use current settings or clearly preserved previous settings;
 - unavailable provenance fields must be shown as unknown, not fabricated.
+
+Current CODEX-094 status:
+
+- `NoteModel::objectName`, `Layer::objectName`, and
+  `Layer::presentationName` are proven persistence-compatible for durable
+  provenance-derived identity.
+- full structured provenance persistence is deferred and must report
+  `structuredProvenancePersisted=false` until a real XML/registry/sidecar
+  mechanism is designed, linked, saved, reloaded, and tested.
+- See `docs/engineering/STRUCTURED_PROVENANCE_PERSISTENCE_STRATEGY.md`.
 
 ## 6. Export Implications
 

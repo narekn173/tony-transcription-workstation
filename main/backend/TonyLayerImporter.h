@@ -74,6 +74,8 @@ struct TonyLayerImportResult
     bool commandHistoryEditProof = false;
     bool sourceMarkedDevMock = false;
     bool provenanceAttached = false;
+    bool durableIdentityPersisted = false;
+    bool structuredProvenancePersisted = false;
     QString createdModelType;
     QString createdLayerType;
     QString provenanceIdentity;
