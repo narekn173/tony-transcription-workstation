@@ -39,7 +39,7 @@ Future import code must use real model registration and layer insertion paths su
 | Backend | Primary mapping | Secondary mapping | Prohibited mapping |
 |---|---|---|---|
 | pYIN | Existing `SparseTimeValueModel` pitch and `NoteModel::FLEXI_NOTE` notes through current Tony flow | None for new backend importer until explicitly scoped | Any change that regresses existing pYIN behavior |
-| Basic Pitch | Real note events may map to note layers only after polyphony policy | Pitch bends, velocity, confidence, and channel/voice information need preservation or warnings | Flattening polyphony, dropping pitch bends silently, or calling generated MIDI "imported" before Tony layer proof |
+| Basic Pitch | Converted `UnifiedResult.notes` from real MIDI or note-events CSV may map to note layers only after polyphony policy | Pitch bends, velocity, confidence, and artifact warnings need preservation or warnings | Flattening polyphony, dropping pitch bends silently, or calling generated MIDI/CSV "imported" before `UnifiedResult` conversion and Tony layer proof |
 | CREPE Notes | Raw CREPE f0 maps to `TimeValueLayer`; segmented notes may map to note layers only after segmentation proof | Confidence/voicing diagnostic strategy | Creating notes directly from f0 points without real segmentation |
 | PESTO | f0 and confidence map to pitch/diagnostic layers | Future segmentation may create notes only as a separate component | Calling PESTO output note transcription |
 | PENN | pitch plus periodicity map to pitch/diagnostic layers | Future segmentation may create notes only as a separate component | Treating periodicity as note confidence without documenting semantics |
@@ -54,6 +54,7 @@ Future import code must use real model registration and layer insertion paths su
 - Confidence, voicing, and periodicity are not notes.
 - Pitch bends are not fixed note events.
 - Basic Pitch polyphonic output must not be blindly forced into one monophonic Tony note layer.
+- Basic Pitch CLI artifacts are not a Tony result until converted into a validated `UnifiedResult`.
 - CREPE/PESTO/PENN/FCPE f0 output requires real segmentation before note claims.
 - A custom drawing overlay is not a Tony layer unless it uses real Tony/Sonic Visualiser layer infrastructure.
 - A valid `UnifiedResult` is not a successful Tony import.

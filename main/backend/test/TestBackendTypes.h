@@ -17,6 +17,7 @@
 
 #include "../BackendAvailabilityProbe.h"
 #include "../BackendAvailabilityStore.h"
+#include "../BasicPitchAdapterContract.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
 #include "../BackendExecutableProbe.h"
@@ -7334,6 +7335,183 @@ private slots:
                        QVector<ExternalProcessEvent>({ event }));
 
         QVERIFY(written.isValid());
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void basicPitchAdapterContractManifestIsConservative()
+    {
+        BasicPitchAdapterContract contract;
+        const BackendManifest manifest = contract.manifest();
+
+        QCOMPARE(manifest.id(), QString("basic_pitch"));
+        QCOMPARE(manifest.displayName, QString("Basic Pitch"));
+        QCOMPARE(manifest.executablePath, QString("basic-pitch"));
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.backendType == BackendRuntimeType::PythonCli);
+        QVERIFY(manifest.capabilities.supportsFullFile);
+        QVERIFY(!manifest.capabilities.supportsSelectedRegion);
+        QVERIFY(manifest.capabilities.outputsNotes);
+        QVERIFY(manifest.capabilities.outputsPitchBends);
+        QVERIFY(!manifest.capabilities.outputsTechniqueLabels);
+        QVERIFY(manifest.capabilities.requiresPython);
+        QVERIFY(!manifest.capabilities.requiresModelCheckpoint);
+        QVERIFY(manifest.supportedInputFormats.contains("wav"));
+        QVERIFY(manifest.supportedInputFormats.contains("flac"));
+        QVERIFY(manifest.supportedOutputTypes.contains("midi"));
+        QVERIFY(manifest.supportedOutputTypes.contains("note_events_csv"));
+        QVERIFY(manifest.supportedOutputTypes.contains("pitch_bends"));
+        QVERIFY(manifest.defaultSettings.value("possible_polyphony").toBool());
+        QVERIFY(!manifest.defaultSettings.value("monophonic_guaranteed").toBool());
+        QVERIFY(!manifest.defaultSettings.value(
+            "pitch_bend_tony_mapping_proven").toBool());
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void basicPitchAdapterContractBuildsCliRequestWithoutExecution()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath = directory.filePath("basic-pitch-ran.marker");
+        const QString executablePath = directory.filePath("basic-pitch.bat");
+        const QByteArray script =
+            QByteArray("@echo off\r\n") +
+            QByteArray("echo ran > \"") +
+            QDir::toNativeSeparators(markerPath).toUtf8() +
+            QByteArray("\"\r\n");
+        QVERIFY(writeFile(executablePath, script));
+        QVERIFY(makeExecutable(executablePath));
+
+        BasicPitchAdapterContractParameters parameters;
+        parameters.executablePath = executablePath;
+        parameters.inputAudioPath = directory.filePath("input.wav");
+        parameters.outputDirectoryPath = directory.filePath("basic-pitch-output");
+        parameters.expectedUnifiedResultJsonPath =
+            directory.filePath("result.json");
+        parameters.timeoutMsec = 4567;
+        parameters.environmentOverrides.insert("BASIC_PITCH_TEST", "1");
+
+        BasicPitchAdapterContract contract;
+        const BasicPitchAdapterContractResult built =
+            contract.buildCliRequest(parameters);
+
+        QVERIFY(built.isValid());
+        QCOMPARE(built.request.executablePath, executablePath);
+        QCOMPARE(built.request.timeoutMsec, 4567);
+        QCOMPARE(built.request.environmentOverrides.value("BASIC_PITCH_TEST"),
+                 QString("1"));
+        QVERIFY(built.request.arguments.size() >= 2);
+        QCOMPARE(built.request.arguments.at(0), parameters.outputDirectoryPath);
+        QCOMPARE(built.request.arguments.at(1), parameters.inputAudioPath);
+        QVERIFY(built.request.arguments.contains("--save-note-events"));
+        QVERIFY(built.request.arguments.contains("--save-model-outputs"));
+        QVERIFY(built.request.arguments.contains("--multiple-pitch-bends"));
+        QVERIFY(!built.executesProcess);
+        QVERIFY(!built.createsFakeResultJson);
+        QVERIFY(!built.importsIntoTonyLayers);
+        QVERIFY(!QFile::exists(markerPath));
+        QVERIFY(!QFile::exists(parameters.expectedUnifiedResultJsonPath));
+    }
+
+    void basicPitchAdapterContractRejectsInvalidRequestShape()
+    {
+        BasicPitchAdapterContractParameters parameters;
+        parameters.executablePath = " ";
+        parameters.inputAudioPath = " ";
+        parameters.outputDirectoryPath = " ";
+        parameters.expectedUnifiedResultJsonPath = " ";
+        parameters.timeoutMsec = -1;
+        parameters.modelSerialization = "unsupported";
+
+        BasicPitchAdapterContract contract;
+        const BasicPitchAdapterContractResult built =
+            contract.buildCliRequest(parameters);
+
+        QVERIFY(!built.isValid());
+        QVERIFY(reportHasIssue(built.report,
+                               "empty_basic_pitch_executable_path"));
+        QVERIFY(reportHasIssue(built.report,
+                               "empty_basic_pitch_input_audio_path"));
+        QVERIFY(reportHasIssue(built.report,
+                               "empty_basic_pitch_output_directory"));
+        QVERIFY(reportHasIssue(built.report,
+                               "empty_basic_pitch_unified_result_path"));
+        QVERIFY(reportHasIssue(built.report, "invalid_basic_pitch_timeout"));
+        QVERIFY(reportHasIssue(
+            built.report,
+            "unsupported_basic_pitch_model_serialization"));
+    }
+
+    void basicPitchAdapterContractWarnsAboutUnprovenMappings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchAdapterContractParameters parameters;
+        parameters.executablePath = "basic-pitch";
+        parameters.inputAudioPath = directory.filePath("input.wav");
+        parameters.outputDirectoryPath = directory.path();
+        parameters.expectedUnifiedResultJsonPath =
+            directory.filePath("result.json");
+        parameters.modelSerialization = "onnx";
+        parameters.modelPath = directory.filePath("nmp.onnx");
+
+        BasicPitchAdapterContract contract;
+        const BasicPitchAdapterContractResult built =
+            contract.buildCliRequest(parameters);
+
+        QVERIFY(built.isValid());
+        QVERIFY(built.possiblePolyphony);
+        QVERIFY(!built.monophonicGuaranteed);
+        QVERIFY(!built.pitchBendTonyMappingProven);
+        QVERIFY(!built.confidenceTonyMappingProven);
+        QVERIFY(reportHasIssueWithSeverity(
+            built.report,
+            "basic_pitch_possible_polyphony",
+            ValidationSeverity::Warning));
+        QVERIFY(reportHasIssueWithSeverity(
+            built.report,
+            "basic_pitch_pitch_bend_mapping_deferred",
+            ValidationSeverity::Warning));
+        QVERIFY(reportHasIssueWithSeverity(
+            built.report,
+            "basic_pitch_unified_result_conversion_deferred",
+            ValidationSeverity::Warning));
+        const int modelPathIndex =
+            built.request.arguments.indexOf("--model-path");
+        QVERIFY(modelPathIndex >= 0);
+        QCOMPARE(built.request.arguments.at(modelPathIndex + 1),
+                 parameters.modelPath);
+        const int serializationIndex =
+            built.request.arguments.indexOf("--model-serialization");
+        QVERIFY(serializationIndex >= 0);
+        QCOMPARE(built.request.arguments.at(serializationIndex + 1),
+                 QString("onnx"));
+    }
+
+    void basicPitchAdapterContractAvailabilityDoesNotCreateReadyState()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchAdapterContract contract;
+        BackendManifest manifest = contract.manifest();
+        manifest.executablePath =
+            directory.filePath("missing-basic-pitch.exe");
+
+        BackendAvailabilityProbe availability;
+        const BackendAvailabilityReport report = availability.probe(manifest);
+
+        QVERIFY(report.status ==
+                BackendAvailabilityProbeStatus::MissingExecutable);
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
         QVERIFY(manifest.status != BackendStatus::Ready);
 
