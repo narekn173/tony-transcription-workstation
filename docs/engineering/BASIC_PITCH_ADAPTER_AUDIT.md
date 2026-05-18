@@ -1,6 +1,6 @@
 # Basic Pitch Adapter Audit
 
-Status: CODEX-095 audit, contract, and compile-only boundary.
+Status: CODEX-095 audit, contract, and compile-only boundary; updated through CODEX-097 manual artifact discovery.
 
 This document defines the first conservative Basic Pitch adapter contract for Tony. It does not claim Basic Pitch runs inside Tony, does not import Basic Pitch results into Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -66,6 +66,7 @@ basic-pitch <output-directory> <input-audio-path>
   - `--model-path`
   - `--model-serialization` with `tf`, `coreml`, `tflite`, or `onnx`.
 - The CLI supports transcription threshold controls and `--multiple-pitch-bends`.
+- The CLI writes into a caller-provided output directory; CODEX-097 treats exact filenames as discovered artifacts rather than hard-coding production assumptions.
 - The Python package includes the ICASSP 2022 model in TensorFlow, CoreML, TensorFlowLite, and ONNX serialized forms.
 - The default model path is chosen from the first available runtime in the package priority.
 - README-documented audio inputs include `.mp3`, `.ogg`, `.wav`, `.flac`, and `.m4a`, subject to the installed `librosa` support.
@@ -219,8 +220,10 @@ CODEX-095 proves only:
 
 CODEX-096 adds only a fixture-backed note-events CSV parser/converter boundary. It still does not run Basic Pitch, create production `result.json`, import Tony layers, or mark Ready/Installed/Completed.
 
+CODEX-097 adds only a manual/test-only artifact discovery harness. It can build a safe Basic Pitch process request, skip unless explicitly opted in, and classify output-directory artifacts. It still does not convert real artifacts into production `UnifiedResult`, create `result.json`, import Tony layers, or mark Ready/Installed/Completed.
+
 ## Recommended Next Task
 
-Recommended next task: CODEX-096 - Basic Pitch output converter design and fixture audit.
+Recommended next task: CODEX-098 - Basic Pitch real artifact to UnifiedResult conversion proof.
 
-That task should inspect real Basic Pitch note-events CSV and MIDI artifact shapes from official examples or a controlled local run, then design a converter into `UnifiedResult` without importing into Tony layers yet.
+That task should use real artifacts discovered by the CODEX-097 harness where available, then convert a verified note-events artifact into `UnifiedResult` without importing into Tony layers yet.

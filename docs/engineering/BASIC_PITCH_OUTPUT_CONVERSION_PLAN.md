@@ -1,6 +1,6 @@
 # Basic Pitch Output Conversion Plan
 
-Status: CODEX-096 compile-only/test-only converter boundary.
+Status: CODEX-096 compile-only/test-only converter boundary, extended by CODEX-097 real-artifact discovery planning.
 
 This document defines the first fixture-backed Basic Pitch note-events CSV to `UnifiedResult` conversion boundary. It does not run Basic Pitch, does not create production `result.json`, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -15,6 +15,7 @@ This document defines the first fixture-backed Basic Pitch note-events CSV to `U
 - `main/backend/ResultValidator.*`
 - `main/backend/UnifiedResultFileLoader.*`
 - `main/backend/TonyLayerImporter.*`
+- `main/backend/BasicPitchArtifactDiscovery.*`
 - Spotify Basic Pitch inference source: https://github.com/spotify/basic-pitch/blob/main/basic_pitch/inference.py
 - Spotify Basic Pitch note creation source: https://github.com/spotify/basic-pitch/blob/main/basic_pitch/note_creation.py
 
@@ -129,8 +130,10 @@ Before production Basic Pitch integration:
 7. Load that `result.json` through `UnifiedResultFileLoader`.
 8. Import notes into real Tony layers only after layer mapping policy is applied.
 
+CODEX-097 adds the manual/test-only discovery harness for steps 1 and 2. It still does not parse real artifacts into production results, create `result.json`, run in normal tests, import Tony layers, or mark Basic Pitch Ready/Installed/Completed.
+
 ## Recommended Next Task
 
-Recommended next task: CODEX-097 - Basic Pitch real artifact discovery harness.
+Recommended next task: CODEX-098 - Basic Pitch real artifact to UnifiedResult conversion proof.
 
-That task should create a test-only/manual harness that can run a user-configured Basic Pitch executable on a tiny audio fixture only when explicitly requested, then capture the produced artifacts without importing them into Tony layers.
+That task should use CODEX-097 discovery output where available and prove conversion from a real discovered Basic Pitch artifact into `UnifiedResult` without importing Tony layers.

@@ -18,6 +18,7 @@
 #include "../BackendAvailabilityProbe.h"
 #include "../BackendAvailabilityStore.h"
 #include "../BasicPitchAdapterContract.h"
+#include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
@@ -7704,6 +7705,217 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void basicPitchArtifactDiscoveryBuildsRequestWithoutExecution()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString markerPath = directory.filePath("basic-pitch-ran.marker");
+        const QString executablePath = directory.filePath("basic-pitch.bat");
+        const QByteArray script =
+            QByteArray("@echo off\r\n") +
+            QByteArray("echo ran > \"") +
+            QDir::toNativeSeparators(markerPath).toUtf8() +
+            QByteArray("\"\r\n");
+        QVERIFY(writeFile(executablePath, script));
+        QVERIFY(makeExecutable(executablePath));
+
+        BasicPitchArtifactDiscoveryConfig config;
+        config.executablePath = executablePath;
+        config.inputAudioPath = directory.filePath("input.wav");
+        config.outputDirectoryPath = directory.filePath("basic-pitch-output");
+        config.timeoutMsec = 9876;
+        config.environmentOverrides.insert("BASIC_PITCH_DISCOVERY_TEST", "1");
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult built =
+            discovery.buildRequest(config);
+
+        QVERIFY(built.isValid());
+        QCOMPARE(built.commandUsed, executablePath);
+        QCOMPARE(built.request.executablePath, executablePath);
+        QCOMPARE(built.request.timeoutMsec, 9876);
+        QCOMPARE(built.request.environmentOverrides.value(
+                     "BASIC_PITCH_DISCOVERY_TEST"),
+                 QString("1"));
+        QVERIFY(built.request.arguments.size() >= 2);
+        QCOMPARE(built.request.arguments.at(0), config.outputDirectoryPath);
+        QCOMPARE(built.request.arguments.at(1), config.inputAudioPath);
+        QVERIFY(built.request.arguments.contains("--save-midi"));
+        QVERIFY(built.request.arguments.contains("--save-note-events"));
+        QVERIFY(built.request.arguments.contains("--save-model-outputs"));
+        QVERIFY(built.request.arguments.contains("--multiple-pitch-bends"));
+        QVERIFY(!built.ranBasicPitch);
+        QVERIFY(!built.productionTranscription);
+        QVERIFY(!built.importedIntoTonyLayers);
+        QVERIFY(!built.readyInstalledCompletedMutation);
+        QVERIFY(!QFile::exists(markerPath));
+    }
+
+    void basicPitchArtifactDiscoveryRunRequiresExplicitOptIn()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchArtifactDiscoveryConfig config;
+        config.executablePath = directory.filePath("missing-basic-pitch.exe");
+        config.inputAudioPath = directory.filePath("input.wav");
+        config.outputDirectoryPath = directory.path();
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult result =
+            discovery.runDiscovery(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason, QString("explicit_opt_in_required"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+        QVERIFY(reportHasIssueWithSeverity(
+            result.report,
+            "basic_pitch_discovery_explicit_opt_in_required",
+            ValidationSeverity::Warning));
+    }
+
+    void basicPitchArtifactDiscoveryMissingConfigSkipsCleanly()
+    {
+        BasicPitchArtifactDiscoveryConfig config;
+        config.explicitOptIn = true;
+        config.executablePath = " ";
+        config.inputAudioPath = " ";
+        config.outputDirectoryPath = " ";
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult result =
+            discovery.runDiscovery(config);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason, QString("not_configured"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(reportHasIssue(result.report,
+                               "empty_basic_pitch_discovery_command"));
+        QVERIFY(reportHasIssue(result.report,
+                               "empty_basic_pitch_discovery_audio_path"));
+        QVERIFY(reportHasIssue(
+            result.report,
+            "empty_basic_pitch_discovery_output_directory"));
+    }
+
+    void basicPitchArtifactDiscoveryMissingAudioFailsBeforeExecution()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchArtifactDiscoveryConfig config;
+        config.explicitOptIn = true;
+        config.executablePath = QCoreApplication::applicationFilePath();
+        config.inputAudioPath = directory.filePath("missing-input.wav");
+        config.outputDirectoryPath = directory.path();
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult result =
+            discovery.runDiscovery(config);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason, QString("missing_audio_file"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(reportHasIssue(result.report,
+                               "missing_basic_pitch_input_audio_file"));
+    }
+
+    void basicPitchArtifactDiscoveryClassifiesSyntheticArtifacts()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.mid"),
+                          QByteArray("MThd")));
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.npz"),
+                          QByteArray("npz")));
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.csv"),
+                          basicPitchNoteEventsCsvFixture().toUtf8()));
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.wav"),
+                          QByteArray("RIFF")));
+        QVERIFY(writeFile(directory.filePath("basic_pitch_stdout.log"),
+                          QByteArray("log")));
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult result =
+            discovery.inspectOutputDirectory(directory.path());
+
+        QVERIFY(result.isValid());
+        QCOMPARE(result.discoveredArtifacts.size(), 5);
+        QVERIFY(hasDiscoveredArtifactType(result, "midi"));
+        QVERIFY(hasDiscoveredArtifactType(result, "model_output_npz"));
+        QVERIFY(hasDiscoveredArtifactType(result, "csv_note_events"));
+        QVERIFY(hasDiscoveredArtifactType(result, "sonified_midi_wav"));
+        QVERIFY(hasDiscoveredArtifactType(result, "log"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(!result.importedIntoTonyLayers);
+    }
+
+    void basicPitchArtifactDiscoveryConfigFromEnvironmentIsOptInOnly()
+    {
+        QProcessEnvironment emptyEnvironment;
+        const BasicPitchArtifactDiscoveryConfig defaultConfig =
+            BasicPitchArtifactDiscovery::configFromEnvironment(
+                emptyEnvironment);
+
+        QVERIFY(!defaultConfig.explicitOptIn);
+        QCOMPARE(defaultConfig.executablePath, QString("basic-pitch"));
+
+        QProcessEnvironment environment;
+        environment.insert("TONY_BASIC_PITCH_DISCOVERY_ENABLE", "1");
+        environment.insert("TONY_BASIC_PITCH_COMMAND", "python-basic-pitch");
+        environment.insert("TONY_BASIC_PITCH_TEST_AUDIO",
+                           "C:/audio/test.wav");
+        environment.insert("TONY_BASIC_PITCH_OUTPUT_DIR",
+                           "C:/audio/basic-pitch-output");
+
+        const BasicPitchArtifactDiscoveryConfig config =
+            BasicPitchArtifactDiscovery::configFromEnvironment(environment);
+
+        QVERIFY(config.explicitOptIn);
+        QCOMPARE(config.executablePath, QString("python-basic-pitch"));
+        QCOMPARE(config.inputAudioPath, QString("C:/audio/test.wav"));
+        QCOMPARE(config.outputDirectoryPath,
+                 QString("C:/audio/basic-pitch-output"));
+    }
+
+    void basicPitchArtifactDiscoveryDoesNotCreateFakeResultOrState()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.csv"),
+                          basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult result =
+            discovery.inspectOutputDirectory(directory.path());
+
+        QVERIFY(result.isValid());
+        QVERIFY(!QFile::exists(directory.filePath("result.json")));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -7767,6 +7979,18 @@ private:
     {
         for (const auto &warning: result.warnings) {
             if (warning.code == code) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool hasDiscoveredArtifactType(
+        const BasicPitchArtifactDiscoveryResult &result,
+        const QString &artifactType)
+    {
+        for (const auto &artifact: result.discoveredArtifacts) {
+            if (artifact.artifactType == artifactType) {
                 return true;
             }
         }
