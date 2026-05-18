@@ -1,6 +1,6 @@
 # Basic Pitch Adapter Audit
 
-Status: CODEX-095 audit, contract, and compile-only boundary; updated through CODEX-097 manual artifact discovery.
+Status: CODEX-095 audit, contract, and compile-only boundary; updated through CODEX-098 artifact-to-UnifiedResult proof.
 
 This document defines the first conservative Basic Pitch adapter contract for Tony. It does not claim Basic Pitch runs inside Tony, does not import Basic Pitch results into Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -222,8 +222,10 @@ CODEX-096 adds only a fixture-backed note-events CSV parser/converter boundary. 
 
 CODEX-097 adds only a manual/test-only artifact discovery harness. It can build a safe Basic Pitch process request, skip unless explicitly opted in, and classify output-directory artifacts. It still does not convert real artifacts into production `UnifiedResult`, create `result.json`, import Tony layers, or mark Ready/Installed/Completed.
 
+CODEX-098 adds only a manual/test-only bridge from discovered note-events CSV artifacts to in-memory `UnifiedResult`. It still does not create `result.json`, import Tony layers, or mark Ready/Installed/Completed.
+
 ## Recommended Next Task
 
-Recommended next task: CODEX-098 - Basic Pitch real artifact to UnifiedResult conversion proof.
+Recommended next task: CODEX-099 - Basic Pitch UnifiedResult JSON handoff proof.
 
-That task should use real artifacts discovered by the CODEX-097 harness where available, then convert a verified note-events artifact into `UnifiedResult` without importing into Tony layers yet.
+That task should write a `UnifiedResult` produced by CODEX-098 to an explicitly marked test/manual result file, then load it through `UnifiedResultFileLoader` without importing into Tony layers yet.

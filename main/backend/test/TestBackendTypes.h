@@ -19,6 +19,7 @@
 #include "../BackendAvailabilityStore.h"
 #include "../BasicPitchAdapterContract.h"
 #include "../BasicPitchArtifactDiscovery.h"
+#include "../BasicPitchArtifactToUnifiedResult.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
@@ -7916,6 +7917,238 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void basicPitchArtifactToUnifiedResultConvertsDiscoveredNoteEventsCsv()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath =
+            directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscovery discovery;
+        BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directory.path());
+        discovered.request.arguments << directory.path() << inputAudioPath;
+
+        BasicPitchArtifactToUnifiedResultParameters parameters;
+        parameters.requestId = "req_basic_pitch_artifact";
+        parameters.resultId = "res_basic_pitch_artifact";
+
+        BasicPitchArtifactToUnifiedResult converter;
+        const BasicPitchArtifactToUnifiedResultResult converted =
+            converter.convert(discovered, parameters);
+
+        QVERIFY(converted.isValid());
+        QVERIFY(converted.foundNoteEventsArtifact);
+        QVERIFY(converted.conversionSucceeded);
+        QVERIFY(converted.unifiedResultValidationPassed);
+        QCOMPARE(converted.sourceArtifactPath, csvPath);
+        QCOMPARE(converted.artifactType, QString("csv_note_events"));
+        QCOMPARE(converted.fixtureOrRealArtifact,
+                 QString("fixture_or_synthetic_artifact"));
+        QCOMPARE(converted.noteCount, 3);
+        QCOMPARE(converted.result.notes.size(), 3);
+        QCOMPARE(converted.result.notes.at(0).startSec, 0.10);
+        QCOMPARE(converted.result.notes.at(0).endSec, 0.50);
+        QVERIFY(converted.result.notes.at(0).midiPitch.has_value());
+        QCOMPARE(*converted.result.notes.at(0).midiPitch, 60);
+        QVERIFY(converted.result.notes.at(0).velocity.has_value());
+        QCOMPARE(*converted.result.notes.at(0).velocity, 91);
+        QVERIFY(converted.result.notes.at(0).pitchBendRef.has_value());
+        QCOMPARE(converted.result.pitchBends.size(), 2);
+        QVERIFY(converted.possiblePolyphony);
+        QVERIFY(converted.pitchBendMappingDeferred);
+        QVERIFY(resultHasWarning(converted.result, "possible_polyphony"));
+        QVERIFY(resultHasWarning(converted.result,
+                                 "pitch_bend_mapping_deferred"));
+        QVERIFY(resultHasWarning(converted.result,
+                                 "fixture_only_conversion"));
+        QCOMPARE(converted.result.provenance.value(
+                     "source_artifact_type").toString(),
+                 QString("csv_note_events"));
+        QCOMPARE(converted.result.provenance.value(
+                     "fixture_or_real_artifact").toString(),
+                 QString("fixture_or_synthetic_artifact"));
+        QCOMPARE(converted.result.provenance.value(
+                     "production_transcription").toBool(),
+                 false);
+        QCOMPARE(converted.result.provenance.value(
+                     "imported_into_tony_layers").toBool(),
+                 false);
+        QVERIFY(!QFile::exists(directory.filePath("result.json")));
+        QVERIFY(!converted.createdResultJson);
+        QVERIFY(!converted.importedIntoTonyLayers);
+        QVERIFY(!converted.marksBackendReadyInstalledOrCompleted);
+    }
+
+    void basicPitchArtifactToUnifiedResultMissingNoteEventsFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.mid"),
+                          QByteArray("MThd")));
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directory.path());
+
+        BasicPitchArtifactToUnifiedResult converter;
+        const BasicPitchArtifactToUnifiedResultResult converted =
+            converter.convert(discovered,
+                              BasicPitchArtifactToUnifiedResultParameters());
+
+        QVERIFY(!converted.isValid());
+        QVERIFY(!converted.foundNoteEventsArtifact);
+        QVERIFY(!converted.conversionSucceeded);
+        QCOMPARE(converted.noteCount, 0);
+        QVERIFY(reportHasIssue(
+            converted.report,
+            "missing_basic_pitch_note_events_artifact"));
+        QVERIFY(!converted.importedIntoTonyLayers);
+        QVERIFY(!converted.createdResultJson);
+    }
+
+    void basicPitchArtifactToUnifiedResultIgnoresUnknownArtifacts()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        QVERIFY(writeFile(directory.filePath("unknown-artifact.bin"),
+                          QByteArray("unknown")));
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directory.path());
+
+        QVERIFY(hasDiscoveredArtifactType(discovered, "unknown"));
+
+        BasicPitchArtifactToUnifiedResult converter;
+        const BasicPitchArtifactToUnifiedResultResult converted =
+            converter.convert(discovered,
+                              BasicPitchArtifactToUnifiedResultParameters());
+
+        QVERIFY(!converted.isValid());
+        QVERIFY(reportHasIssue(
+            converted.report,
+            "missing_basic_pitch_note_events_artifact"));
+        QVERIFY(!converted.importedIntoTonyLayers);
+        QVERIFY(!converted.marksBackendReadyInstalledOrCompleted);
+    }
+
+    void basicPitchArtifactToUnifiedResultEmptyCsvFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath = directory.filePath("empty.csv");
+        QVERIFY(writeFile(csvPath, QByteArray()));
+
+        BasicPitchArtifactDiscoveryResult discovered =
+            manualBasicPitchDiscoveryResultForArtifact(
+                csvPath,
+                "csv_note_events",
+                false);
+
+        BasicPitchArtifactToUnifiedResult converter;
+        const BasicPitchArtifactToUnifiedResultResult converted =
+            converter.convert(discovered,
+                              BasicPitchArtifactToUnifiedResultParameters());
+
+        QVERIFY(!converted.isValid());
+        QVERIFY(converted.foundNoteEventsArtifact);
+        QVERIFY(!converted.conversionSucceeded);
+        QVERIFY(reportHasIssue(converted.report,
+                               "empty_basic_pitch_note_events_csv"));
+        QVERIFY(converted.result.notes.isEmpty());
+        QVERIFY(!converted.importedIntoTonyLayers);
+    }
+
+    void basicPitchArtifactToUnifiedResultInvalidCsvSchemaFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath = directory.filePath("invalid.csv");
+        QVERIFY(writeFile(csvPath,
+                          QByteArray("start,end,pitch\n0.10,0.20,60\n")));
+
+        BasicPitchArtifactDiscoveryResult discovered =
+            manualBasicPitchDiscoveryResultForArtifact(
+                csvPath,
+                "csv_note_events",
+                false);
+
+        BasicPitchArtifactToUnifiedResult converter;
+        const BasicPitchArtifactToUnifiedResultResult converted =
+            converter.convert(discovered,
+                              BasicPitchArtifactToUnifiedResultParameters());
+
+        QVERIFY(!converted.isValid());
+        QVERIFY(converted.foundNoteEventsArtifact);
+        QVERIFY(!converted.conversionSucceeded);
+        QVERIFY(reportHasIssue(converted.report,
+                               "invalid_basic_pitch_note_events_header"));
+        QVERIFY(converted.result.notes.isEmpty());
+        QVERIFY(!converted.createdResultJson);
+    }
+
+    void basicPitchArtifactToUnifiedResultRealArtifactStatusIsManualOnly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath =
+            directory.filePath("real_input_basic_pitch.csv");
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscoveryResult discovered =
+            manualBasicPitchDiscoveryResultForArtifact(
+                csvPath,
+                "csv_note_events",
+                true);
+        discovered.request.arguments << directory.path()
+                                     << directory.filePath("input.wav");
+
+        BasicPitchArtifactToUnifiedResult converter;
+        const BasicPitchArtifactToUnifiedResultResult converted =
+            converter.convert(discovered,
+                              BasicPitchArtifactToUnifiedResultParameters());
+
+        QVERIFY(converted.isValid());
+        QCOMPARE(converted.fixtureOrRealArtifact,
+                 QString("real_discovered_artifact_manual_only"));
+        QVERIFY(!converted.conversion.fixtureOnly);
+        QVERIFY(!converted.productionTranscription);
+        QVERIFY(!converted.importedIntoTonyLayers);
+        QVERIFY(!converted.createdResultJson);
+        QVERIFY(!converted.marksBackendReadyInstalledOrCompleted);
+        QVERIFY(resultHasWarning(converted.result,
+                                 "real_artifact_manual_only"));
+        QVERIFY(resultHasWarning(converted.result,
+                                 "production_transcription_false"));
+        QVERIFY(!resultHasWarning(converted.result,
+                                  "fixture_only_conversion"));
+        QCOMPARE(converted.result.provenance.value(
+                     "fixture_or_real_artifact").toString(),
+                 QString("real_discovered_artifact_manual_only"));
+        QCOMPARE(converted.result.provenance.value(
+                     "artifact_discovery_ran_basic_pitch").toBool(),
+                 true);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -7995,6 +8228,25 @@ private:
             }
         }
         return false;
+    }
+
+    static BasicPitchArtifactDiscoveryResult
+    manualBasicPitchDiscoveryResultForArtifact(const QString &path,
+                                               const QString &artifactType,
+                                               bool ranBasicPitch)
+    {
+        BasicPitchArtifactDiscoveryResult result;
+        result.ranBasicPitch = ranBasicPitch;
+        result.outputDirectoryPath = QFileInfo(path).absolutePath();
+
+        BasicPitchDiscoveredArtifact artifact;
+        artifact.path = path;
+        artifact.fileName = QFileInfo(path).fileName();
+        artifact.artifactType = artifactType;
+        artifact.sizeBytes = QFileInfo(path).size();
+        result.discoveredArtifacts.push_back(artifact);
+
+        return result;
     }
 
     static bool eventDataContains(

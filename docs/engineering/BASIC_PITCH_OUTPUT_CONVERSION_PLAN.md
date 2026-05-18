@@ -1,6 +1,6 @@
 # Basic Pitch Output Conversion Plan
 
-Status: CODEX-096 compile-only/test-only converter boundary, extended by CODEX-097 real-artifact discovery planning.
+Status: CODEX-096 compile-only/test-only converter boundary, extended by CODEX-097 discovery and CODEX-098 artifact-to-UnifiedResult proof.
 
 This document defines the first fixture-backed Basic Pitch note-events CSV to `UnifiedResult` conversion boundary. It does not run Basic Pitch, does not create production `result.json`, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -16,6 +16,7 @@ This document defines the first fixture-backed Basic Pitch note-events CSV to `U
 - `main/backend/UnifiedResultFileLoader.*`
 - `main/backend/TonyLayerImporter.*`
 - `main/backend/BasicPitchArtifactDiscovery.*`
+- `main/backend/BasicPitchArtifactToUnifiedResult.*`
 - Spotify Basic Pitch inference source: https://github.com/spotify/basic-pitch/blob/main/basic_pitch/inference.py
 - Spotify Basic Pitch note creation source: https://github.com/spotify/basic-pitch/blob/main/basic_pitch/note_creation.py
 
@@ -130,10 +131,10 @@ Before production Basic Pitch integration:
 7. Load that `result.json` through `UnifiedResultFileLoader`.
 8. Import notes into real Tony layers only after layer mapping policy is applied.
 
-CODEX-097 adds the manual/test-only discovery harness for steps 1 and 2. It still does not parse real artifacts into production results, create `result.json`, run in normal tests, import Tony layers, or mark Basic Pitch Ready/Installed/Completed.
+CODEX-097 adds the manual/test-only discovery harness for steps 1 and 2. CODEX-098 adds the manual/test-only bridge that selects a discovered note-events CSV artifact and converts it into an in-memory `UnifiedResult`. It still does not create `result.json`, run Basic Pitch in normal tests, import Tony layers, or mark Basic Pitch Ready/Installed/Completed.
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-098 - Basic Pitch real artifact to UnifiedResult conversion proof.
+Recommended next task: CODEX-099 - Basic Pitch UnifiedResult JSON handoff proof.
 
-That task should use CODEX-097 discovery output where available and prove conversion from a real discovered Basic Pitch artifact into `UnifiedResult` without importing Tony layers.
+That task should write a `UnifiedResult` produced by CODEX-098 to an explicitly marked test/manual result file, then load it through `UnifiedResultFileLoader` without importing Tony layers.

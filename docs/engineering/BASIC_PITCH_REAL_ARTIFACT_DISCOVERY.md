@@ -1,6 +1,6 @@
 # Basic Pitch Real Artifact Discovery
 
-Status: CODEX-097 manual/test-only discovery harness.
+Status: CODEX-097 manual/test-only discovery harness, consumed by CODEX-098 artifact conversion proof.
 
 This document defines an opt-in harness for discovering what a locally configured Basic Pitch command actually writes to disk. It does not make Basic Pitch a production backend, does not create `result.json`, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -11,6 +11,7 @@ This document defines an opt-in harness for discovering what a locally configure
 - `main/backend/BasicPitchAdapterContract.*`
 - `main/backend/BasicPitchOutputConverter.*`
 - `main/backend/ExternalProcessRunner.*`
+- `main/backend/BasicPitchArtifactToUnifiedResult.*`
 - Spotify Basic Pitch CLI source: https://github.com/spotify/basic-pitch/blob/main/basic_pitch/predict.py
 - Spotify Basic Pitch inference source: https://github.com/spotify/basic-pitch/blob/main/basic_pitch/inference.py
 
@@ -63,6 +64,8 @@ The harness inspects an output directory and classifies files conservatively:
 
 Classification proves file presence and shape only. It does not convert artifacts to `UnifiedResult` and does not import Tony layers.
 
+CODEX-098 consumes only artifacts classified as `csv_note_events`. MIDI, NPZ/model-output, WAV, logs, and unknown files remain discovery-only until separate converter tasks prove them.
+
 ## Structured Result
 
 The discovery result reports:
@@ -101,19 +104,20 @@ Real Basic Pitch execution is allowed only in an explicit manual/test-only path 
 - The output directory can be inspected after a run.
 - Recognized Basic Pitch artifact types can be reported with file sizes.
 - Discovery remains separate from conversion, `UnifiedResult` loading, Tony import, and backend status mutation.
+- CODEX-098 adds a separate bridge that can convert discovered `csv_note_events` artifacts into in-memory `UnifiedResult` while preserving this no-runtime/no-UI boundary.
 
 ## What Remains Unproven
 
 - Basic Pitch is installed locally.
 - Basic Pitch can run successfully on the user's machine.
 - Real Basic Pitch artifact filenames and edge cases for all supported input formats.
-- Real Basic Pitch CSV/MIDI/NPZ conversion into `UnifiedResult`.
+- Real Basic Pitch MIDI/NPZ conversion into `UnifiedResult`.
 - Production `result.json` generation.
 - Tony layer import from real Basic Pitch output.
 - Pitch-bend, polyphony, velocity, and confidence mapping in real Tony layers.
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-098 - Basic Pitch real artifact to UnifiedResult conversion proof.
+Recommended next task: CODEX-099 - Basic Pitch UnifiedResult JSON handoff proof.
 
-That task should use artifacts discovered by CODEX-097, parse a real note-events CSV when available, and produce a clearly marked `UnifiedResult` without importing Tony layers or claiming production support.
+That task should write a `UnifiedResult` produced by CODEX-098 to an explicitly marked test/manual result file, then load it through `UnifiedResultFileLoader` without importing Tony layers.

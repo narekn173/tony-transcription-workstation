@@ -340,7 +340,9 @@ BasicPitchOutputConverter::convertNoteEventsCsv(
     result.status = BackendStatus::Unknown;
     result.audio.path = parameters.inputAudioPath.trimmed();
     result.provenance.insert("source_format",
-                             "basic_pitch_note_events_csv_fixture");
+                             parameters.fixtureOnly ?
+                                 QString("basic_pitch_note_events_csv_fixture") :
+                                 QString("basic_pitch_note_events_csv_artifact"));
     result.provenance.insert("source_artifact_path",
                              parameters.sourceArtifactPath.trimmed());
     result.provenance.insert("fixture_only_conversion",
@@ -377,7 +379,12 @@ BasicPitchOutputConverter::convertNoteEventsCsv(
         note.source.insert("fixture_only", parameters.fixtureOnly);
         note.source.insert("production_transcription",
                            parameters.productionTranscription);
-        note.flags << "basic_pitch" << "fixture_only";
+        note.flags << "basic_pitch";
+        if (parameters.fixtureOnly) {
+            note.flags << "fixture_only";
+        } else {
+            note.flags << "real_artifact_manual_only";
+        }
         if (!parameters.productionTranscription) {
             note.flags << "production_transcription_false";
         }
@@ -426,17 +433,29 @@ BasicPitchOutputConverter::convertNoteEventsCsv(
                    "but Tony pitch-bend layer mapping is not proven.");
     }
 
-    result.warnings.push_back(
-        makeResultWarning("fixture_only_conversion",
-                          "Converted from a fixture-backed Basic Pitch CSV; "
-                          "this is not production transcription proof."));
+    if (parameters.fixtureOnly) {
+        result.warnings.push_back(
+            makeResultWarning("fixture_only_conversion",
+                              "Converted from a fixture-backed Basic Pitch CSV; "
+                              "this is not production transcription proof."));
+        addWarning(conversion.report,
+                   "fixture_only_conversion",
+                   "Converted from a fixture-backed Basic Pitch CSV.");
+    } else {
+        result.warnings.push_back(
+            makeResultWarning("real_artifact_manual_only",
+                              "Converted from a discovered Basic Pitch CSV "
+                              "artifact in a manual/test-only path; this is "
+                              "not production transcription proof."));
+        addWarning(conversion.report,
+                   "real_artifact_manual_only",
+                   "Converted from a discovered Basic Pitch CSV artifact in a "
+                   "manual/test-only path.");
+    }
     result.warnings.push_back(
         makeResultWarning("production_transcription_false",
                           "This Basic Pitch conversion is explicitly not a "
                           "production transcription result."));
-    addWarning(conversion.report,
-               "fixture_only_conversion",
-               "Converted from a fixture-backed Basic Pitch CSV.");
     addWarning(conversion.report,
                "production_transcription_false",
                "This conversion is not production transcription proof.");
