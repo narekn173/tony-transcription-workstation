@@ -71,7 +71,8 @@ basic-pitch <output-directory> <input-audio-path>
 - README-documented audio inputs include `.mp3`, `.ogg`, `.wav`, `.flac`, and `.m4a`, subject to the installed `librosa` support.
 - Prediction down-mixes to mono and resamples to 22050 Hz internally.
 - Programmatic `predict()` returns model output, MIDI data, and note events.
-- Saved note events CSV contains start time, end time, MIDI pitch, velocity, and pitch bend values.
+- Saved note events CSV uses the verified header `start_time_s,end_time_s,pitch_midi,velocity,pitch_bend`.
+- Note-events rows contain start time, end time, MIDI pitch, velocity, and zero or more appended pitch-bend values when bends are present.
 - Note creation source shows note events may include pitch-bend lists and that overlapping notes with pitch bends are special: without `multiple_pitch_bends`, overlapping pitch bends may be dropped; with it, each pitch may be mapped to its own MIDI instrument.
 
 ## Unverified Or Deferred Assumptions
@@ -162,8 +163,8 @@ Future conversion should map Basic Pitch artifacts conservatively:
 | Basic Pitch output | UnifiedResult target | Status |
 |---|---|---|
 | MIDI note events | `UnifiedResult.notes` | Deferred until parser/converter proof |
-| Note-events CSV start/end/pitch/velocity | `UnifiedResult.notes` | Preferred first converter target |
-| Pitch bend lists | `UnifiedResult.pitchBends` or note-linked bend references | Deferred |
+| Note-events CSV `start_time_s`, `end_time_s`, `pitch_midi`, `velocity` | `UnifiedResult.notes` | CODEX-096 fixture-backed converter boundary |
+| Note-events CSV appended pitch-bend values | `UnifiedResult.pitchBends` plus note-linked bend references | CODEX-096 preserves data but Tony layer mapping remains deferred |
 | Raw model NPZ | Diagnostic/model artifact reference, not direct Tony notes | Deferred |
 | Warnings/process logs | `UnifiedResult.warnings` or backend run report warnings | Deferred |
 
@@ -215,6 +216,8 @@ CODEX-095 proves only:
 - The contract builds an argument-list `ExternalProcessRequest` without shell strings.
 - The contract reports polyphony and pitch-bend mapping risks.
 - The contract never executes a process, creates fake `result.json`, imports Tony layers, or marks Ready/Installed/Completed.
+
+CODEX-096 adds only a fixture-backed note-events CSV parser/converter boundary. It still does not run Basic Pitch, create production `result.json`, import Tony layers, or mark Ready/Installed/Completed.
 
 ## Recommended Next Task
 

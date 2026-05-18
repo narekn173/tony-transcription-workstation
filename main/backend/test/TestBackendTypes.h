@@ -18,6 +18,7 @@
 #include "../BackendAvailabilityProbe.h"
 #include "../BackendAvailabilityStore.h"
 #include "../BasicPitchAdapterContract.h"
+#include "../BasicPitchOutputConverter.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
 #include "../BackendExecutableProbe.h"
@@ -7520,6 +7521,189 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void basicPitchNoteEventsParserParsesVerifiedFixture()
+    {
+        BasicPitchNoteEventsParser parser;
+        const BasicPitchNoteEventsParseResult parsed =
+            parser.parseCsvText(basicPitchNoteEventsCsvFixture());
+
+        QVERIFY(parsed.isValid());
+        QCOMPARE(parsed.headerColumns.at(0), QString("start_time_s"));
+        QCOMPARE(parsed.headerColumns.at(1), QString("end_time_s"));
+        QCOMPARE(parsed.headerColumns.at(2), QString("pitch_midi"));
+        QCOMPARE(parsed.headerColumns.at(3), QString("velocity"));
+        QCOMPARE(parsed.headerColumns.at(4), QString("pitch_bend"));
+        QCOMPARE(parsed.noteEvents.size(), 3);
+
+        QCOMPARE(parsed.noteEvents.at(0).startSec, 0.10);
+        QCOMPARE(parsed.noteEvents.at(0).endSec, 0.50);
+        QCOMPARE(parsed.noteEvents.at(0).midiPitch, 60);
+        QCOMPARE(parsed.noteEvents.at(0).velocity, 91);
+        QCOMPARE(parsed.noteEvents.at(0).pitchBendValues.size(), 3);
+        QCOMPARE(parsed.noteEvents.at(0).pitchBendValues.at(1), 12.0);
+        QCOMPARE(parsed.noteEvents.at(2).velocity, 72);
+        QVERIFY(!parsed.noteEvents.at(2).hasPitchBend());
+    }
+
+    void basicPitchOutputConverterCreatesUnifiedResultFromFixture()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchOutputConversionParameters parameters;
+        parameters.requestId = "req_basic_pitch_fixture";
+        parameters.resultId = "res_basic_pitch_fixture";
+        parameters.inputAudioPath = directory.filePath("input.wav");
+        parameters.sourceArtifactPath =
+            directory.filePath("basic_pitch_notes.csv");
+
+        BasicPitchOutputConverter converter;
+        const BasicPitchOutputConversionResult converted =
+            converter.convertNoteEventsCsv(basicPitchNoteEventsCsvFixture(),
+                                           parameters);
+
+        QVERIFY(converted.isValid());
+        QCOMPARE(converted.result.engine.engineId, QString("basic_pitch"));
+        QVERIFY(converted.result.status == BackendStatus::Unknown);
+        QCOMPARE(converted.result.notes.size(), 3);
+        QCOMPARE(converted.result.summary.noteCount, 3);
+        QCOMPARE(converted.result.notes.at(0).startSec, 0.10);
+        QCOMPARE(converted.result.notes.at(0).endSec, 0.50);
+        QVERIFY(converted.result.notes.at(0).midiPitch.has_value());
+        QCOMPARE(*converted.result.notes.at(0).midiPitch, 60);
+        QVERIFY(converted.result.notes.at(0).velocity.has_value());
+        QCOMPARE(*converted.result.notes.at(0).velocity, 91);
+        QVERIFY(converted.result.notes.at(0).pitchBendRef.has_value());
+        QCOMPARE(converted.result.pitchBends.size(), 2);
+        QCOMPARE(converted.result.summary.pitchBendCount, 2);
+        QCOMPARE(converted.result.pitchBends.at(0).unit,
+                 QString("midi_pitch_bend_units"));
+        QCOMPARE(converted.result.pitchBends.at(0).points.size(), 3);
+        QCOMPARE(converted.result.pitchBends.at(0).points.at(1).value, 12.0);
+        QVERIFY(converted.pitchBendDataPreserved);
+        QVERIFY(converted.pitchBendTonyMappingDeferred);
+        QVERIFY(converted.fixtureOnly);
+        QVERIFY(!converted.productionTranscription);
+        QVERIFY(!converted.createdResultJson);
+        QVERIFY(!converted.importsIntoTonyLayers);
+    }
+
+    void basicPitchOutputConverterWarnsAboutPolyphonyAndDeferredBends()
+    {
+        BasicPitchOutputConverter converter;
+        const BasicPitchOutputConversionResult converted =
+            converter.convertNoteEventsCsv(basicPitchNoteEventsCsvFixture(),
+                                           BasicPitchOutputConversionParameters());
+
+        QVERIFY(converted.isValid());
+        QVERIFY(converted.possiblePolyphony);
+        QVERIFY(converted.detectedPolyphony);
+        QVERIFY(resultHasWarning(converted.result, "possible_polyphony"));
+        QVERIFY(resultHasWarning(converted.result,
+                                 "pitch_bend_mapping_deferred"));
+        QVERIFY(resultHasWarning(converted.result,
+                                 "fixture_only_conversion"));
+        QVERIFY(resultHasWarning(converted.result,
+                                 "production_transcription_false"));
+        QVERIFY(reportHasIssueWithSeverity(converted.report,
+                                           "possible_polyphony",
+                                           ValidationSeverity::Warning));
+        QVERIFY(reportHasIssueWithSeverity(
+            converted.report,
+            "pitch_bend_mapping_deferred",
+            ValidationSeverity::Warning));
+    }
+
+    void basicPitchNoteEventsParserRejectsMissingColumns()
+    {
+        BasicPitchNoteEventsParser parser;
+        const BasicPitchNoteEventsParseResult parsed =
+            parser.parseCsvText(
+                "start_time_s,end_time_s,pitch_midi,velocity\n"
+                "0.10,0.50,60,91\n");
+
+        QVERIFY(!parsed.isValid());
+        QVERIFY(reportHasIssue(parsed.report,
+                               "invalid_basic_pitch_note_events_header"));
+    }
+
+    void basicPitchNoteEventsParserRejectsInvalidRows()
+    {
+        BasicPitchNoteEventsParser parser;
+        const BasicPitchNoteEventsParseResult parsed =
+            parser.parseCsvText(
+                "start_time_s,end_time_s,pitch_midi,velocity,pitch_bend\n"
+                "0.50,0.10,60,91\n"
+                "0.60,0.80,200,91\n"
+                "0.90,1.10,64,200\n"
+                "1.20,1.40,67,80,bend\n");
+
+        QVERIFY(!parsed.isValid());
+        QVERIFY(reportHasIssue(parsed.report,
+                               "invalid_basic_pitch_note_time_range"));
+        QVERIFY(reportHasIssue(parsed.report,
+                               "invalid_basic_pitch_midi_pitch_range"));
+        QVERIFY(reportHasIssue(parsed.report,
+                               "invalid_basic_pitch_velocity_range"));
+        QVERIFY(reportHasIssue(parsed.report,
+                               "invalid_basic_pitch_pitch_bend_value"));
+    }
+
+    void basicPitchOutputConverterRejectsEmptyFixture()
+    {
+        BasicPitchOutputConverter converter;
+        const BasicPitchOutputConversionResult converted =
+            converter.convertNoteEventsCsv("  ",
+                                           BasicPitchOutputConversionParameters());
+
+        QVERIFY(!converted.isValid());
+        QVERIFY(reportHasIssue(converted.report,
+                               "empty_basic_pitch_note_events_csv"));
+        QVERIFY(converted.result.notes.isEmpty());
+        QVERIFY(converted.result.pitchBends.isEmpty());
+        QVERIFY(!converted.importsIntoTonyLayers);
+        QVERIFY(!converted.createdResultJson);
+    }
+
+    void basicPitchOutputConverterDoesNotCreateFilesOrBackendState()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        BasicPitchOutputConversionParameters parameters;
+        parameters.inputAudioPath = directory.filePath("input.wav");
+        parameters.sourceArtifactPath =
+            directory.filePath("basic_pitch_notes.csv");
+        parameters.resultId = "res_no_files";
+
+        BasicPitchOutputConverter converter;
+        const BasicPitchOutputConversionResult converted =
+            converter.convertNoteEventsCsv(basicPitchNoteEventsCsvFixture(),
+                                           parameters);
+
+        QVERIFY(converted.isValid());
+        QVERIFY(!QFile::exists(resultPath));
+        QVERIFY(!converted.createdResultJson);
+        QVERIFY(!converted.importsIntoTonyLayers);
+        QVERIFY(!converted.marksBackendReadyInstalledOrCompleted);
+        QVERIFY(converted.result.status == BackendStatus::Unknown);
+        QCOMPARE(converted.result.provenance.value("created_result_json").toBool(),
+                 false);
+        QCOMPARE(converted.result.provenance.value(
+                     "imported_into_tony_layers").toBool(),
+                 false);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -7572,6 +7756,17 @@ private:
     {
         for (const auto &issue: report.issues) {
             if (issue.code == code && issue.severity == severity) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool resultHasWarning(const UnifiedResult &result,
+                                 const QString &code)
+    {
+        for (const auto &warning: result.warnings) {
+            if (warning.code == code) {
                 return true;
             }
         }
@@ -7924,6 +8119,15 @@ private:
   }
 }
 )json";
+    }
+
+    static QString basicPitchNoteEventsCsvFixture()
+    {
+        return QString(
+            "start_time_s,end_time_s,pitch_midi,velocity,pitch_bend\n"
+            "0.10,0.50,60,91,0,12,-8\n"
+            "0.30,0.70,64,88,1,0,-1\n"
+            "0.80,1.00,67,72\n");
     }
 };
 
