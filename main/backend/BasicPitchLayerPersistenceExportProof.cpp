@@ -16,7 +16,6 @@
 
 #include "data/fileio/CSVFileWriter.h"
 #include "data/model/NoteModel.h"
-#include "base/Selection.h"
 #include "framework/Document.h"
 #include "framework/SVFileReader.h"
 #include "layer/FlexiNoteLayer.h"
@@ -31,7 +30,6 @@
 #include <QTextStream>
 #include <QtGlobal>
 
-#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -95,6 +93,21 @@ readTextFile(const QString &path)
     return QString::fromUtf8(file.readAll());
 }
 
+QString
+normalizedCsvRecordsText(QString csvText)
+{
+    csvText.replace("\r\n", "\n");
+    csvText.replace('\r', '\n');
+
+    QStringList records;
+    for (const QString &line: csvText.split('\n')) {
+        if (!line.trimmed().isEmpty()) {
+            records << line;
+        }
+    }
+    return records.join('\n');
+}
+
 bool
 eventsMatch(const sv::EventVector &expected,
             const sv::EventVector &actual)
@@ -143,11 +156,13 @@ csvRowsMatchEvents(const QString &csvText,
     exportedNoteCount = 0;
     for (int i = 0; i < int(events.size()); ++i) {
         const QStringList fields = lines[i + 1].split(',');
-        if (fields.size() != 5) {
+        const sv::Event &event = events[i];
+        const bool hasOmittedEmptyLabel =
+            fields.size() == 4 && event.getLabel().isEmpty();
+        if (fields.size() != 5 && !hasOmittedEmptyLabel) {
             return false;
         }
 
-        const sv::Event &event = events[i];
         if (fields[0] != QString::number(event.getFrame())) return false;
         if (fields[2] != QString::number(event.getDuration())) return false;
         if (std::fabs(fields[1].toFloat() - event.getValue()) >= 0.001f) {
@@ -156,36 +171,74 @@ csvRowsMatchEvents(const QString &csvText,
         if (std::fabs(fields[3].toFloat() - event.getLevel()) >= 0.001f) {
             return false;
         }
-        if (fields[4] != event.getLabel()) return false;
+        if (fields.size() == 5 && fields[4] != event.getLabel()) return false;
         ++exportedNoteCount;
     }
 
     return true;
 }
 
-sv::MultiSelection
-selectionSpanningEvents(const sv::EventVector &events)
+bool
+exportLayerCsv(BasicPitchLayerPersistenceExportProofResult &result,
+               sv::Layer *layer,
+               sv::Pane *pane,
+               const sv::EventVector &expectedEvents)
 {
-    sv::MultiSelection selection;
-    if (events.empty()) {
-        return selection;
+    if (result.exportCsvPath.trimmed().isEmpty()) {
+        result.report.addError(
+            "empty_basic_pitch_export_csv_path",
+            "Basic Pitch layer export proof requires a non-empty CSV path.");
+        return false;
     }
 
-    sv::sv_frame_t startFrame = events.front().getFrame();
-    sv::sv_frame_t endFrame =
-        events.front().getFrame() +
-        std::max<sv::sv_frame_t>(events.front().getDuration(), 1);
-
-    for (const sv::Event &event: events) {
-        startFrame = std::min(startFrame, event.getFrame());
-        endFrame = std::max(
-            endFrame,
-            event.getFrame() +
-                std::max<sv::sv_frame_t>(event.getDuration(), 1));
+    const sv::ModelId exportModelId = layer->getExportModel(pane);
+    auto exportModel = sv::ModelById::get(exportModelId);
+    if (!exportModel) {
+        result.report.addError(
+            "basic_pitch_export_model_missing",
+            "Basic Pitch imported layer did not expose a real export model.");
+        return false;
     }
 
-    selection.addSelection(sv::Selection(startFrame, endFrame));
-    return selection;
+    sv::CSVFileWriter writer(
+        result.exportCsvPath,
+        exportModel.get(),
+        ",",
+        sv::DataExportWriteTimeInFrames | sv::DataExportIncludeHeader);
+    writer.write();
+    if (!writer.isOK()) {
+        result.report.addError(
+            "basic_pitch_csv_export_failed",
+            writer.getError());
+        return false;
+    }
+    if (!QFile::exists(result.exportCsvPath) ||
+        QFileInfo(result.exportCsvPath).size() <= 0) {
+        result.report.addError(
+            "basic_pitch_csv_export_missing",
+            "Basic Pitch CSV export file was not created or was empty.");
+        return false;
+    }
+
+    result.exportCsvText =
+        normalizedCsvRecordsText(readTextFile(result.exportCsvPath));
+    result.exportedCsvNonEmpty = !result.exportCsvText.trimmed().isEmpty();
+    result.exportedTimingDurationPitchVelocity =
+        csvRowsMatchEvents(result.exportCsvText,
+                           expectedEvents,
+                           result.exportedNoteCount);
+    result.exportProven =
+        result.exportedCsvNonEmpty &&
+        result.exportedTimingDurationPitchVelocity;
+    if (!result.exportProven) {
+        result.report.addError(
+            "basic_pitch_csv_export_note_data_mismatch",
+            "Basic Pitch exported CSV did not preserve expected note count, "
+            "timing, duration, MIDI pitch, velocity level, or labels.");
+        return false;
+    }
+
+    return true;
 }
 
 bool
@@ -298,57 +351,10 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
         return false;
     }
 
-    if (options.exportCsvPath.trimmed().isEmpty()) {
-        result.report.addError(
-            "empty_basic_pitch_export_csv_path",
-            "Basic Pitch layer export proof requires a non-empty CSV path.");
-        return false;
-    }
-
-    const sv::ModelId exportModelId =
-        reloadedLayer->getExportModel(reloadedPane);
-    auto exportModel = sv::ModelById::get(exportModelId);
-    if (!exportModel) {
-        result.report.addError(
-            "basic_pitch_export_model_missing",
-            "Basic Pitch imported layer did not expose a real export model.");
-        return false;
-    }
-
-    sv::CSVFileWriter writer(
-        result.exportCsvPath,
-        exportModel.get(),
-        ",",
-        sv::DataExportWriteTimeInFrames | sv::DataExportIncludeHeader);
-    writer.writeSelection(selectionSpanningEvents(reloadedEvents));
-    if (!writer.isOK()) {
-        result.report.addError(
-            "basic_pitch_csv_export_failed",
-            writer.getError());
-        return false;
-    }
-    if (!QFile::exists(result.exportCsvPath) ||
-        QFileInfo(result.exportCsvPath).size() <= 0) {
-        result.report.addError(
-            "basic_pitch_csv_export_missing",
-            "Basic Pitch CSV export file was not created or was empty.");
-        return false;
-    }
-
-    result.exportCsvText = readTextFile(result.exportCsvPath);
-    result.exportedCsvNonEmpty = !result.exportCsvText.trimmed().isEmpty();
-    result.exportedTimingDurationPitchVelocity =
-        csvRowsMatchEvents(result.exportCsvText,
-                           reloadedEvents,
-                           result.exportedNoteCount);
-    result.exportProven =
-        result.exportedCsvNonEmpty &&
-        result.exportedTimingDurationPitchVelocity;
-    if (!result.exportProven) {
-        result.report.addError(
-            "basic_pitch_csv_export_note_data_mismatch",
-            "Basic Pitch exported CSV did not preserve expected note count, "
-            "timing, duration, MIDI pitch, velocity level, or labels.");
+    if (!exportLayerCsv(result,
+                        result.layerImportResult.importResult.layer,
+                        &pane,
+                        importedEvents)) {
         return false;
     }
 

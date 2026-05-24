@@ -5897,6 +5897,11 @@ private slots:
         settings.backendId = manifest.id();
         settings.enabled = true;
         settings.environmentVariables.insert("TONY_DEV_MOCK_TEST", "1");
+#ifdef Q_OS_WIN
+        settings.environmentVariables.insert(
+            "Path",
+            QString::fromLocal8Bit(qgetenv("PATH")));
+#endif
 
         const BackendRunWorkspace workspace =
             BackendRunWorkspace::fromParts(directory.path(),
@@ -8672,6 +8677,8 @@ private slots:
         QCOMPARE(events[2].getDuration(), sv::sv_frame_t(8820));
         QVERIFY(qAbs(events[2].getValue() - 67.0f) < 0.001f);
         QVERIFY(qAbs(events[2].getLevel() - (72.0f / 127.0f)) < 0.001f);
+
+        sv::ModelById::release(imported.importResult.modelId);
     }
 
     void basicPitchResultToTonyLayerProofPreservesWarnings()
@@ -8707,6 +8714,8 @@ private slots:
         QVERIFY(reportHasIssue(
             imported.report,
             "basic_pitch_result_to_tony_layer_test_only"));
+
+        sv::ModelById::release(imported.importResult.modelId);
     }
 
     void basicPitchResultToTonyLayerProofModelOnlyDoesNotClaimImported()
@@ -8734,6 +8743,8 @@ private slots:
         QVERIFY(!imported.importResult.importedIntoTonyLayers);
         QVERIFY(!imported.insertedIntoView);
         QVERIFY(!imported.readyInstalledCompletedMutation);
+
+        sv::ModelById::release(imported.importResult.modelId);
     }
 
     void basicPitchResultToTonyLayerProofInsertsIntoPaneOnlyWhenProvided()
@@ -8952,19 +8963,21 @@ private slots:
         QCOMPARE(lines[0], QString("FRAME,VALUE,DURATION,LEVEL,LABEL"));
 
         const QStringList first = lines[1].split(',');
-        QCOMPARE(first.size(), 5);
+        QCOMPARE(first.size(), 4);
         QCOMPARE(first[0], QString("4410"));
         QVERIFY(qAbs(first[1].toFloat() - 60.0f) < 0.001f);
         QCOMPARE(first[2], QString("17640"));
         QVERIFY(qAbs(first[3].toFloat() - (91.0f / 127.0f)) < 0.001f);
 
         const QStringList second = lines[2].split(',');
+        QCOMPARE(second.size(), 4);
         QCOMPARE(second[0], QString("13230"));
         QVERIFY(qAbs(second[1].toFloat() - 64.0f) < 0.001f);
         QCOMPARE(second[2], QString("17640"));
         QVERIFY(qAbs(second[3].toFloat() - (88.0f / 127.0f)) < 0.001f);
 
         const QStringList third = lines[3].split(',');
+        QCOMPARE(third.size(), 4);
         QCOMPARE(third[0], QString("35280"));
         QVERIFY(qAbs(third[1].toFloat() - 67.0f) < 0.001f);
         QCOMPARE(third[2], QString("8820"));
