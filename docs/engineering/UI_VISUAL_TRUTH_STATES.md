@@ -80,3 +80,34 @@ Not configured
 ```
 
 Skipping a state requires documented evidence that the skipped work was already performed.
+
+## 6. Debug Workflow Truth-State Aliases
+
+Debug/test workflow reports may use machine-readable stage names. Future UI may map these to user-facing labels, but must preserve the same evidence requirements.
+
+| Debug state | Meaning |
+|---|---|
+| `no_audio` | No input audio path was provided |
+| `backend_not_configured` | Explicit backend configuration is missing |
+| `missing_executable` | Executable path is missing or invalid |
+| `missing_model_or_runtime` | Required model/runtime path is missing or invalid |
+| `path_checks_passed` | Filesystem path checks passed only |
+| `running_backend` | A backend process was explicitly started |
+| `backend_failed` | Backend process or real-run proof failed |
+| `artifacts_discovered` | Output artifacts were discovered and classified |
+| `result_json_written` | A real UnifiedResult-compatible JSON file was written |
+| `unified_result_loaded` | UnifiedResult loader accepted the result file |
+| `imported_into_real_layer` | A real Tony/Sonic Visualiser model/layer was created |
+| `inserted_into_view` | The real layer was inserted into a real View/Pane |
+| `edit_proof_passed` | Existing CommandHistory-safe edit proof passed |
+| `save_load_proof_passed` | Real save/load proof passed |
+| `export_proof_passed` | Real export proof passed |
+| `completed_with_warnings` | Workflow completed but warnings remain visible |
+| `failed` | Workflow failed with structured errors |
+| `skipped` | Workflow intentionally skipped without claiming success |
+
+Debug states must not be renamed to `Ready`, `Installed`, or `Completed` in UI unless the matching real evidence exists and the relevant proof gate permits that wording.
+
+## 7. Progress Rule
+
+Do not show fake percent progress. Use stage-based states unless a real backend provides measured progress events that can be tied to actual work performed.

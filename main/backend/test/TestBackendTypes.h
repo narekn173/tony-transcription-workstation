@@ -20,6 +20,7 @@
 #include "../BasicPitchAdapterContract.h"
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
+#include "../BasicPitchDebugWorkflow.h"
 #include "../BasicPitchLayerPersistenceExportProof.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BasicPitchRealRunHandoffProof.h"
@@ -9079,6 +9080,196 @@ private slots:
         BackendRegistry registry;
         QVERIFY(!registry.hasBackend("basic_pitch"));
         QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void basicPitchDebugWorkflowMissingConfigSkipsSafely()
+    {
+        BasicPitchDebugWorkflow workflow;
+        BasicPitchDebugWorkflowRequest request;
+        request.mode =
+            BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn;
+
+        const BasicPitchDebugWorkflowReport report = workflow.run(request);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.wasSkipped());
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::BackendNotConfigured));
+        QVERIFY(report.hasTruthState(BasicPitchDebugTruthState::Skipped));
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.resultJsonWritten);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+    }
+
+    void basicPitchDebugWorkflowSyntheticArtifactReachesResultAndLoaded()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        const QString resultPath = directory.filePath("result.json");
+        const QString exportPath = directory.filePath("basic-pitch-notes.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.mode = BasicPitchDebugWorkflowMode::SyntheticArtifactOnly;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = resultPath;
+        request.exportCsvPath = exportPath;
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport report = workflow.run(request);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::ArtifactsDiscovered));
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::ResultJsonWritten));
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::UnifiedResultLoaded));
+        QVERIFY(QFile::exists(resultPath));
+        QVERIFY(QFileInfo(resultPath).size() > 0);
+        QVERIFY(report.resultJsonWritten);
+        QVERIFY(report.unifiedResultLoaded);
+        QCOMPARE(report.proofBundle.noteCount, 3);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(report.proofBundle.testOnlyDebugOnly);
+    }
+
+    void basicPitchDebugWorkflowImportsAndInsertsRealLayer()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.mode = BasicPitchDebugWorkflowMode::SyntheticArtifactOnly;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = directory.filePath("result.json");
+        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport report = workflow.run(request);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.importedIntoTonyLayers);
+        QVERIFY(report.insertedIntoView);
+        QVERIFY(report.editProofPassed);
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::ImportedIntoRealLayer));
+        QVERIFY(report.hasTruthState(BasicPitchDebugTruthState::InsertedIntoView));
+        QVERIFY(report.hasTruthState(BasicPitchDebugTruthState::EditProofPassed));
+        QVERIFY(!report.proofBundle.documentPaneLayerModelSnapshotSummary
+                     .trimmed()
+                     .isEmpty());
+    }
+
+    void basicPitchDebugWorkflowReportsSaveLoadAndExportProof()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        const QString exportPath = directory.filePath("basic-pitch-notes.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = directory.filePath("result.json");
+        request.exportCsvPath = exportPath;
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport report = workflow.run(request);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.saveLoadProofPassed);
+        QVERIFY(report.exportProofPassed);
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::SaveLoadProofPassed));
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::ExportProofPassed));
+        QVERIFY(QFile::exists(exportPath));
+        QVERIFY(QFileInfo(exportPath).size() > 0);
+        QVERIFY(report.proofBundle.saveLoadProof);
+        QVERIFY(report.proofBundle.exportProof);
+    }
+
+    void basicPitchDebugWorkflowPreservesWarnings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = directory.filePath("result.json");
+        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport report = workflow.run(request);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.possiblePolyphony);
+        QVERIFY(report.pitchBendMappingDeferred);
+        QVERIFY(report.hasTruthState(
+            BasicPitchDebugTruthState::CompletedWithWarnings));
+        QVERIFY(report.proofBundle.warningCodes.contains("possible_polyphony"));
+        QVERIFY(report.proofBundle.warningCodes.contains(
+            "pitch_bend_mapping_deferred"));
+        QVERIFY(report.proofBundle.warningCodes.contains(
+            "basic_pitch_debug_workflow_test_only"));
+    }
+
+    void basicPitchDebugWorkflowNeverClaimsProductionOrBackendState()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = directory.filePath("result.json");
+        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport report = workflow.run(request);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+        QVERIFY(!report.proofBundle.productionTranscription);
+        QVERIFY(report.proofBundle.testOnlyDebugOnly);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        BackendRegistry registry;
+        QVERIFY(registry.registerManifest(manifest).isValid());
+        QCOMPARE(registry.statusFor(manifest.id), BackendStatus::NotConfigured);
     }
 
 private:
