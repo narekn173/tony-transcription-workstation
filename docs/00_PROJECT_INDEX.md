@@ -63,13 +63,14 @@ These files are the current source-of-truth set. Read them in this order.
 | 11 | `docs/engineering/BASIC_PITCH_OUTPUT_CONVERSION_PLAN.md` | Mandatory engineering audit | Basic Pitch fixture-backed CSV-to-UnifiedResult conversion boundary |
 | 12 | `docs/engineering/BASIC_PITCH_REAL_ARTIFACT_DISCOVERY.md` | Mandatory engineering audit | Manual/test-only Basic Pitch artifact discovery harness |
 | 13 | `docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md` | Mandatory engineering audit | Manual/test-only Basic Pitch artifact-to-UnifiedResult proof |
-| 14 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
-| 15 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
-| 16 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
-| 17 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
-| 18 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 19 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 20 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 14 | `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md` | Mandatory engineering audit | Manual/test-only Basic Pitch result.json handoff and loader/reporter proof |
+| 15 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 16 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 17 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 18 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
+| 19 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 20 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 21 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -138,6 +139,7 @@ These documents are required reading before TonyLayerImporter, UI integration, M
 | `docs/engineering/BASIC_PITCH_OUTPUT_CONVERSION_PLAN.md` | Basic Pitch output parser and converter work | Defines fixture-backed CSV-to-UnifiedResult mapping and limitations |
 | `docs/engineering/BASIC_PITCH_REAL_ARTIFACT_DISCOVERY.md` | Basic Pitch real artifact discovery and conversion work | Defines opt-in discovery, artifact classification, and no-fake-success constraints |
 | `docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md` | Basic Pitch artifact conversion work | Defines discovered note-events CSV selection and in-memory UnifiedResult conversion proof |
+| `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md` | Basic Pitch result-file handoff work | Defines artifact-to-result.json-to-loader/reporter proof and limitations |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |
@@ -272,14 +274,15 @@ Basic Pitch / NeuralNote path
 13. docs/engineering/BASIC_PITCH_OUTPUT_CONVERSION_PLAN.md
 14. docs/engineering/BASIC_PITCH_REAL_ARTIFACT_DISCOVERY.md
 15. docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md
-16. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
-17. docs/engineering/UI_VISUAL_TRUTH_STATES.md
-18. docs/engineering/PROVENANCE_METADATA_POLICY.md
-19. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
-20. docs/adr/*.md
-21. docs/06_EXECUTION_PLAN.md
-22. docs/07_CODEX_TASK_LIST.md
-23. AGENTS.md
+16. docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md
+17. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+18. docs/engineering/UI_VISUAL_TRUTH_STATES.md
+19. docs/engineering/PROVENANCE_METADATA_POLICY.md
+20. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
+21. docs/adr/*.md
+22. docs/06_EXECUTION_PLAN.md
+23. docs/07_CODEX_TASK_LIST.md
+24. AGENTS.md
 ```
 
 ---
@@ -305,6 +308,7 @@ docs/engineering/BASIC_PITCH_ADAPTER_AUDIT.md
 docs/engineering/BASIC_PITCH_OUTPUT_CONVERSION_PLAN.md
 docs/engineering/BASIC_PITCH_REAL_ARTIFACT_DISCOVERY.md
 docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md
+docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md
 docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
 docs/engineering/UI_VISUAL_TRUTH_STATES.md
 docs/engineering/PROVENANCE_METADATA_POLICY.md

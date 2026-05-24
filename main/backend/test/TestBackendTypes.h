@@ -21,6 +21,7 @@
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
 #include "../BasicPitchOutputConverter.h"
+#include "../BasicPitchUnifiedResultHandoff.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
 #include "../BackendExecutableProbe.h"
@@ -51,6 +52,8 @@
 #include "../ExternalProcessLogFileSink.h"
 #include "../ExternalProcessRunner.h"
 #include "../TonyLayerImporter.h"
+#include "../UnifiedResultFileWriter.h"
+#include "../UnifiedResultSerializer.h"
 
 #include "data/fileio/CSVFileWriter.h"
 #include "data/model/EventCommands.h"
@@ -8143,6 +8146,246 @@ private slots:
         manifest.status = BackendStatus::NotConfigured;
         QVERIFY(manifest.status == BackendStatus::NotConfigured);
         QVERIFY(manifest.status != BackendStatus::Ready);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void basicPitchUnifiedResultHandoffWritesAndLoadsResultJson()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        const QString resultPath = directory.filePath("result.json");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscovery discovery;
+        BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directory.path());
+        discovered.request.arguments << directory.path() << inputAudioPath;
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath = resultPath;
+        parameters.conversionParameters.requestId =
+            "req_basic_pitch_json_handoff";
+        parameters.conversionParameters.resultId =
+            "res_basic_pitch_json_handoff";
+
+        BasicPitchUnifiedResultHandoff handoff;
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            handoff.handoff(discovered, parameters);
+
+        QVERIFY(handedOff.isValid());
+        QVERIFY(handedOff.wroteResultJson);
+        QVERIFY(handedOff.outputHandoffAccepted);
+        QVERIFY(handedOff.loadedUnifiedResult);
+        QVERIFY(handedOff.reporterLoadedUnifiedResult);
+        QVERIFY(QFile::exists(resultPath));
+        QVERIFY(QFileInfo(resultPath).size() > 0);
+        QCOMPARE(handedOff.noteCount, 3);
+        QVERIFY(!handedOff.productionTranscription);
+        QVERIFY(!handedOff.importedIntoTonyLayers);
+        QVERIFY(!handedOff.marksBackendReadyInstalledOrCompleted);
+        QVERIFY(handedOff.runResultReport.isValid());
+        QVERIFY(handedOff.runResultReport.unifiedResultLoaded);
+        QVERIFY(!handedOff.runResultReport.importedIntoTonyLayers);
+
+        QVERIFY(handedOff.loadResult.loadedResult.has_value());
+        const UnifiedResult loaded = *handedOff.loadResult.loadedResult;
+        QVERIFY(loaded.status == BackendStatus::CompletedWithWarnings);
+        QCOMPARE(loaded.notes.size(), 3);
+        QCOMPARE(loaded.notes.at(0).startSec, 0.10);
+        QCOMPARE(loaded.notes.at(0).endSec, 0.50);
+        QVERIFY(loaded.notes.at(0).midiPitch.has_value());
+        QCOMPARE(*loaded.notes.at(0).midiPitch, 60);
+        QVERIFY(loaded.notes.at(0).velocity.has_value());
+        QCOMPARE(*loaded.notes.at(0).velocity, 91);
+        QCOMPARE(loaded.pitchBends.size(), 2);
+        QCOMPARE(loaded.summary.noteCount, 3);
+        QCOMPARE(loaded.provenance.value("created_result_json").toBool(),
+                 true);
+        QCOMPARE(loaded.provenance.value(
+                     "unified_result_json_handoff").toBool(),
+                 true);
+        QCOMPARE(loaded.provenance.value(
+                     "production_transcription").toBool(),
+                 false);
+        QCOMPARE(loaded.provenance.value(
+                     "imported_into_tony_layers").toBool(),
+                 false);
+    }
+
+    void basicPitchUnifiedResultHandoffPreservesWarnings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        const QString resultPath = directory.filePath("result.json");
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directory.path());
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath = resultPath;
+
+        BasicPitchUnifiedResultHandoff handoff;
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            handoff.handoff(discovered, parameters);
+
+        QVERIFY(handedOff.isValid());
+        QVERIFY(handedOff.possiblePolyphony);
+        QVERIFY(handedOff.pitchBendMappingDeferred);
+        QVERIFY(handedOff.loadResult.loadedResult.has_value());
+        const UnifiedResult loaded = *handedOff.loadResult.loadedResult;
+
+        QVERIFY(resultHasWarning(loaded, "possible_polyphony"));
+        QVERIFY(resultHasWarning(loaded, "pitch_bend_mapping_deferred"));
+        QVERIFY(resultHasWarning(loaded, "fixture_only_conversion"));
+        QVERIFY(resultHasWarning(loaded, "production_transcription_false"));
+        QVERIFY(resultHasWarning(
+            loaded,
+            "basic_pitch_result_json_handoff_test_only"));
+        QVERIFY(reportHasIssueWithSeverity(
+            handedOff.report,
+            "basic_pitch_result_json_handoff_test_only",
+            ValidationSeverity::Warning));
+    }
+
+    void basicPitchUnifiedResultHandoffMissingArtifactFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        QVERIFY(writeFile(directory.filePath("input_basic_pitch.mid"),
+                          QByteArray("MThd")));
+
+        BasicPitchArtifactDiscovery discovery;
+        const BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directory.path());
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath =
+            directory.filePath("result.json");
+
+        BasicPitchUnifiedResultHandoff handoff;
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            handoff.handoff(discovered, parameters);
+
+        QVERIFY(!handedOff.isValid());
+        QVERIFY(reportHasIssue(
+            handedOff.report,
+            "missing_basic_pitch_note_events_artifact"));
+        QVERIFY(!handedOff.wroteResultJson);
+        QVERIFY(!QFile::exists(parameters.expectedUnifiedResultJsonPath));
+        QVERIFY(!handedOff.importedIntoTonyLayers);
+        QVERIFY(!handedOff.marksBackendReadyInstalledOrCompleted);
+    }
+
+    void basicPitchUnifiedResultHandoffInvalidCsvFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath = directory.filePath("invalid.csv");
+        const QString resultPath = directory.filePath("result.json");
+        QVERIFY(writeFile(csvPath,
+                          QByteArray("start,end,pitch\n0.10,0.20,60\n")));
+
+        BasicPitchArtifactDiscoveryResult discovered =
+            manualBasicPitchDiscoveryResultForArtifact(
+                csvPath,
+                "csv_note_events",
+                false);
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath = resultPath;
+
+        BasicPitchUnifiedResultHandoff handoff;
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            handoff.handoff(discovered, parameters);
+
+        QVERIFY(!handedOff.isValid());
+        QVERIFY(reportHasIssue(handedOff.report,
+                               "invalid_basic_pitch_note_events_header"));
+        QVERIFY(!handedOff.wroteResultJson);
+        QVERIFY(!QFile::exists(resultPath));
+        QVERIFY(!handedOff.importedIntoTonyLayers);
+    }
+
+    void basicPitchUnifiedResultHandoffInvalidOutputPathFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath =
+            directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscoveryResult discovered =
+            manualBasicPitchDiscoveryResultForArtifact(
+                csvPath,
+                "csv_note_events",
+                false);
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath =
+            directory.filePath("missing-parent/result.json");
+
+        BasicPitchUnifiedResultHandoff handoff;
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            handoff.handoff(discovered, parameters);
+
+        QVERIFY(!handedOff.isValid());
+        QVERIFY(handedOff.artifactConversion.isValid());
+        QVERIFY(!handedOff.wroteResultJson);
+        QVERIFY(reportHasIssue(handedOff.report,
+                               "unified_result_output_parent_missing"));
+        QVERIFY(!QFile::exists(parameters.expectedUnifiedResultJsonPath));
+        QVERIFY(!handedOff.importedIntoTonyLayers);
+        QVERIFY(!handedOff.marksBackendReadyInstalledOrCompleted);
+    }
+
+    void basicPitchUnifiedResultHandoffNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString csvPath =
+            directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchArtifactDiscoveryResult discovered =
+            manualBasicPitchDiscoveryResultForArtifact(
+                csvPath,
+                "csv_note_events",
+                false);
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath =
+            directory.filePath("result.json");
+
+        BasicPitchUnifiedResultHandoff handoff;
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            handoff.handoff(discovered, parameters);
+
+        QVERIFY(handedOff.isValid());
+        QVERIFY(!handedOff.productionTranscription);
+        QVERIFY(!handedOff.importedIntoTonyLayers);
+        QVERIFY(!handedOff.runResultReport.importedIntoTonyLayers);
+        QVERIFY(!handedOff.marksBackendReadyInstalledOrCompleted);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
 
         BackendRegistry registry;
         QVERIFY(!registry.hasBackend("basic_pitch"));

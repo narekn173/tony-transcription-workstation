@@ -1029,6 +1029,7 @@ tony_main_files = [
   'main/backend/BasicPitchArtifactDiscovery.cpp',
   'main/backend/BasicPitchArtifactToUnifiedResult.cpp',
   'main/backend/BasicPitchOutputConverter.cpp',
+  'main/backend/BasicPitchUnifiedResultHandoff.cpp',
   'main/backend/BackendAvailabilityProbe.cpp',
   'main/backend/BackendAvailabilityStore.cpp',
   'main/backend/BackendDiscoveryConfig.cpp',
@@ -1064,7 +1065,9 @@ tony_main_files = [
   'main/backend/TonyLayerImporter.cpp',
   'main/backend/UnifiedResult.cpp',
   'main/backend/UnifiedResultFileLoader.cpp',
+  'main/backend/UnifiedResultFileWriter.cpp',
   'main/backend/UnifiedResultParser.cpp',
+  'main/backend/UnifiedResultSerializer.cpp',
   'main/backend/UnifiedResultSchemaValidator.cpp',
 ]
 
@@ -1260,6 +1263,7 @@ backend_types_test_exe = executable(
   'main/backend/BasicPitchArtifactDiscovery.cpp',
   'main/backend/BasicPitchArtifactToUnifiedResult.cpp',
   'main/backend/BasicPitchOutputConverter.cpp',
+  'main/backend/BasicPitchUnifiedResultHandoff.cpp',
   'main/backend/BackendAvailabilityProbe.cpp',
   'main/backend/BackendAvailabilityStore.cpp',
   'main/backend/BackendDiscoveryConfig.cpp',
@@ -1295,7 +1299,9 @@ backend_types_test_exe = executable(
   'main/backend/TonyLayerImporter.cpp',
   'main/backend/UnifiedResult.cpp',
   'main/backend/UnifiedResultFileLoader.cpp',
+  'main/backend/UnifiedResultFileWriter.cpp',
   'main/backend/UnifiedResultParser.cpp',
+  'main/backend/UnifiedResultSerializer.cpp',
   'main/backend/UnifiedResultSchemaValidator.cpp',
   'main/backend/test/backend-types-test.cpp',
   dependencies: [

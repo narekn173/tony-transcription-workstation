@@ -224,8 +224,10 @@ CODEX-097 adds only a manual/test-only artifact discovery harness. It can build 
 
 CODEX-098 adds only a manual/test-only bridge from discovered note-events CSV artifacts to in-memory `UnifiedResult`. It still does not create `result.json`, import Tony layers, or mark Ready/Installed/Completed.
 
+CODEX-099 adds only a manual/test-only JSON handoff proof. It writes a converted Basic Pitch artifact result to an explicitly requested `result.json`, loads it through the existing handoff/loader/reporter boundary, and still does not import Tony layers, run Basic Pitch by default, or mark Ready/Installed/Completed.
+
 ## Recommended Next Task
 
-Recommended next task: CODEX-099 - Basic Pitch UnifiedResult JSON handoff proof.
+Recommended next task: CODEX-100 - Basic Pitch manual real-run artifact JSON handoff verification.
 
-That task should write a `UnifiedResult` produced by CODEX-098 to an explicitly marked test/manual result file, then load it through `UnifiedResultFileLoader` without importing into Tony layers yet.
+That task should run only through explicit local opt-in configuration and must keep the same no-UI, no-runtime-startup, no-Tony-import, and no-fake-state constraints.

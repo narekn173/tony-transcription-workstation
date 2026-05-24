@@ -1,6 +1,6 @@
 # Basic Pitch Real Artifact To UnifiedResult Proof
 
-Status: CODEX-098 manual/test-only artifact conversion proof.
+Status: CODEX-098 manual/test-only artifact conversion proof, extended by CODEX-099 JSON handoff proof.
 
 This document defines the explicit proof boundary that connects Basic Pitch artifact discovery to the fixture-backed note-events CSV converter. It proves that a discovered Basic Pitch note-events CSV artifact can become an in-memory `UnifiedResult`. It does not create `result.json`, does not run Basic Pitch by default, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -92,12 +92,12 @@ If `ranBasicPitch` is true, the conversion is marked `real_discovered_artifact_m
 - No Tony layer import occurs.
 - No Basic Pitch Ready, Installed, or Completed state is created.
 
-## What Remains Unproven
+## What Remains Unproven After CODEX-099
 
 - Basic Pitch is installed locally.
 - Basic Pitch can run successfully on real user audio.
-- The conversion path writes a real `result.json`.
-- `UnifiedResultFileLoader` loads a Basic Pitch-produced result file.
+- A production Basic Pitch run writes a Tony-owned `result.json`.
+- A production Basic Pitch result file is loaded without manual/test-only flags.
 - MIDI and NPZ Basic Pitch artifacts are converted.
 - Basic Pitch polyphony mapping into Tony layers is solved.
 - Basic Pitch pitch bends are imported into real Tony layers.
@@ -108,3 +108,5 @@ If `ranBasicPitch` is true, the conversion is marked `real_discovered_artifact_m
 Recommended next task: CODEX-099 - Basic Pitch UnifiedResult JSON handoff proof.
 
 That task should write a `UnifiedResult` produced by CODEX-098 to an explicitly marked test/manual result file, load it through `UnifiedResultFileLoader`, and keep Tony layer import deferred unless separately tasked.
+
+CODEX-099 adds that handoff proof in `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md`. It still does not import Tony layers, run Basic Pitch by default, or create backend Ready/Installed/Completed state.
