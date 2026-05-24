@@ -9269,8 +9269,11 @@ private slots:
         BackendManifest manifest = parsedBasicPitchManifest();
         manifest.status = BackendStatus::NotConfigured;
         BackendRegistry registry;
-        QVERIFY(registry.registerManifest(manifest).isValid());
-        QCOMPARE(registry.statusFor(manifest.id), BackendStatus::NotConfigured);
+        QVERIFY(registry.addManifest(manifest));
+        const std::optional<BackendManifest> storedManifest =
+            registry.manifestById(manifest.id());
+        QVERIFY(storedManifest.has_value());
+        QVERIFY(storedManifest->status == BackendStatus::NotConfigured);
     }
 
     void basicPitchDebugWorkflowUiModelMissingConfigDisablesRun()
@@ -9484,8 +9487,11 @@ private slots:
         BackendManifest manifest = parsedBasicPitchManifest();
         manifest.status = BackendStatus::NotConfigured;
         BackendRegistry registry;
-        QVERIFY(registry.registerManifest(manifest).isValid());
-        QCOMPARE(registry.statusFor(manifest.id), BackendStatus::NotConfigured);
+        QVERIFY(registry.addManifest(manifest));
+        const std::optional<BackendManifest> storedManifest =
+            registry.manifestById(manifest.id());
+        QVERIFY(storedManifest.has_value());
+        QVERIFY(storedManifest->status == BackendStatus::NotConfigured);
     }
 
 private:

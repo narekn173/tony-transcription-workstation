@@ -116,6 +116,8 @@ Do not show fake percent progress. Use stage-based states unless a real backend 
 
 Future Basic Pitch UI must consume `BasicPitchDebugWorkflowUiModel` or an equally strict adapter. UI code must not invent a looser mapping from backend proof data to visible states.
 
+Future MainWindow integration must follow `docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_INTEGRATION_PLAN.md` before adding any debug Basic Pitch menu/action/runtime UI wiring.
+
 Action enablement must remain evidence-based:
 
 - `canRun` requires configuration/path evidence and no running process;

@@ -66,3 +66,5 @@ Allowed debug workflow states include:
 ## Future UI Rule
 
 MainWindow/UI integration must consume proof-bundle fields directly or through an equally strict adapter. It must not invent a second state machine that weakens these evidence requirements.
+
+Future debug Basic Pitch MainWindow wiring must follow `docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_INTEGRATION_PLAN.md` and keep proof bundle access available for every non-empty workflow report.
