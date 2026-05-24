@@ -1,6 +1,6 @@
 # Basic Pitch UnifiedResult JSON Handoff Proof
 
-Status: CODEX-099 manual/test-only JSON handoff proof, consumed by CODEX-100 manual real-run proof.
+Status: CODEX-099 manual/test-only JSON handoff proof, consumed by CODEX-100 manual real-run proof and CODEX-101 result-to-Tony-layer proof.
 
 This document defines the next Basic Pitch proof boundary:
 
@@ -105,12 +105,12 @@ The pitch-bend values remain in `UnifiedResult.pitchBends`, but Tony pitch-bend 
 - Basic Pitch runs on real user audio inside Tony.
 - The output is production transcription.
 - MIDI or NPZ artifacts are converted.
-- Basic Pitch output is imported into real Tony layers.
+- Production Basic Pitch output is imported into real Tony layers.
 - Basic Pitch polyphony and pitch bends are displayed or editable in Tony.
 - Basic Pitch results survive Tony layer save/load/export.
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary with the same strict no-fake-state rules.
+Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof with the same strict no-fake-state rules.
 
-CODEX-100 adds a manual opt-in wrapper that can run a locally configured Basic Pitch command, discover its artifacts, and feed the recognized note-events CSV through this JSON handoff path. It still does not import Tony layers or claim production transcription.
+CODEX-100 adds a manual opt-in wrapper that can run a locally configured Basic Pitch command, discover its artifacts, and feed the recognized note-events CSV through this JSON handoff path. CODEX-101 consumes a Basic Pitch-shaped `result.json` from this path and imports notes through the proven real Tony/Sonic Visualiser `NoteModel`/`NoteLayer` boundary. It still does not add UI, solve pitch-bend layer mapping, or claim production transcription.

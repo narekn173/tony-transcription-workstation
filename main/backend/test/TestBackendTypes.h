@@ -22,6 +22,7 @@
 #include "../BasicPitchArtifactToUnifiedResult.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BasicPitchRealRunHandoffProof.h"
+#include "../BasicPitchResultToTonyLayerProof.h"
 #include "../BasicPitchUnifiedResultHandoff.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
@@ -8576,6 +8577,332 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void basicPitchResultToTonyLayerProofCreatesDocumentNoteLayer()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importHandoffResult(handedOff, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.loadedResult);
+        QVERIFY(imported.basicPitchShaped);
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(!imported.insertedIntoView);
+        QCOMPARE(imported.noteCount, 3);
+        QVERIFY(imported.importResult.layer);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(
+                    imported.importResult.layer) != nullptr);
+        QVERIFY(dynamic_cast<sv::FlexiNoteLayer *>(
+                    imported.importResult.layer) == nullptr);
+        QCOMPARE(imported.importResult.createdLayerType, QString("notes"));
+        QVERIFY(imported.importResult.provenanceAttached);
+        QVERIFY(!imported.importResult.structuredProvenancePersisted);
+
+        const std::set<sv::Layer *> documentLayers = document.getLayers();
+        QVERIFY(documentLayers.find(imported.importResult.layer) !=
+                documentLayers.end());
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+    }
+
+    void basicPitchResultToTonyLayerProofPreservesNoteData()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importHandoffResult(handedOff, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(imported.importResult.modelCreated);
+        QVERIFY(imported.importResult.modelRegistered);
+        QCOMPARE(imported.noteCount, 3);
+
+        auto model =
+            sv::ModelById::getAs<sv::NoteModel>(
+                imported.importResult.modelId);
+        QVERIFY(model);
+        QCOMPARE(model->getScaleUnits(), QString("MIDI Pitch"));
+
+        const sv::EventVector events = model->getAllEvents();
+        QCOMPARE(int(events.size()), 3);
+        QCOMPARE(events[0].getFrame(), sv::sv_frame_t(4410));
+        QCOMPARE(events[0].getDuration(), sv::sv_frame_t(17640));
+        QVERIFY(qAbs(events[0].getValue() - 60.0f) < 0.001f);
+        QVERIFY(qAbs(events[0].getLevel() - (91.0f / 127.0f)) < 0.001f);
+
+        QCOMPARE(events[1].getFrame(), sv::sv_frame_t(13230));
+        QCOMPARE(events[1].getDuration(), sv::sv_frame_t(17640));
+        QVERIFY(qAbs(events[1].getValue() - 64.0f) < 0.001f);
+        QVERIFY(qAbs(events[1].getLevel() - (88.0f / 127.0f)) < 0.001f);
+
+        QCOMPARE(events[2].getFrame(), sv::sv_frame_t(35280));
+        QCOMPARE(events[2].getDuration(), sv::sv_frame_t(8820));
+        QVERIFY(qAbs(events[2].getValue() - 67.0f) < 0.001f);
+        QVERIFY(qAbs(events[2].getLevel() - (72.0f / 127.0f)) < 0.001f);
+    }
+
+    void basicPitchResultToTonyLayerProofPreservesWarnings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importHandoffResult(handedOff, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.possiblePolyphony);
+        QVERIFY(imported.pitchBendMappingDeferred);
+        QVERIFY(imported.warningCodes.contains("possible_polyphony"));
+        QVERIFY(imported.warningCodes.contains(
+                    "pitch_bend_mapping_deferred"));
+        QVERIFY(reportHasIssue(
+            imported.report,
+            "basic_pitch_possible_polyphony_not_resolved"));
+        QVERIFY(reportHasIssue(
+            imported.report,
+            "basic_pitch_pitch_bend_tony_mapping_deferred"));
+        QVERIFY(reportHasIssue(
+            imported.report,
+            "basic_pitch_result_to_tony_layer_test_only"));
+    }
+
+    void basicPitchResultToTonyLayerProofModelOnlyDoesNotClaimImported()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importResultJson(resultPath, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importResult.modelCreated);
+        QVERIFY(imported.importResult.modelRegistered);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(!imported.importResult.importedIntoTonyLayers);
+        QVERIFY(!imported.insertedIntoView);
+        QVERIFY(!imported.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchResultToTonyLayerProofInsertsIntoPaneOnlyWhenProvided()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Document document;
+        sv::Pane pane;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+        options.view = &pane;
+        options.insertLayerIntoView = true;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importHandoffResult(handedOff, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(imported.importedIntoTonyLayers);
+        QVERIFY(imported.insertedIntoView);
+        QVERIFY(imported.importResult.layer);
+        QCOMPARE(pane.getLayerCount(), 1);
+        QCOMPARE(pane.getLayer(0), imported.importResult.layer);
+        QVERIFY(dynamic_cast<sv::NoteLayer *>(
+                    imported.importResult.layer) != nullptr);
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
+    void basicPitchResultToTonyLayerProofMissingResultFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importResultJson(directory.filePath("missing-result.json"),
+                                   options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.loadedResult);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(!imported.insertedIntoView);
+        QVERIFY(reportHasIssue(imported.report, "output_file_missing"));
+    }
+
+    void basicPitchResultToTonyLayerProofInvalidResultFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("invalid-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray("{ invalid json\n")));
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importResultJson(resultPath, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.loadedResult);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(reportHasIssue(imported.report, "invalid_json"));
+    }
+
+    void basicPitchResultToTonyLayerProofEmptyResultFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("empty-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray()));
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importResultJson(resultPath, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.loadedResult);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(reportHasIssue(imported.report, "empty_output_file"));
+    }
+
+    void basicPitchResultToTonyLayerProofNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Document document;
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+        options.document = &document;
+        options.createDocumentLayer = true;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importHandoffResult(handedOff, options);
+
+        QVERIFY(imported.isValid());
+        QVERIFY(!imported.productionTranscription);
+        QVERIFY(!imported.readyInstalledCompletedMutation);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void basicPitchResultToTonyLayerProofRealRunPathSkipsByDefault()
+    {
+        QProcessEnvironment environment;
+        const BasicPitchRealRunHandoffProofConfig config =
+            BasicPitchRealRunHandoffProof::configFromEnvironment(environment);
+
+        BasicPitchRealRunHandoffProof realRunProof;
+        const BasicPitchRealRunHandoffProofResult realRunResult =
+            realRunProof.run(config);
+        QVERIFY(realRunResult.isValid());
+        QVERIFY(realRunResult.wasSkipped());
+
+        TonyLayerImportOptions options;
+        options.sampleRate = 44100.0;
+        options.resolution = 1;
+
+        BasicPitchResultToTonyLayerProof proof;
+        const BasicPitchResultToTonyLayerProofResult imported =
+            proof.importRealRunResult(realRunResult, options);
+
+        QVERIFY(!imported.isValid());
+        QVERIFY(!imported.loadedResult);
+        QVERIFY(!imported.importedIntoTonyLayers);
+        QVERIFY(!imported.insertedIntoView);
+        QVERIFY(!imported.readyInstalledCompletedMutation);
+        QVERIFY(reportHasIssueWithSeverity(
+            imported.report,
+            "basic_pitch_real_run_explicit_opt_in_required",
+            ValidationSeverity::Warning));
+    }
+
 private:
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
@@ -8674,6 +9001,34 @@ private:
         result.discoveredArtifacts.push_back(artifact);
 
         return result;
+    }
+
+    static BasicPitchUnifiedResultHandoffResult
+    basicPitchHandoffResultFromFixture(const QString &directoryPath,
+                                       const QString &resultPath)
+    {
+        const QString inputAudioPath =
+            QDir(directoryPath).filePath("input.wav");
+        const QString csvPath =
+            QDir(directoryPath).filePath("input_basic_pitch.csv");
+
+        writeFile(inputAudioPath, QByteArray("audio"));
+        writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8());
+
+        BasicPitchArtifactDiscovery discovery;
+        BasicPitchArtifactDiscoveryResult discovered =
+            discovery.inspectOutputDirectory(directoryPath);
+        discovered.request.arguments << directoryPath << inputAudioPath;
+
+        BasicPitchUnifiedResultHandoffParameters parameters;
+        parameters.expectedUnifiedResultJsonPath = resultPath;
+        parameters.conversionParameters.requestId =
+            "req_basic_pitch_result_to_layer";
+        parameters.conversionParameters.resultId =
+            "res_basic_pitch_result_to_layer";
+
+        BasicPitchUnifiedResultHandoff handoff;
+        return handoff.handoff(discovered, parameters);
     }
 
     static bool eventDataContains(

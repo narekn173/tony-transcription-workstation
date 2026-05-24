@@ -1,6 +1,6 @@
 # Basic Pitch Adapter Audit
 
-Status: CODEX-095 audit, contract, and compile-only boundary; updated through CODEX-100 manual real-run handoff proof.
+Status: CODEX-095 audit, contract, and compile-only boundary; updated through CODEX-101 result-to-Tony-layer proof.
 
 This document defines the first conservative Basic Pitch adapter contract for Tony. It does not claim Basic Pitch runs inside Tony, does not import Basic Pitch results into Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -228,8 +228,10 @@ CODEX-099 adds only a manual/test-only JSON handoff proof. It writes a converted
 
 CODEX-100 adds only a manual opt-in real-run handoff proof harness. It can run Basic Pitch when explicitly configured through environment variables, discover real artifacts, and feed a recognized note-events CSV through the CODEX-099 handoff path. Normal tests skip this real run unless explicitly configured.
 
+CODEX-101 adds only a manual/test-only result-to-Tony-layer proof boundary. It consumes a Basic Pitch-shaped `result.json`, loads it through the existing result loader, and imports notes through real Tony/Sonic Visualiser `NoteModel`/`NoteLayer` APIs when a `Document` is supplied. It still does not add UI, solve production polyphony, import pitch bends into Tony layers, or mark Ready/Installed/Completed.
+
 ## Recommended Next Task
 
-Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary.
+Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof.
 
-That task must keep the same no-UI, no-runtime-startup, and no-fake-state constraints. It may claim Tony import only if it uses the already proven real Tony/Sonic Visualiser layer mechanisms.
+That task must keep the same no-UI, no-runtime-startup, and no-fake-state constraints.

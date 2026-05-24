@@ -1,6 +1,6 @@
 # Basic Pitch Real Artifact To UnifiedResult Proof
 
-Status: CODEX-098 manual/test-only artifact conversion proof, extended by CODEX-099 JSON handoff proof and CODEX-100 manual real-run proof.
+Status: CODEX-098 manual/test-only artifact conversion proof, extended by CODEX-099 JSON handoff proof, CODEX-100 manual real-run proof, and CODEX-101 result-to-Tony-layer proof.
 
 This document defines the explicit proof boundary that connects Basic Pitch artifact discovery to the fixture-backed note-events CSV converter. It proves that a discovered Basic Pitch note-events CSV artifact can become an in-memory `UnifiedResult`. It does not create `result.json`, does not run Basic Pitch by default, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -105,6 +105,6 @@ If `ranBasicPitch` is true, the conversion is marked `real_discovered_artifact_m
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary.
+Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof.
 
-CODEX-099 adds the JSON handoff proof in `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md`. CODEX-100 adds the manual opt-in real-run wrapper in `docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md`. Neither imports Tony layers or creates backend Ready/Installed/Completed state.
+CODEX-099 adds the JSON handoff proof in `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md`. CODEX-100 adds the manual opt-in real-run wrapper in `docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md`. CODEX-101 adds the result-to-real-Tony-note-layer proof in `docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md`. None of these creates backend Ready/Installed/Completed state.

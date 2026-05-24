@@ -33,14 +33,15 @@ If a backend has only paper-level verification or no local adapter/sample output
 
 ## 3. Current Project Boundary
 
-Current code can represent backend results, but does not import them into Tony layers.
+Current code can represent backend results and has proof-only Tony note-layer import boundaries, but production backend UI integration remains deferred.
 
 - `UnifiedResult` can represent notes, pitch curve points, pitch bends, technique labels, warnings, errors, files, and provenance.
 - `BackendManifest` capabilities can express `outputsNotes`, `outputsPitchCurve`, `outputsPitchBends`, and `outputsTechniqueLabels`.
-- `BackendRunResultReport` explicitly keeps `importedIntoTonyLayers = false`.
-- `TonyLayerImporter` is intentionally disabled and returns `NotImplemented`.
+- `BackendRunResultReport` explicitly keeps `importedIntoTonyLayers = false` for loader/reporter-only boundaries.
+- `TonyLayerImporter` has proof-only `NoteModel`/`NoteLayer` import paths from CODEX-089 through CODEX-094.
+- CODEX-101 adds a Basic Pitch-shaped `result.json` to real Tony note-layer proof boundary.
 
-Therefore no backend result can be described as "imported", "editable", "saved", "exported", "Ready", or "Completed" unless a future task proves that state through real Tony/Sonic Visualiser models, layers, commands, and files.
+Therefore no backend result can be described as user-facing "imported", "editable", "saved", "exported", "Ready", or "Completed" unless the specific task proves that state through real Tony/Sonic Visualiser models, layers, commands, and files.
 
 ## 4. Truth Table
 

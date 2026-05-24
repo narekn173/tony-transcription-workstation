@@ -1,6 +1,6 @@
 # Basic Pitch Real-Run Handoff Proof
 
-Status: CODEX-100 manual opt-in proof harness.
+Status: CODEX-100 manual opt-in proof harness, consumed by CODEX-101 result-to-Tony-layer proof.
 
 This document defines the manual-only Basic Pitch real-run-to-`result.json` proof path:
 
@@ -66,6 +66,8 @@ Then run the backend test target normally. Without those variables, the proof re
 
 The harness never invokes `TonyLayerImporter`, never writes UI state, and never mutates backend manifest/registry availability.
 
+CODEX-101 consumes the loaded handoff result through `BasicPitchResultToTonyLayerProof`. That boundary still does not run Basic Pitch itself and still remains manual/test-only.
+
 ## Expected Artifacts
 
 The Basic Pitch discovery boundary recognizes:
@@ -118,4 +120,4 @@ Normal tests prove:
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary, still gated behind explicit manual proof data and the no-fake-state rules.
+Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof, still gated behind explicit manual proof data and the no-fake-state rules.

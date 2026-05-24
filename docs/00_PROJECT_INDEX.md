@@ -65,13 +65,14 @@ These files are the current source-of-truth set. Read them in this order.
 | 13 | `docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md` | Mandatory engineering audit | Manual/test-only Basic Pitch artifact-to-UnifiedResult proof |
 | 14 | `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md` | Mandatory engineering audit | Manual/test-only Basic Pitch result.json handoff and loader/reporter proof |
 | 15 | `docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md` | Mandatory engineering audit | Manual opt-in Basic Pitch real-run-to-result.json handoff proof |
-| 16 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
-| 17 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
-| 18 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
-| 19 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
-| 20 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 21 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 22 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 16 | `docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md` | Mandatory engineering audit | Manual/test-only Basic Pitch result.json-to-real-Tony-layer proof |
+| 17 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 18 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 19 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 20 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
+| 21 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 22 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 23 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -142,6 +143,7 @@ These documents are required reading before TonyLayerImporter, UI integration, M
 | `docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md` | Basic Pitch artifact conversion work | Defines discovered note-events CSV selection and in-memory UnifiedResult conversion proof |
 | `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md` | Basic Pitch result-file handoff work | Defines artifact-to-result.json-to-loader/reporter proof and limitations |
 | `docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md` | Manual Basic Pitch real-run proof | Defines explicit env opt-in, real process execution, artifact discovery, and result.json handoff verification |
+| `docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md` | Basic Pitch result-to-layer proof | Defines manual/test-only Basic Pitch-shaped result.json loading and real Tony/SV NoteLayer import proof |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |
@@ -278,10 +280,11 @@ Basic Pitch / NeuralNote path
 15. docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md
 16. docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md
 17. docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md
-18. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
-19. docs/engineering/UI_VISUAL_TRUTH_STATES.md
-20. docs/engineering/PROVENANCE_METADATA_POLICY.md
-21. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
+18. docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md
+19. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+20. docs/engineering/UI_VISUAL_TRUTH_STATES.md
+21. docs/engineering/PROVENANCE_METADATA_POLICY.md
+22. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
 22. docs/adr/*.md
 23. docs/06_EXECUTION_PLAN.md
 24. docs/07_CODEX_TASK_LIST.md
@@ -313,6 +316,7 @@ docs/engineering/BASIC_PITCH_REAL_ARTIFACT_DISCOVERY.md
 docs/engineering/BASIC_PITCH_REAL_ARTIFACT_TO_UNIFIED_RESULT_PROOF.md
 docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md
 docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md
+docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md
 docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
 docs/engineering/UI_VISUAL_TRUTH_STATES.md
 docs/engineering/PROVENANCE_METADATA_POLICY.md
@@ -339,6 +343,7 @@ CODEX-097 adds a manual/test-only Basic Pitch real artifact discovery harness.
 CODEX-098 adds a manual/test-only Basic Pitch discovered note-events CSV to in-memory UnifiedResult proof.
 CODEX-099 adds Basic Pitch artifact-to-real-result.json handoff through the existing loader/reporter boundary.
 CODEX-100 adds a manual opt-in real Basic Pitch run-to-result.json proof harness.
+CODEX-101 adds a Basic Pitch-shaped result.json-to-real-Tony-layer proof boundary.
 ```
 
 Therefore the next work must prove real end-to-end behavior through the staged proof tasks.
@@ -347,10 +352,10 @@ Therefore the next work must prove real end-to-end behavior through the staged p
 
 ## 12. Immediate next action
 
-Current next action after CODEX-100:
+Current next action after CODEX-101:
 
 ```text
-CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary
+CODEX-102 - Basic Pitch result layer save/load/export proof
 ```
 
 This supersedes the earlier baseline setup sequence below for the current repository state. Do not start Basic Pitch UI integration, selected-region replacement, or feature-complete claims until real artifact conversion, result loading, Tony import, and acceptance proof gates have been exercised.
