@@ -6225,8 +6225,8 @@ private slots:
 
         UnifiedResult unifiedResult = validTonyLayerImportUnifiedResult();
 
-        sv::Document document;
         sv::Pane pane;
+        sv::Document document;
         TonyLayerImportOptions options;
         options.sampleRate = 44100.0;
         options.resolution = 1;
@@ -8748,8 +8748,8 @@ private slots:
             basicPitchHandoffResultFromFixture(directory.path(), resultPath);
         QVERIFY(handedOff.isValid());
 
-        sv::Document document;
         sv::Pane pane;
+        sv::Document document;
         TonyLayerImportOptions options;
         options.sampleRate = 44100.0;
         options.resolution = 1;

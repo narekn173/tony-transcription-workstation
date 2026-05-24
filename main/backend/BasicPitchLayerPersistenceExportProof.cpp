@@ -403,8 +403,8 @@ BasicPitchLayerPersistenceExportProof::prove(
     result.productionTranscription = false;
     result.readyInstalledCompletedMutation = false;
 
-    sv::Document document;
     sv::Pane pane;
+    sv::Document document;
     const TonyLayerImportOptions importOptions =
         documentPaneImportOptions(document,
                                   pane,
@@ -440,8 +440,8 @@ BasicPitchLayerPersistenceExportProof::proveHandoffResult(
     result.productionTranscription = false;
     result.readyInstalledCompletedMutation = false;
 
-    sv::Document document;
     sv::Pane pane;
+    sv::Document document;
     const TonyLayerImportOptions importOptions =
         documentPaneImportOptions(document,
                                   pane,

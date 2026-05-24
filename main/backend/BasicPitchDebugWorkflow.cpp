@@ -142,8 +142,8 @@ proveCommandHistoryEditForHandoff(
 {
     sv::CommandHistory::getInstance()->clear();
 
-    sv::Document document;
     sv::Pane pane;
+    sv::Document document;
     const TonyLayerImportOptions options =
         documentPaneImportOptions(document, pane, sampleRate, resolution);
 
