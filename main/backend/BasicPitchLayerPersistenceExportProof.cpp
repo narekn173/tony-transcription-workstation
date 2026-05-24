@@ -16,6 +16,7 @@
 
 #include "data/fileio/CSVFileWriter.h"
 #include "data/model/NoteModel.h"
+#include "base/Selection.h"
 #include "framework/Document.h"
 #include "framework/SVFileReader.h"
 #include "layer/FlexiNoteLayer.h"
@@ -30,6 +31,7 @@
 #include <QTextStream>
 #include <QtGlobal>
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -159,6 +161,31 @@ csvRowsMatchEvents(const QString &csvText,
     }
 
     return true;
+}
+
+sv::MultiSelection
+selectionSpanningEvents(const sv::EventVector &events)
+{
+    sv::MultiSelection selection;
+    if (events.empty()) {
+        return selection;
+    }
+
+    sv::sv_frame_t startFrame = events.front().getFrame();
+    sv::sv_frame_t endFrame =
+        events.front().getFrame() +
+        std::max<sv::sv_frame_t>(events.front().getDuration(), 1);
+
+    for (const sv::Event &event: events) {
+        startFrame = std::min(startFrame, event.getFrame());
+        endFrame = std::max(
+            endFrame,
+            event.getFrame() +
+                std::max<sv::sv_frame_t>(event.getDuration(), 1));
+    }
+
+    selection.addSelection(sv::Selection(startFrame, endFrame));
+    return selection;
 }
 
 bool
@@ -293,7 +320,7 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
         exportModel.get(),
         ",",
         sv::DataExportWriteTimeInFrames | sv::DataExportIncludeHeader);
-    writer.write();
+    writer.writeSelection(selectionSpanningEvents(reloadedEvents));
     if (!writer.isOK()) {
         result.report.addError(
             "basic_pitch_csv_export_failed",
