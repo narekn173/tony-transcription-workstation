@@ -279,7 +279,7 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
     }
 
     const sv::ModelId exportModelId =
-        result.layerImportResult.importResult.layer->getExportModel(&pane);
+        reloadedLayer->getExportModel(reloadedPane);
     auto exportModel = sv::ModelById::get(exportModelId);
     if (!exportModel) {
         result.report.addError(
@@ -312,7 +312,7 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
     result.exportedCsvNonEmpty = !result.exportCsvText.trimmed().isEmpty();
     result.exportedTimingDurationPitchVelocity =
         csvRowsMatchEvents(result.exportCsvText,
-                           importedEvents,
+                           reloadedEvents,
                            result.exportedNoteCount);
     result.exportProven =
         result.exportedCsvNonEmpty &&
