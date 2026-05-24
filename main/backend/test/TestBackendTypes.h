@@ -21,6 +21,7 @@
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
 #include "../BasicPitchOutputConverter.h"
+#include "../BasicPitchRealRunHandoffProof.h"
 #include "../BasicPitchUnifiedResultHandoff.h"
 #include "../BackendDiscoveryConfig.h"
 #include "../BackendDiscoveryService.h"
@@ -8380,6 +8381,189 @@ private slots:
         QVERIFY(!handedOff.importedIntoTonyLayers);
         QVERIFY(!handedOff.runResultReport.importedIntoTonyLayers);
         QVERIFY(!handedOff.marksBackendReadyInstalledOrCompleted);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
+    }
+
+    void basicPitchRealRunHandoffProofSkipsWithoutOptIn()
+    {
+        QProcessEnvironment environment;
+        BasicPitchRealRunHandoffProofConfig config =
+            BasicPitchRealRunHandoffProof::configFromEnvironment(environment);
+
+        BasicPitchRealRunHandoffProof proof;
+        const BasicPitchRealRunHandoffProofResult result =
+            proof.run(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason,
+                 QString("explicit_opt_in_required"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.loadedResult);
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+        QVERIFY(reportHasIssueWithSeverity(
+            result.report,
+            "basic_pitch_real_run_explicit_opt_in_required",
+            ValidationSeverity::Warning));
+    }
+
+    void basicPitchRealRunHandoffProofConfigReadsEnvironment()
+    {
+        QProcessEnvironment environment;
+        environment.insert("TONY_BASIC_PITCH_DISCOVERY_ENABLE", "1");
+        environment.insert("TONY_BASIC_PITCH_COMMAND", "basic-pitch-test");
+        environment.insert("TONY_BASIC_PITCH_TEST_AUDIO", "C:/audio/in.wav");
+        environment.insert("TONY_BASIC_PITCH_OUTPUT_DIR",
+                           "C:/audio/basic-pitch-out");
+        environment.insert("TONY_BASIC_PITCH_RESULT_JSON",
+                           "C:/audio/basic-pitch-out/result.json");
+
+        const BasicPitchRealRunHandoffProofConfig config =
+            BasicPitchRealRunHandoffProof::configFromEnvironment(environment);
+
+        QVERIFY(config.discoveryConfig.explicitOptIn);
+        QCOMPARE(config.discoveryConfig.executablePath,
+                 QString("basic-pitch-test"));
+        QCOMPARE(config.discoveryConfig.inputAudioPath,
+                 QString("C:/audio/in.wav"));
+        QCOMPARE(config.discoveryConfig.outputDirectoryPath,
+                 QString("C:/audio/basic-pitch-out"));
+        QCOMPARE(config.resultJsonPath,
+                 QString("C:/audio/basic-pitch-out/result.json"));
+    }
+
+    void basicPitchRealRunHandoffProofMissingCommandFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath = " ";
+        config.discoveryConfig.inputAudioPath = inputAudioPath;
+        config.discoveryConfig.outputDirectoryPath = directory.path();
+        config.resultJsonPath = directory.filePath("result.json");
+
+        BasicPitchRealRunHandoffProof proof;
+        const BasicPitchRealRunHandoffProofResult result =
+            proof.run(config);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason, QString("not_configured"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.loadedResult);
+        QVERIFY(!QFile::exists(config.resultJsonPath));
+        QVERIFY(reportHasIssue(result.report,
+                               "empty_basic_pitch_discovery_command"));
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchRealRunHandoffProofMissingAudioFailsBeforeRunning()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString missingAudioPath =
+            directory.filePath("missing-input.wav");
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath =
+            QCoreApplication::applicationFilePath();
+        config.discoveryConfig.inputAudioPath = missingAudioPath;
+        config.discoveryConfig.outputDirectoryPath = directory.path();
+        config.resultJsonPath = directory.filePath("result.json");
+
+        BasicPitchRealRunHandoffProof proof;
+        const BasicPitchRealRunHandoffProofResult result =
+            proof.run(config);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason, QString("missing_audio_file"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.loadedResult);
+        QVERIFY(!QFile::exists(config.resultJsonPath));
+        QVERIFY(reportHasIssue(result.report,
+                               "missing_basic_pitch_input_audio_file"));
+        QCOMPARE(result.discoveryResult.request.executablePath,
+                 config.discoveryConfig.executablePath);
+        QVERIFY(result.discoveryResult.request.arguments.size() >= 2);
+        QCOMPARE(result.discoveryResult.request.arguments.at(0),
+                 directory.path());
+        QCOMPARE(result.discoveryResult.request.arguments.at(1),
+                 missingAudioPath);
+        QVERIFY(result.discoveryResult.request.arguments.contains(
+                    "--save-note-events"));
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchRealRunHandoffProofMissingOutputDirectoryFailsSafely()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString missingOutputDirectory =
+            directory.filePath("missing-output");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath =
+            QCoreApplication::applicationFilePath();
+        config.discoveryConfig.inputAudioPath = inputAudioPath;
+        config.discoveryConfig.outputDirectoryPath = missingOutputDirectory;
+        config.resultJsonPath =
+            QDir(missingOutputDirectory).filePath("result.json");
+
+        BasicPitchRealRunHandoffProof proof;
+        const BasicPitchRealRunHandoffProofResult result =
+            proof.run(config);
+
+        QVERIFY(!result.isValid());
+        QVERIFY(result.wasSkipped());
+        QCOMPARE(result.skippedReason, QString("missing_output_directory"));
+        QVERIFY(!result.ranBasicPitch);
+        QVERIFY(!result.loadedResult);
+        QVERIFY(!QFile::exists(config.resultJsonPath));
+        QVERIFY(reportHasIssue(
+            result.report,
+            "missing_basic_pitch_discovery_output_directory"));
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchRealRunHandoffProofNeverMarksBackendReady()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+
+        BasicPitchRealRunHandoffProof proof;
+        const BasicPitchRealRunHandoffProofResult result =
+            proof.run(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.wasSkipped());
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(!result.importedIntoTonyLayers);
+        QVERIFY(!result.readyInstalledCompletedMutation);
 
         BackendManifest manifest = parsedBasicPitchManifest();
         manifest.status = BackendStatus::NotConfigured;

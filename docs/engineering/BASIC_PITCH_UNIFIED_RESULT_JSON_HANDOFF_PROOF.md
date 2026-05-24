@@ -1,6 +1,6 @@
 # Basic Pitch UnifiedResult JSON Handoff Proof
 
-Status: CODEX-099 manual/test-only JSON handoff proof.
+Status: CODEX-099 manual/test-only JSON handoff proof, consumed by CODEX-100 manual real-run proof.
 
 This document defines the next Basic Pitch proof boundary:
 
@@ -111,4 +111,6 @@ The pitch-bend values remain in `UnifiedResult.pitchBends`, but Tony pitch-bend 
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-100 - Basic Pitch manual real-run artifact JSON handoff verification, or CODEX-101 - Basic Pitch result-to-Tony-layer proof with the same strict no-fake-state rules.
+Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary with the same strict no-fake-state rules.
+
+CODEX-100 adds a manual opt-in wrapper that can run a locally configured Basic Pitch command, discover its artifacts, and feed the recognized note-events CSV through this JSON handoff path. It still does not import Tony layers or claim production transcription.

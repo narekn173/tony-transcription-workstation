@@ -1,6 +1,6 @@
 # Basic Pitch Output Conversion Plan
 
-Status: CODEX-096 compile-only/test-only converter boundary, extended by CODEX-097 discovery, CODEX-098 artifact-to-UnifiedResult proof, and CODEX-099 JSON handoff proof.
+Status: CODEX-096 compile-only/test-only converter boundary, extended by CODEX-097 discovery, CODEX-098 artifact-to-UnifiedResult proof, CODEX-099 JSON handoff proof, and CODEX-100 manual real-run proof.
 
 This document defines the first fixture-backed Basic Pitch note-events CSV to `UnifiedResult` conversion boundary. It does not run Basic Pitch, does not create production `result.json`, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -131,10 +131,10 @@ Before production Basic Pitch integration:
 7. Load that `result.json` through `UnifiedResultFileLoader`.
 8. Import notes into real Tony layers only after layer mapping policy is applied.
 
-CODEX-097 adds the manual/test-only discovery harness for steps 1 and 2. CODEX-098 adds the manual/test-only bridge that selects a discovered note-events CSV artifact and converts it into an in-memory `UnifiedResult`. CODEX-099 adds a manual/test-only JSON handoff proof that writes that converted result to a real `result.json` and reloads it through the existing handoff/loader/reporter boundary. It still does not run Basic Pitch in normal tests, import Tony layers, or mark Basic Pitch Ready/Installed/Completed.
+CODEX-097 adds the manual/test-only discovery harness for steps 1 and 2. CODEX-098 adds the manual/test-only bridge that selects a discovered note-events CSV artifact and converts it into an in-memory `UnifiedResult`. CODEX-099 adds a manual/test-only JSON handoff proof that writes that converted result to a real `result.json` and reloads it through the existing handoff/loader/reporter boundary. CODEX-100 adds the manual opt-in real-run wrapper around the same path. It still does not run Basic Pitch in normal tests, import Tony layers, or mark Basic Pitch Ready/Installed/Completed.
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-100 - Basic Pitch manual real-run artifact JSON handoff verification.
+Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary.
 
-That task should use the CODEX-097 opt-in discovery harness with a locally configured Basic Pitch command and real test audio, then confirm whether real artifacts can pass the CODEX-099 JSON handoff path without changing UI, runtime startup, or Tony layer import behavior.
+That task should consume a loaded Basic Pitch `UnifiedResult` only after the manual/test-only proof boundary has produced it, then import into Tony only through real Tony/Sonic Visualiser layer APIs.

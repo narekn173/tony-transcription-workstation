@@ -1,6 +1,6 @@
 # Basic Pitch Real Artifact Discovery
 
-Status: CODEX-097 manual/test-only discovery harness, consumed by CODEX-098 artifact conversion proof and CODEX-099 JSON handoff proof.
+Status: CODEX-097 manual/test-only discovery harness, consumed by CODEX-098 artifact conversion proof, CODEX-099 JSON handoff proof, and CODEX-100 manual real-run proof.
 
 This document defines an opt-in harness for discovering what a locally configured Basic Pitch command actually writes to disk. It does not make Basic Pitch a production backend, does not create `result.json`, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -43,6 +43,7 @@ TONY_BASIC_PITCH_DISCOVERY_ENABLE=1
 TONY_BASIC_PITCH_COMMAND=<path or command>
 TONY_BASIC_PITCH_TEST_AUDIO=<wav/mp3/audio path>
 TONY_BASIC_PITCH_OUTPUT_DIR=<existing directory>
+TONY_BASIC_PITCH_RESULT_JSON=<optional result json path for CODEX-100 handoff>
 ```
 
 If opt-in is missing, discovery reports `explicit_opt_in_required` and does not run a process.
@@ -65,6 +66,8 @@ The harness inspects an output directory and classifies files conservatively:
 Classification proves file presence and shape only. It does not convert artifacts to `UnifiedResult` and does not import Tony layers.
 
 CODEX-098 consumes only artifacts classified as `csv_note_events`. MIDI, NPZ/model-output, WAV, logs, and unknown files remain discovery-only until separate converter tasks prove them.
+
+CODEX-100 uses the same discovery runner for manual real-run proof. The proof remains skipped unless `TONY_BASIC_PITCH_DISCOVERY_ENABLE=1` is set and the command, audio file, and existing output directory are configured.
 
 ## Structured Result
 
@@ -118,6 +121,6 @@ Real Basic Pitch execution is allowed only in an explicit manual/test-only path 
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-100 - Basic Pitch manual real-run artifact JSON handoff verification.
+Recommended next task: CODEX-101 - Basic Pitch manual proof result-to-Tony-layer boundary.
 
-That task should use the explicit opt-in environment variables with a locally configured Basic Pitch command and real test audio, then feed discovered artifacts through the CODEX-099 JSON handoff proof without importing Tony layers or creating fake backend state.
+That task must still avoid UI/runtime startup wiring and may import into Tony layers only through the already proven real Tony/Sonic Visualiser layer mechanisms.
