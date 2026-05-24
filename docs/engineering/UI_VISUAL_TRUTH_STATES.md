@@ -111,3 +111,18 @@ Debug states must not be renamed to `Ready`, `Installed`, or `Completed` in UI u
 ## 7. Progress Rule
 
 Do not show fake percent progress. Use stage-based states unless a real backend provides measured progress events that can be tied to actual work performed.
+
+## 8. UI Consumption Adapter Rule
+
+Future Basic Pitch UI must consume `BasicPitchDebugWorkflowUiModel` or an equally strict adapter. UI code must not invent a looser mapping from backend proof data to visible states.
+
+Action enablement must remain evidence-based:
+
+- `canRun` requires configuration/path evidence and no running process;
+- `canCancel` requires a real running state;
+- `canImport` requires a loaded UnifiedResult and no existing real Tony layer import;
+- `canEdit` requires edit proof;
+- `canSave` requires save/load proof;
+- `canExport` requires export proof.
+
+The adapter still does not permit Ready, Installed, or Completed labels for debug Basic Pitch workflow states.

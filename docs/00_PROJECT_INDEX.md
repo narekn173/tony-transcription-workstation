@@ -69,13 +69,14 @@ These files are the current source-of-truth set. Read them in this order.
 | 17 | `docs/engineering/BASIC_PITCH_LAYER_SAVE_LOAD_EXPORT_PROOF.md` | Mandatory engineering audit | Manual/test-only Basic Pitch layer save/load/export proof |
 | 18 | `docs/engineering/PROOF_BUNDLE_POLICY.md` | Mandatory engineering rules | Evidence bundle and truth-state rules for debug/UI workflows |
 | 19 | `docs/engineering/BASIC_PITCH_DEBUG_WORKFLOW_PROOF.md` | Mandatory engineering audit | Debug-only Basic Pitch workflow coordinator and proof bundle |
-| 20 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
-| 21 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
-| 22 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
-| 23 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
-| 24 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 25 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 26 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 20 | `docs/engineering/BASIC_PITCH_DEBUG_UI_CONSUMPTION_MODEL.md` | Mandatory engineering audit | Compile-only UI-consumption truth-state adapter |
+| 21 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 22 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 23 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 24 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
+| 25 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 26 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 27 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -150,6 +151,7 @@ These documents are required reading before TonyLayerImporter, UI integration, M
 | `docs/engineering/BASIC_PITCH_LAYER_SAVE_LOAD_EXPORT_PROOF.md` | Basic Pitch layer persistence/export proof | Defines manual/test-only Basic Pitch-shaped imported NoteLayer save/load/export proof |
 | `docs/engineering/PROOF_BUNDLE_POLICY.md` | Debug workflow and future UI integration | Defines evidence bundle contents and forbids fake progress/state claims |
 | `docs/engineering/BASIC_PITCH_DEBUG_WORKFLOW_PROOF.md` | Debug Basic Pitch workflow integration | Defines debug-only Basic Pitch workflow truth states and proof-bundle reporting |
+| `docs/engineering/BASIC_PITCH_DEBUG_UI_CONSUMPTION_MODEL.md` | Debug Basic Pitch UI consumption | Defines compile-only user-visible truth-state and action enablement mapping |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |

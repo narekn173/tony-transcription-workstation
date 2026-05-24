@@ -117,6 +117,13 @@ For layer proof it uses real Tony/Sonic Visualiser APIs already proven in CODEX-
 
 Future UI work must add GUI smoke proof and screenshots, and it must consume this workflow/proof-bundle state without inventing weaker state logic.
 
+CODEX-104 adds `BasicPitchDebugWorkflowUiModel`, a compile-only/test-only
+adapter that maps this report into user-visible truth-state strings, action
+enablement concepts, warning visibility, and proof-bundle summaries. It still
+does not add UI or runtime wiring.
+
 ## Recommended Next Task
 
-Recommended next task: CODEX-104 - design the first debug UI integration plan or compile-only adapter that consumes `BasicPitchDebugWorkflowReport` without modifying runtime behavior.
+Recommended next task after CODEX-104: CODEX-105 - design a debug-only
+MainWindow integration plan, with source inspection and screenshots required
+before any runtime UI change.

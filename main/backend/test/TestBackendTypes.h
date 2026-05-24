@@ -21,6 +21,7 @@
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
 #include "../BasicPitchDebugWorkflow.h"
+#include "../BasicPitchDebugWorkflowUiModel.h"
 #include "../BasicPitchLayerPersistenceExportProof.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BasicPitchRealRunHandoffProof.h"
@@ -9264,6 +9265,221 @@ private slots:
         QVERIFY(!report.readyInstalledCompletedMutation);
         QVERIFY(!report.proofBundle.productionTranscription);
         QVERIFY(report.proofBundle.testOnlyDebugOnly);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        BackendRegistry registry;
+        QVERIFY(registry.registerManifest(manifest).isValid());
+        QCOMPARE(registry.statusFor(manifest.id), BackendStatus::NotConfigured);
+    }
+
+    void basicPitchDebugWorkflowUiModelMissingConfigDisablesRun()
+    {
+        BasicPitchDebugWorkflow workflow;
+        BasicPitchDebugWorkflowRequest request;
+        request.mode =
+            BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn;
+        const BasicPitchDebugWorkflowReport workflowReport =
+            workflow.run(request);
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY2(ui.isValid(), qPrintable(ui.debugSummaryString()));
+        QCOMPARE(ui.primaryState, QString("backend_not_configured"));
+        QCOMPARE(ui.secondaryState, QString("skipped"));
+        QVERIFY(!ui.canRun);
+        QVERIFY(!ui.canCancel);
+        QVERIFY(!ui.canImport);
+        QVERIFY(!ui.canEdit);
+        QVERIFY(!ui.canSave);
+        QVERIFY(!ui.canExport);
+        QVERIFY(ui.shouldShowWarnings);
+        QVERIFY(ui.shouldShowProofBundle);
+        QVERIFY(!ui.productionTranscription);
+        QVERIFY(ui.testOnlyDebugOnly);
+    }
+
+    void basicPitchDebugWorkflowUiModelSkippedDoesNotClaimRun()
+    {
+        BasicPitchDebugWorkflowReport workflowReport;
+        workflowReport.skippedReason = "manual_test_skip";
+        workflowReport.truthStates.push_back(
+            BasicPitchDebugTruthState::Skipped);
+        workflowReport.testOnlyDebugOnly = true;
+        workflowReport.proofBundle.testOnlyDebugOnly = true;
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY(ui.isValid());
+        QCOMPARE(ui.primaryState, QString("skipped"));
+        QVERIFY(ui.secondaryState.isEmpty());
+        QVERIFY(!ui.canRun);
+        QVERIFY(!ui.canCancel);
+        QVERIFY(!ui.canImport);
+        QVERIFY(!ui.proofBundle.loadedResult);
+        QVERIFY(!ui.proofBundle.importedIntoTonyLayers);
+    }
+
+    void basicPitchDebugWorkflowUiModelLoadedButNotVisible()
+    {
+        BasicPitchDebugWorkflowReport workflowReport;
+        workflowReport.truthStates.push_back(
+            BasicPitchDebugTruthState::UnifiedResultLoaded);
+        workflowReport.unifiedResultLoaded = true;
+        workflowReport.proofBundle.loadedResult = true;
+        workflowReport.proofBundle.noteCount = 2;
+        workflowReport.testOnlyDebugOnly = true;
+        workflowReport.proofBundle.testOnlyDebugOnly = true;
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY(ui.isValid());
+        QCOMPARE(ui.primaryState, QString("unified_result_loaded"));
+        QCOMPARE(ui.secondaryState, QString("loaded_not_visible"));
+        QVERIFY(ui.canImport);
+        QVERIFY(!ui.canEdit);
+        QVERIFY(!ui.canSave);
+        QVERIFY(!ui.canExport);
+        QVERIFY(!ui.proofBundle.importedIntoTonyLayers);
+        QVERIFY(!ui.proofBundle.insertedIntoView);
+    }
+
+    void basicPitchDebugWorkflowUiModelDoesNotMapUninsertedLayerToVisible()
+    {
+        BasicPitchDebugWorkflowReport workflowReport;
+        workflowReport.truthStates.push_back(
+            BasicPitchDebugTruthState::ImportedIntoRealLayer);
+        workflowReport.unifiedResultLoaded = true;
+        workflowReport.importedIntoTonyLayers = true;
+        workflowReport.proofBundle.loadedResult = true;
+        workflowReport.proofBundle.importedIntoTonyLayers = true;
+        workflowReport.testOnlyDebugOnly = true;
+        workflowReport.proofBundle.testOnlyDebugOnly = true;
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY(ui.isValid());
+        QCOMPARE(ui.primaryState, QString("imported_into_real_layer"));
+        QCOMPARE(ui.secondaryState, QString("imported_not_visible"));
+        QVERIFY(!ui.canImport);
+        QVERIFY(!ui.canEdit);
+        QVERIFY(!ui.canSave);
+        QVERIFY(!ui.canExport);
+        QVERIFY(ui.proofBundle.importedIntoTonyLayers);
+        QVERIFY(!ui.proofBundle.insertedIntoView);
+    }
+
+    void basicPitchDebugWorkflowUiModelRequiresEditSaveExportProof()
+    {
+        BasicPitchDebugWorkflowReport workflowReport;
+        workflowReport.truthStates.push_back(
+            BasicPitchDebugTruthState::InsertedIntoView);
+        workflowReport.unifiedResultLoaded = true;
+        workflowReport.importedIntoTonyLayers = true;
+        workflowReport.insertedIntoView = true;
+        workflowReport.proofBundle.loadedResult = true;
+        workflowReport.proofBundle.importedIntoTonyLayers = true;
+        workflowReport.proofBundle.insertedIntoView = true;
+        workflowReport.testOnlyDebugOnly = true;
+        workflowReport.proofBundle.testOnlyDebugOnly = true;
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY(ui.isValid());
+        QCOMPARE(ui.primaryState, QString("inserted_into_view"));
+        QVERIFY(!ui.canEdit);
+        QVERIFY(!ui.canSave);
+        QVERIFY(!ui.canExport);
+        QVERIFY(!ui.proofBundle.editProof);
+        QVERIFY(!ui.proofBundle.saveLoadProof);
+        QVERIFY(!ui.proofBundle.exportProof);
+    }
+
+    void basicPitchDebugWorkflowUiModelCompletedWarningsAreVisible()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = directory.filePath("result.json");
+        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport workflowReport =
+            workflow.run(request);
+        QVERIFY(workflowReport.isValid());
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY(ui.isValid());
+        QCOMPARE(ui.primaryState, QString("completed_with_warnings"));
+        QCOMPARE(ui.secondaryState, QString("export_proof_passed"));
+        QVERIFY(ui.shouldShowWarnings);
+        QVERIFY(ui.warnings.contains("possible_polyphony"));
+        QVERIFY(ui.warnings.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(ui.warnings.contains("fixture_only_conversion"));
+        QVERIFY(ui.warnings.contains("production_transcription_false"));
+        QVERIFY(ui.canEdit);
+        QVERIFY(ui.canSave);
+        QVERIFY(ui.canExport);
+        QVERIFY(ui.shouldShowProofBundle);
+        QCOMPARE(ui.proofBundle.noteCount, 3);
+        QVERIFY(ui.proofBundle.importedIntoTonyLayers);
+        QVERIFY(ui.proofBundle.insertedIntoView);
+        QVERIFY(ui.proofBundle.saveLoadProof);
+        QVERIFY(ui.proofBundle.exportProof);
+    }
+
+    void basicPitchDebugWorkflowUiModelNeverCreatesFakeReadyCompletedState()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        const QString csvPath = directory.filePath("input_basic_pitch.csv");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
+
+        BasicPitchDebugWorkflowRequest request;
+        request.outputDirectoryPath = directory.path();
+        request.inputAudioPath = inputAudioPath;
+        request.resultJsonPath = directory.filePath("result.json");
+        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchDebugWorkflow workflow;
+        const BasicPitchDebugWorkflowReport workflowReport =
+            workflow.run(request);
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY(ui.isValid());
+        QVERIFY(ui.primaryState != "ready");
+        QVERIFY(ui.primaryState != "installed");
+        QVERIFY(ui.primaryState != "completed");
+        QVERIFY(!ui.productionTranscription);
+        QVERIFY(ui.testOnlyDebugOnly);
+        QVERIFY(!ui.readyInstalledCompletedMutation);
 
         BackendManifest manifest = parsedBasicPitchManifest();
         manifest.status = BackendStatus::NotConfigured;
