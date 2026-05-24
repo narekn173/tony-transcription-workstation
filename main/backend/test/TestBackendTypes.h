@@ -9410,23 +9410,8 @@ private slots:
 
     void basicPitchDebugWorkflowUiModelCompletedWarningsAreVisible()
     {
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-
-        const QString inputAudioPath = directory.filePath("input.wav");
-        const QString csvPath = directory.filePath("input_basic_pitch.csv");
-        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
-        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
-
-        BasicPitchDebugWorkflowRequest request;
-        request.outputDirectoryPath = directory.path();
-        request.inputAudioPath = inputAudioPath;
-        request.resultJsonPath = directory.filePath("result.json");
-        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
-
-        BasicPitchDebugWorkflow workflow;
         const BasicPitchDebugWorkflowReport workflowReport =
-            workflow.run(request);
+            completedBasicPitchDebugWorkflowReportForUiModel();
         QVERIFY(workflowReport.isValid());
 
         BasicPitchDebugWorkflowUiModel model;
@@ -9454,23 +9439,8 @@ private slots:
 
     void basicPitchDebugWorkflowUiModelNeverCreatesFakeReadyCompletedState()
     {
-        QTemporaryDir directory;
-        QVERIFY(directory.isValid());
-
-        const QString inputAudioPath = directory.filePath("input.wav");
-        const QString csvPath = directory.filePath("input_basic_pitch.csv");
-        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
-        QVERIFY(writeFile(csvPath, basicPitchNoteEventsCsvFixture().toUtf8()));
-
-        BasicPitchDebugWorkflowRequest request;
-        request.outputDirectoryPath = directory.path();
-        request.inputAudioPath = inputAudioPath;
-        request.resultJsonPath = directory.filePath("result.json");
-        request.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
-
-        BasicPitchDebugWorkflow workflow;
         const BasicPitchDebugWorkflowReport workflowReport =
-            workflow.run(request);
+            completedBasicPitchDebugWorkflowReportForUiModel();
 
         BasicPitchDebugWorkflowUiModel model;
         const BasicPitchDebugWorkflowUiModelResult ui =
@@ -9495,6 +9465,75 @@ private slots:
     }
 
 private:
+    static BasicPitchDebugWorkflowReport
+    completedBasicPitchDebugWorkflowReportForUiModel()
+    {
+        BasicPitchDebugWorkflowReport report;
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::ArtifactsDiscovered);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::ResultJsonWritten);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::UnifiedResultLoaded);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::ImportedIntoRealLayer);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::InsertedIntoView);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::EditProofPassed);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::SaveLoadProofPassed);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::ExportProofPassed);
+        report.truthStates.push_back(
+            BasicPitchDebugTruthState::CompletedWithWarnings);
+
+        report.resultJsonWritten = true;
+        report.unifiedResultLoaded = true;
+        report.importedIntoTonyLayers = true;
+        report.insertedIntoView = true;
+        report.editProofPassed = true;
+        report.saveLoadProofPassed = true;
+        report.exportProofPassed = true;
+        report.possiblePolyphony = true;
+        report.pitchBendMappingDeferred = true;
+        report.productionTranscription = false;
+        report.testOnlyDebugOnly = true;
+        report.readyInstalledCompletedMutation = false;
+
+        report.proofBundle.resultJsonPath = "basic_pitch_debug_result.json";
+        report.proofBundle.loadedResult = true;
+        report.proofBundle.noteCount = 3;
+        report.proofBundle.importedIntoTonyLayers = true;
+        report.proofBundle.insertedIntoView = true;
+        report.proofBundle.editProof = true;
+        report.proofBundle.saveLoadProof = true;
+        report.proofBundle.exportProof = true;
+        report.proofBundle.productionTranscription = false;
+        report.proofBundle.testOnlyDebugOnly = true;
+        report.proofBundle.warningCodes << "possible_polyphony"
+                                        << "pitch_bend_mapping_deferred"
+                                        << "fixture_only_conversion";
+        BasicPitchDebugWorkflowEvent event;
+        event.state = BasicPitchDebugTruthState::CompletedWithWarnings;
+        event.message = "Synthetic UI model fixture.";
+        report.proofBundle.events.push_back(event);
+
+        report.report.addIssue(
+            ValidationSeverity::Warning,
+            "possible_polyphony",
+            "Basic Pitch fixture includes possible polyphony.");
+        report.report.addIssue(
+            ValidationSeverity::Warning,
+            "pitch_bend_mapping_deferred",
+            "Pitch bend mapping remains deferred for this UI model proof.");
+        report.report.addIssue(
+            ValidationSeverity::Warning,
+            "fixture_only_conversion",
+            "This UI model proof uses fixture-backed conversion only.");
+        return report;
+    }
+
     static bool writeFile(const QString &path, const QByteArray &contents)
     {
         QFile file(path);
