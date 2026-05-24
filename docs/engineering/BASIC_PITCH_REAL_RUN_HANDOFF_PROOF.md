@@ -118,6 +118,8 @@ Normal tests prove:
 - Pitch-bend import into real Tony layers.
 - Basic Pitch result edit/save/load/export inside Tony.
 
-## Recommended Next Task
+## Follow-On Proofs
 
-Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof, still gated behind explicit manual proof data and the no-fake-state rules.
+CODEX-101 consumes the manual/test-only `result.json` handoff and proves Basic Pitch-shaped notes can become real Tony/Sonic Visualiser `NoteModel` / `NoteLayer` structures.
+
+CODEX-102 consumes that layer path and proves real session XML save/load plus lower-level CSV export. The proof remains manual/test-only and does not add user-facing Basic Pitch UI, production runtime execution, pitch-bend layer import, or production transcription claims.

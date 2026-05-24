@@ -1,6 +1,6 @@
 # Basic Pitch Result To Tony Layer Proof
 
-Status: CODEX-101 manual/test-only result-to-layer proof boundary.
+Status: CODEX-101 manual/test-only result-to-layer proof boundary, extended by CODEX-102 save/load/export proof.
 
 This document defines the Basic Pitch-shaped `result.json` to real Tony/Sonic Visualiser note layer proof path:
 
@@ -88,6 +88,12 @@ Possible polyphony remains a warning. CODEX-101 proves that Basic Pitch-shaped n
 - Basic Pitch-specific save/load/export proof from a real manual run.
 - Selected-region Basic Pitch replacement workflow.
 
+CODEX-102 separately proves that the Basic Pitch-shaped imported `NoteLayer`
+survives real Tony/Sonic Visualiser session XML save/load and lower-level CSV
+export in a manual/test-only path. It still does not prove user-facing Basic
+Pitch UI integration, production transcription, pitch-bend layer import, or a
+production polyphony policy.
+
 ## Manual Real-Run Use
 
 CODEX-100 can produce a `BasicPitchRealRunHandoffProofResult` when the manual environment is explicitly configured:
@@ -104,4 +110,4 @@ CODEX-101 may consume that result in a test harness, but normal tests do not req
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof, still manual/test-only and still without user-facing UI integration.
+Recommended next task after CODEX-102: CODEX-103 - first debug-only Basic Pitch workflow wiring plan or boundary, still gated by UI truth states and no production-ready claims.

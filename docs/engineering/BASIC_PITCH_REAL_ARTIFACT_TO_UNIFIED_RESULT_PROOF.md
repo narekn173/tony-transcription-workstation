@@ -1,6 +1,6 @@
 # Basic Pitch Real Artifact To UnifiedResult Proof
 
-Status: CODEX-098 manual/test-only artifact conversion proof, extended by CODEX-099 JSON handoff proof, CODEX-100 manual real-run proof, and CODEX-101 result-to-Tony-layer proof.
+Status: CODEX-098 manual/test-only artifact conversion proof, extended by CODEX-099 JSON handoff proof, CODEX-100 manual real-run proof, CODEX-101 result-to-Tony-layer proof, and CODEX-102 layer save/load/export proof.
 
 This document defines the explicit proof boundary that connects Basic Pitch artifact discovery to the fixture-backed note-events CSV converter. It proves that a discovered Basic Pitch note-events CSV artifact can become an in-memory `UnifiedResult`. It does not create `result.json`, does not run Basic Pitch by default, does not import Tony layers, and does not mark Basic Pitch Ready, Installed, or Completed.
 
@@ -92,7 +92,7 @@ If `ranBasicPitch` is true, the conversion is marked `real_discovered_artifact_m
 - No Tony layer import occurs.
 - No Basic Pitch Ready, Installed, or Completed state is created.
 
-## What Remains Unproven After CODEX-099
+## What Remains Unproven After CODEX-102
 
 - Basic Pitch is installed locally.
 - Basic Pitch can run successfully on real user audio.
@@ -101,10 +101,9 @@ If `ranBasicPitch` is true, the conversion is marked `real_discovered_artifact_m
 - MIDI and NPZ Basic Pitch artifacts are converted.
 - Basic Pitch polyphony mapping into Tony layers is solved.
 - Basic Pitch pitch bends are imported into real Tony layers.
-- Basic Pitch results are visible, editable, saved, loaded, or exported in Tony.
+- Basic Pitch results are visible through user-facing UI.
+- Basic Pitch results are editable, saved, loaded, or exported in a production workflow rather than a manual/test-only proof harness.
 
-## Recommended Next Task
+## Follow-On Proofs
 
-Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof.
-
-CODEX-099 adds the JSON handoff proof in `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md`. CODEX-100 adds the manual opt-in real-run wrapper in `docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md`. CODEX-101 adds the result-to-real-Tony-note-layer proof in `docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md`. None of these creates backend Ready/Installed/Completed state.
+CODEX-099 adds the JSON handoff proof in `docs/engineering/BASIC_PITCH_UNIFIED_RESULT_JSON_HANDOFF_PROOF.md`. CODEX-100 adds the manual opt-in real-run wrapper in `docs/engineering/BASIC_PITCH_REAL_RUN_HANDOFF_PROOF.md`. CODEX-101 adds the result-to-real-Tony-note-layer proof in `docs/engineering/BASIC_PITCH_RESULT_TO_TONY_LAYER_PROOF.md`. CODEX-102 adds the Basic Pitch-shaped imported layer save/load/export proof in `docs/engineering/BASIC_PITCH_LAYER_SAVE_LOAD_EXPORT_PROOF.md`. None of these creates backend Ready/Installed/Completed state.

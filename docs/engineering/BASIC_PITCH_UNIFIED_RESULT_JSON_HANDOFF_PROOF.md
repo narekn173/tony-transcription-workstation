@@ -109,8 +109,8 @@ The pitch-bend values remain in `UnifiedResult.pitchBends`, but Tony pitch-bend 
 - Basic Pitch polyphony and pitch bends are displayed or editable in Tony.
 - Basic Pitch results survive Tony layer save/load/export.
 
-## Recommended Next Task
+## Follow-On Proofs
 
-Recommended next task: CODEX-102 - Basic Pitch result layer save/load/export proof with the same strict no-fake-state rules.
+CODEX-100 adds a manual opt-in wrapper that can run a locally configured Basic Pitch command, discover its artifacts, and feed the recognized note-events CSV through this JSON handoff path. CODEX-101 consumes a Basic Pitch-shaped `result.json` from this path and imports notes through the proven real Tony/Sonic Visualiser `NoteModel`/`NoteLayer` boundary.
 
-CODEX-100 adds a manual opt-in wrapper that can run a locally configured Basic Pitch command, discover its artifacts, and feed the recognized note-events CSV through this JSON handoff path. CODEX-101 consumes a Basic Pitch-shaped `result.json` from this path and imports notes through the proven real Tony/Sonic Visualiser `NoteModel`/`NoteLayer` boundary. It still does not add UI, solve pitch-bend layer mapping, or claim production transcription.
+CODEX-102 consumes the same Basic Pitch-shaped layer path and proves real Tony/Sonic Visualiser session XML save/load plus lower-level CSV export. It still does not add UI, solve pitch-bend layer mapping, solve production polyphony policy, or claim production transcription.

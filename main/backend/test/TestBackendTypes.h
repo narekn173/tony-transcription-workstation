@@ -20,6 +20,7 @@
 #include "../BasicPitchAdapterContract.h"
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
+#include "../BasicPitchLayerPersistenceExportProof.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BasicPitchRealRunHandoffProof.h"
 #include "../BasicPitchResultToTonyLayerProof.h"
@@ -8901,6 +8902,183 @@ private slots:
             imported.report,
             "basic_pitch_real_run_explicit_opt_in_required",
             ValidationSeverity::Warning));
+    }
+
+    void basicPitchLayerPersistenceExportProofSavesLoadsAndExports()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const QString exportPath = directory.filePath("basic-pitch-notes.csv");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchLayerPersistenceExportProofOptions options;
+        options.resultJsonPath = resultPath;
+        options.exportCsvPath = exportPath;
+
+        BasicPitchLayerPersistenceExportProof proof;
+        const BasicPitchLayerPersistenceExportProofResult proven =
+            proof.proveHandoffResult(handedOff, options);
+
+        QVERIFY2(proven.isValid(), qPrintable(proven.debugSummaryString()));
+        QVERIFY(proven.loadedResult);
+        QVERIFY(proven.importedIntoTonyLayers);
+        QVERIFY(proven.insertedIntoView);
+        QVERIFY(proven.reloadedLayerIsNoteLayer);
+        QVERIFY(proven.reloadedModelIsNoteModel);
+        QVERIFY(proven.reloadedLayerEditable);
+        QVERIFY(proven.saveLoadProven);
+        QVERIFY(proven.exportProven);
+        QVERIFY(proven.durableIdentityPersisted);
+        QCOMPARE(proven.importedNoteCount, 3);
+        QCOMPARE(proven.reloadedNoteCount, 3);
+        QCOMPARE(proven.exportedNoteCount, 3);
+        QVERIFY(proven.sessionXml.contains("type=\"notes\""));
+        QVERIFY(proven.sessionXml.contains("backend=basic_pitch"));
+        QVERIFY(proven.sessionXml.contains("test_only=true"));
+        QVERIFY(QFile::exists(exportPath));
+        QVERIFY(QFileInfo(exportPath).size() > 0);
+
+        QString exported = proven.exportCsvText;
+        exported.replace("\r\n", "\n");
+        exported.replace('\r', '\n');
+        const QStringList lines = exported.trimmed().split('\n');
+        QCOMPARE(lines.size(), 4);
+        QCOMPARE(lines[0], QString("FRAME,VALUE,DURATION,LEVEL,LABEL"));
+
+        const QStringList first = lines[1].split(',');
+        QCOMPARE(first.size(), 5);
+        QCOMPARE(first[0], QString("4410"));
+        QVERIFY(qAbs(first[1].toFloat() - 60.0f) < 0.001f);
+        QCOMPARE(first[2], QString("17640"));
+        QVERIFY(qAbs(first[3].toFloat() - (91.0f / 127.0f)) < 0.001f);
+
+        const QStringList second = lines[2].split(',');
+        QCOMPARE(second[0], QString("13230"));
+        QVERIFY(qAbs(second[1].toFloat() - 64.0f) < 0.001f);
+        QCOMPARE(second[2], QString("17640"));
+        QVERIFY(qAbs(second[3].toFloat() - (88.0f / 127.0f)) < 0.001f);
+
+        const QStringList third = lines[3].split(',');
+        QCOMPARE(third[0], QString("35280"));
+        QVERIFY(qAbs(third[1].toFloat() - 67.0f) < 0.001f);
+        QCOMPARE(third[2], QString("8820"));
+        QVERIFY(qAbs(third[3].toFloat() - (72.0f / 127.0f)) < 0.001f);
+    }
+
+    void basicPitchLayerPersistenceExportProofPreservesWarnings()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchLayerPersistenceExportProofOptions options;
+        options.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchLayerPersistenceExportProof proof;
+        const BasicPitchLayerPersistenceExportProofResult proven =
+            proof.proveHandoffResult(handedOff, options);
+
+        QVERIFY(proven.isValid());
+        QVERIFY(proven.possiblePolyphony);
+        QVERIFY(proven.pitchBendMappingDeferred);
+        QVERIFY(reportHasIssue(
+            proven.report,
+            "basic_pitch_possible_polyphony_not_resolved"));
+        QVERIFY(reportHasIssue(
+            proven.report,
+            "basic_pitch_pitch_bend_tony_mapping_deferred"));
+        QVERIFY(reportHasIssue(
+            proven.report,
+            "basic_pitch_layer_persistence_export_test_only"));
+        QVERIFY(!proven.productionTranscription);
+    }
+
+    void basicPitchLayerPersistenceExportProofMissingResultFailsCleanly()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchLayerPersistenceExportProofOptions options;
+        options.resultJsonPath = directory.filePath("missing-result.json");
+        options.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchLayerPersistenceExportProof proof;
+        const BasicPitchLayerPersistenceExportProofResult proven =
+            proof.prove(options);
+
+        QVERIFY(!proven.isValid());
+        QVERIFY(!proven.loadedResult);
+        QVERIFY(!proven.importedIntoTonyLayers);
+        QVERIFY(!proven.saveLoadProven);
+        QVERIFY(!proven.exportProven);
+        QVERIFY(reportHasIssue(proven.report, "output_file_missing"));
+    }
+
+    void basicPitchLayerPersistenceExportProofRequiresExportPath()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchLayerPersistenceExportProofOptions options;
+        options.resultJsonPath = resultPath;
+
+        BasicPitchLayerPersistenceExportProof proof;
+        const BasicPitchLayerPersistenceExportProofResult proven =
+            proof.proveHandoffResult(handedOff, options);
+
+        QVERIFY(!proven.isValid());
+        QVERIFY(proven.loadedResult);
+        QVERIFY(proven.importedIntoTonyLayers);
+        QVERIFY(proven.insertedIntoView);
+        QVERIFY(proven.saveLoadProven);
+        QVERIFY(!proven.exportProven);
+        QVERIFY(reportHasIssue(proven.report,
+                               "empty_basic_pitch_export_csv_path"));
+    }
+
+    void basicPitchLayerPersistenceExportProofNeverMarksBackendReady()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchLayerPersistenceExportProofOptions options;
+        options.exportCsvPath = directory.filePath("basic-pitch-notes.csv");
+
+        BasicPitchLayerPersistenceExportProof proof;
+        const BasicPitchLayerPersistenceExportProofResult proven =
+            proof.proveHandoffResult(handedOff, options);
+
+        QVERIFY(proven.isValid());
+        QVERIFY(!proven.productionTranscription);
+        QVERIFY(!proven.readyInstalledCompletedMutation);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
+
+        BackendRegistry registry;
+        QVERIFY(!registry.hasBackend("basic_pitch"));
+        QVERIFY(registry.allManifests().isEmpty());
     }
 
 private:
