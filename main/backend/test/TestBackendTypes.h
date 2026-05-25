@@ -23,6 +23,8 @@
 #include "../BasicPitchDebugManualRunAction.h"
 #include "../BasicPitchDebugManualRunActionReportFormatter.h"
 #include "../BasicPitchDebugManualRunStatus.h"
+#include "../BasicPitchDebugPostRunImportAction.h"
+#include "../BasicPitchDebugPostRunImportActionReportFormatter.h"
 #include "../BasicPitchDebugWorkflow.h"
 #include "../BasicPitchDebugWorkflowUiModel.h"
 #include "../BasicPitchDebugWorkflowUiReportFormatter.h"
@@ -8912,6 +8914,348 @@ private slots:
         QVERIFY(!text.productionTranscription);
         QVERIFY(text.testOnlyDebugOnly);
         QVERIFY(!text.importedIntoTonyLayers);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionMissingPathDoesNotImport()
+    {
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.deriveResultJsonPathFromManualConfig = false;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.resultJsonPathResolved);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains("missing_result_json_path"));
+        QVERIFY(reportHasIssue(
+            report.report,
+            "missing_basic_pitch_debug_import_result_json_path"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionMissingResultDoesNotImport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = directory.filePath("missing-result.json");
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.resultJsonPathResolved);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains("result_load_failed"));
+        QVERIFY(reportHasIssue(report.report, "output_file_missing"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionEmptyResultDoesNotImport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("empty-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray()));
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(reportHasIssue(report.report, "empty_output_file"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionInvalidResultDoesNotImport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("invalid-result.json");
+        QVERIFY(writeFile(resultPath, QByteArray("{ invalid json\n")));
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(reportHasIssue(report.report, "invalid_json"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionRequiresDocument()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.loadedResult);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains(
+            "import_unavailable_no_document"));
+        QVERIFY(reportHasIssue(
+            report.report,
+            "missing_document_for_basic_pitch_debug_import"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionRequiresViewWhenRequested()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.document = &document;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.loadedResult);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains("import_unavailable_no_view"));
+        QVERIFY(reportHasIssue(
+            report.report,
+            "missing_view_for_basic_pitch_debug_import"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionValidResultImportsLayer()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.loadedResult);
+        QVERIFY(report.basicPitchShaped);
+        QVERIFY(report.importedIntoTonyLayers);
+        QVERIFY(report.insertedIntoView);
+        QCOMPARE(pane.getLayerCount(), 1);
+        QVERIFY(report.layerImportResult.importResult.layer);
+        QCOMPARE(pane.getLayer(0),
+                 report.layerImportResult.importResult.layer);
+        QCOMPARE(report.noteCount, 3);
+        QVERIFY(report.possiblePolyphony);
+        QVERIFY(report.pitchBendMappingDeferred);
+        QVERIFY(report.warningCodes.contains("possible_polyphony"));
+        QVERIFY(report.warningCodes.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+        QVERIFY(!report.editProofTested);
+        QVERIFY(!report.saveLoadProofTested);
+        QVERIFY(!report.exportProofTested);
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
+    void basicPitchDebugPostRunImportActionDoesNotClaimVisibleWithoutView()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.document = &document;
+        options.requireViewForImport = false;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(!report.viewProvided);
+        QVERIFY(!report.viewInsertionRequested);
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionDerivesResultPathFromConfig()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath(
+            "basic_pitch_result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QCOMPARE(report.resultJsonPath, resultPath);
+        QVERIFY(report.importedIntoTonyLayers);
+        QVERIFY(report.insertedIntoView);
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostRunImportActionFormatterShowsFailureAndSuccess()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchDebugPostRunImportActionOptions missingOptions;
+        missingOptions.resultJsonPath =
+            directory.filePath("missing-result.json");
+        const BasicPitchDebugPostRunImportActionReport missingReport =
+            BasicPitchDebugPostRunImportAction().importResult(missingOptions);
+        const BasicPitchDebugPostRunImportActionReportText missingText =
+            BasicPitchDebugPostRunImportActionReportFormatter()
+                .fromReport(missingReport);
+
+        QVERIFY(missingText.isValid());
+        QVERIFY(missingText.plainText.contains(
+            "Basic Pitch Debug Post-Run Import"));
+        QVERIFY(missingText.plainText.contains(
+            "Production transcription: false"));
+        QVERIFY(missingText.plainText.contains(
+            "Imported into Tony layers: false"));
+        QVERIFY(missingText.plainText.contains("No Tony layer was imported."));
+        QVERIFY(missingText.plainText.contains("output_file_missing"));
+        QVERIFY(!missingText.productionTranscription);
+        QVERIFY(missingText.testOnlyDebugOnly);
+        QVERIFY(!missingText.importedIntoTonyLayers);
+        QVERIFY(!missingText.readyInstalledCompletedMutation);
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugPostRunImportActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+        const BasicPitchDebugPostRunImportActionReport report =
+            BasicPitchDebugPostRunImportAction().importResult(options);
+
+        const BasicPitchDebugPostRunImportActionReportText text =
+            BasicPitchDebugPostRunImportActionReportFormatter()
+                .fromReport(report);
+        QVERIFY(text.isValid());
+        QVERIFY(text.importedIntoTonyLayers);
+        QVERIFY(text.insertedIntoView);
+        QVERIFY(text.plainText.contains("UnifiedResult loaded: true"));
+        QVERIFY(text.plainText.contains("Basic Pitch-shaped result: true"));
+        QVERIFY(text.plainText.contains("Imported into Tony layers: true"));
+        QVERIFY(text.plainText.contains("Inserted into View/Pane: true"));
+        QVERIFY(text.plainText.contains("Possible polyphony: true"));
+        QVERIFY(text.plainText.contains(
+            "Pitch bend mapping deferred: true"));
+        QVERIFY(text.plainText.contains("possible_polyphony"));
+        QVERIFY(text.plainText.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(text.plainText.contains("not tested by this action"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
         QVERIFY(!text.readyInstalledCompletedMutation);
     }
 

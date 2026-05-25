@@ -122,6 +122,8 @@ Analysis -> Debug: Run Basic Pitch Manual Handoff Proof...
 
 That action consumes `BasicPitchDebugManualRunStatus` before any process execution. If manual-run status is not allowed, it shows a skipped report and does not run Basic Pitch. If manual-run status is allowed, it delegates to `BasicPitchRealRunHandoffProof` and reports result.json handoff/loading without importing into Tony layers.
 
+CODEX-110 adds a separate post-run import action that can reuse the derived manual-run `result.json` path, while still requiring an explicit user action and a real current Document/Pane before it can claim imported/visible layer status.
+
 ## What Remains
 
 The debug action is still not production Basic Pitch UI. A future production workflow must:
@@ -134,4 +136,4 @@ The debug action is still not production Basic Pitch UI. A future production wor
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-110 - add a debug-only post-run Basic Pitch result import action, still without production Basic Pitch UI claims.
+Recommended next task after CODEX-110: CODEX-111 - add a debug-only combined workflow action, still without production Basic Pitch UI claims.

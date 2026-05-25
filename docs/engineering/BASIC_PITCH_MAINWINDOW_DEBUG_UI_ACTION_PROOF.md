@@ -6,6 +6,7 @@ Production transcription support: not claimed
 CODEX-107 update: report details now include explicit configuration/status sections.
 CODEX-108 update: report details now include explicit manual-run env/config requirements, missing-key status, and run-allowed/skipped status.
 CODEX-109 update: a second explicit debug/manual handoff action is available and stops before Tony layer import.
+CODEX-110 update: a third explicit debug action imports an existing Basic Pitch-shaped result.json into a real Tony/SV layer when a current Document/Pane exists.
 
 ## Files Inspected
 
@@ -21,6 +22,8 @@ CODEX-109 update: a second explicit debug/manual handoff action is available and
 | `main/backend/BasicPitchDebugManualRunStatus.*` | Debug-only manual-run configuration/status boundary |
 | `main/backend/BasicPitchDebugManualRunAction.*` | Debug-only manual Basic Pitch real-run handoff boundary |
 | `main/backend/BasicPitchDebugManualRunActionReportFormatter.*` | Testable report formatter for the manual-run action |
+| `main/backend/BasicPitchDebugPostRunImportAction.*` | Debug-only existing result.json to real Tony layer import boundary |
+| `main/backend/BasicPitchDebugPostRunImportActionReportFormatter.*` | Testable report formatter for the post-run import action |
 
 ## MainWindow Insertion Point
 
@@ -36,6 +39,12 @@ CODEX-109 adds a second debug-only action in the same debug section:
 
 ```text
 Debug: Run Basic Pitch Manual Handoff Proof...
+```
+
+CODEX-110 adds a third debug-only action in the same debug section:
+
+```text
+Debug: Import Basic Pitch Manual Result...
 ```
 
 The actions are separated by a menu separator from the normal pYIN controls. They do not reuse `Analyse Now!`, do not call `Analyser`, and do not change the existing pYIN option actions.
@@ -68,6 +77,21 @@ When the user explicitly invokes `Debug: Run Basic Pitch Manual Handoff Proof...
 
 This action does not call `BasicPitchDebugWorkflow`, does not run TonyLayerImporter, and does not import into Tony layers.
 
+## Post-Run Import Action Behavior
+
+When the user explicitly invokes `Debug: Import Basic Pitch Manual Result...`:
+
+1. MainWindow reads env/config through `BasicPitchRealRunHandoffProof::configFromEnvironment()`.
+2. `BasicPitchDebugPostRunImportAction` resolves `result.json` from an explicit path, `TONY_BASIC_PITCH_RESULT_JSON`, or the derived `<output-dir>/basic_pitch_result.json` path.
+3. The result file is loaded through `BackendRunResultLoader`.
+4. Missing, empty, invalid, or non-importable results are reported without importing.
+5. If the current Document or current Pane/View is unavailable, the action reports that import is unavailable and does not create hidden fake layers.
+6. If a valid Basic Pitch-shaped result and a real current Document/Pane are available, the action delegates to `BasicPitchResultToTonyLayerProof` / `TonyLayerImporter`.
+7. `importedIntoTonyLayers=true` is reported only after a real Document-owned Tony/SV layer is created.
+8. `insertedIntoView=true` is reported only after `Document::addLayerToView` inserts that layer into the current real Pane/View.
+
+This action does not run Basic Pitch, does not create result.json, and reports edit/save/load/export proof fields as not tested by this action.
+
 ## User-Visible Fields
 
 The dialog displays:
@@ -95,6 +119,9 @@ The dialog displays:
 - artifact summaries
 - selected `csv_note_events` artifact status and path
 - result JSON path
+- post-run import loaded-result status
+- post-run import Basic Pitch-shaped status
+- post-run import current Document/Pane availability
 - export CSV path
 - note count
 - loaded-result status
@@ -172,6 +199,7 @@ This is not production Basic Pitch UI. It does not provide:
 - production polyphony policy
 - production pitch-bend layer mapping
 - production result import workflow from the manual handoff action
+- production combined run-and-import workflow
 
 ## Verification Expectations
 
