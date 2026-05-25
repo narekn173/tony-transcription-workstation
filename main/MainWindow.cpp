@@ -3346,12 +3346,20 @@ MainWindow::showBasicPitchDebugCombinedRunImport()
         tr("Debug: Run Basic Pitch Manual Handoff and Import"));
 
     QGridLayout *layout = new QGridLayout;
+    const QString summaryMessage =
+        report.postImportProofReport.isValid() ?
+        tr("A real Basic Pitch-shaped result was imported and the "
+           "debug post-import edit/save/load/export proof passed.") :
+        report.importedIntoTonyLayers ?
+        tr("A real Basic Pitch-shaped result was imported into a real "
+           "Tony/Sonic Visualiser layer. Post-import proof did not pass "
+           "or was not tested; see details.") :
+        tr("No Tony layer was imported. See details for the skipped, "
+           "failed, or incomplete proof boundary.");
     QLabel *summary = new QLabel(
         tr("<b>Debug/test-only Basic Pitch manual handoff and import.</b><br/>"
            "This is not production transcription support.<br/>"
-           "%1").arg(report.importedIntoTonyLayers ?
-                     tr("A real Basic Pitch-shaped result was imported into a real Tony/Sonic Visualiser layer.") :
-                     tr("No Tony layer was imported. See details for the skipped, failed, or incomplete proof boundary.")));
+           "%1").arg(summaryMessage));
     summary->setWordWrap(true);
     layout->addWidget(summary, 0, 0);
 

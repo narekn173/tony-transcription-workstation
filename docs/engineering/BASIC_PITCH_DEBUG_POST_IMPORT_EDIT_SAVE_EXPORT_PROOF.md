@@ -1,7 +1,8 @@
 # Basic Pitch Debug Post-Import Edit Save Export Proof
 
-Status: CODEX-112 debug-only post-import proof summary  
-Production transcription support: not claimed  
+Status: CODEX-112 debug-only post-import proof summary
+CODEX-113 update: combined debug report presents a dedicated post-import proof section
+Production transcription support: not claimed
 Runtime behavior: proof summary inside the explicit debug combined action
 
 ## Purpose
@@ -51,6 +52,8 @@ It uses `BasicPitchLayerPersistenceExportProof`, which now verifies:
 
 `BasicPitchDebugPostImportProofActionReportFormatter` renders these proof fields for future/debug UI consumption. MainWindow does not duplicate proof logic.
 
+CODEX-113 also makes `BasicPitchDebugCombinedRunImportActionReportFormatter` render the same proof outcome in a dedicated `Post-Import Proof` section after a successful combined debug import.
+
 ## UI/Report Behavior
 
 The CODEX-112 proof is displayed as part of the combined debug action report after a successful import.
@@ -62,9 +65,13 @@ When no result is available:
 - no fake layer is created;
 - no fake export row count is reported.
 
+When the combined debug action does not reach a successful import, the combined report explicitly says that post-import proof was not tested by this action. It does not claim visibility, editability, save/load survival, or export survival.
+
 When a valid Basic Pitch-shaped result is available:
 
 - the proof imports through the real Tony layer path;
+- the combined report shows the proof `resultJsonPath` and export CSV path;
+- real `NoteModel`, real `NoteLayer`, Document-owned layer, and proof Pane/View insertion flags are shown;
 - edit proof is marked passed only after the real command proof succeeds;
 - undo/redo proof is marked passed only after the command proof restores/redo/undo behavior;
 - save/load proof is marked passed only after XML reload preserves note data;
@@ -100,4 +107,4 @@ This is still not production Basic Pitch UI. It does not provide:
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-113 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, without enabling production claims prematurely.
+Recommended next task: CODEX-114 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, without enabling production claims prematurely.

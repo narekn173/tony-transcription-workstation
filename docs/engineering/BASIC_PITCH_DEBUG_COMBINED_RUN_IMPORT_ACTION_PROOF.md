@@ -2,6 +2,7 @@
 
 Status: CODEX-111 debug-only combined manual handoff plus import boundary
 CODEX-112 update: includes debug post-import edit/save/load/export proof summary
+CODEX-113 update: formatter shows a dedicated, truth-gated post-import proof section
 Production transcription support: not claimed
 Runtime behavior: explicit user action only
 
@@ -90,6 +91,14 @@ When manual execution succeeds and a real `result.json` is written:
 - `insertedIntoView=true` only after real Pane/View insertion occurs.
 - post-import edit, undo/redo, save/load, and export proof fields are shown only after the real proof action passes.
 
+If import fails or the proof is disabled, the formatted report shows:
+
+- `Post-import proof: not tested by this action`;
+- an explanatory line that the proof did not run because import did not complete or the proof was disabled;
+- no edit, undo/redo, save/load, or export success claim from the post-import proof.
+
+When import succeeds and CODEX-112 proof runs, the formatted report includes a dedicated `Post-Import Proof` section, separate from the manual handoff and import sections.
+
 ## Report Fields
 
 The formatted report includes:
@@ -109,11 +118,22 @@ The formatted report includes:
 - `pitch_bend_mapping_deferred`
 - `importedIntoTonyLayers`
 - `insertedIntoView`
+- post-import proof status
+- proof `resultJsonPath`
+- proof export CSV path
+- proof loaded-result status
+- real `NoteModel` existence
+- real `NoteLayer` existence
+- Document-owned layer status
+- proof Pane/View insertion status
+- layer editable status
 - edit proof status
 - undo/redo proof status
 - save/load proof status
 - export proof status
 - exported note row count from the real CSV proof
+- exported CSV non-empty status
+- timing/duration/pitch/velocity export preservation status
 - `productionTranscription=false`
 - `testOnlyDebugOnly=true`
 - `readyInstalledCompletedMutation=false`
@@ -158,4 +178,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-Recommended next task after CODEX-112: CODEX-113 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow.
+Recommended next task after CODEX-113: CODEX-114 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow.

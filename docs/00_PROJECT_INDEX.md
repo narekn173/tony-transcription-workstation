@@ -397,6 +397,7 @@ CODEX-109 adds an explicit debug-only Basic Pitch manual handoff action.
 CODEX-110 adds an explicit debug-only Basic Pitch existing result.json import action.
 CODEX-111 adds an explicit debug-only combined manual handoff plus real Tony/SV layer import action.
 CODEX-112 adds debug-only post-import edit/undo/save/load/export proof reporting to the combined Basic Pitch debug path.
+CODEX-113 tightens the combined debug UI/report flow so the post-import proof appears as a dedicated truth-gated section.
 ```
 
 Therefore the next work must prove real end-to-end behavior through the staged proof tasks.
@@ -405,10 +406,10 @@ Therefore the next work must prove real end-to-end behavior through the staged p
 
 ## 12. Immediate next action
 
-Current next action after CODEX-112:
+Current next action after CODEX-113:
 
 ```text
-CODEX-113 - define the first production-readiness checklist for guarded Basic Pitch UI transition
+CODEX-114 - define the first production-readiness checklist for guarded Basic Pitch UI transition
 ```
 
 This supersedes the earlier baseline setup sequence below for the current repository state. Do not start production Basic Pitch UI integration, selected-region replacement, or feature-complete claims until the debug-only MainWindow path has explicit configuration/run UX, result import, proof-bundle access, and post-import edit/save/load/export reporting while keeping all Basic Pitch runtime execution explicitly opt-in.

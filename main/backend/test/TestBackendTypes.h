@@ -9698,6 +9698,12 @@ private slots:
         QVERIFY(missingText.plainText.contains("Backend process ran: false"));
         QVERIFY(missingText.plainText.contains("No backend was run."));
         QVERIFY(missingText.plainText.contains("No Tony layer was imported."));
+        QVERIFY(missingText.plainText.contains("Post-Import Proof:"));
+        QVERIFY(missingText.plainText.contains(
+            "Post-import proof: not tested by this action"));
+        QVERIFY(missingText.plainText.contains(
+            "Post-import proof was not run because the debug import did not "
+            "complete or the proof was disabled."));
         QVERIFY(missingText.plainText.contains(
             "basic_pitch_debug_combined_run_import_skipped"));
         QVERIFY(!missingText.productionTranscription);
@@ -9743,11 +9749,28 @@ private slots:
         QVERIFY(text.plainText.contains("Import attempted: true"));
         QVERIFY(text.plainText.contains("Imported into Tony layers: true"));
         QVERIFY(text.plainText.contains("Inserted into View/Pane: true"));
+        QVERIFY(text.plainText.contains("Manual Run / Handoff:"));
+        QVERIFY(text.plainText.contains("Import:"));
+        QVERIFY(text.plainText.contains("Post-Import Proof:"));
+        QVERIFY(text.plainText.contains("Post-import proof: passed"));
+        QVERIFY(text.plainText.contains("Proof UnifiedResult loaded: true"));
+        QVERIFY(text.plainText.contains("Proof note count: 3"));
+        QVERIFY(text.plainText.contains("Real NoteModel exists: true"));
+        QVERIFY(text.plainText.contains("Real NoteLayer exists: true"));
+        QVERIFY(text.plainText.contains("Document-owned layer: true"));
+        QVERIFY(text.plainText.contains(
+            "Proof inserted into View/Pane: true"));
+        QVERIFY(text.plainText.contains("Layer editable: true"));
         QVERIFY(text.plainText.contains("Edit proof: passed"));
         QVERIFY(text.plainText.contains("Undo/redo proof: passed"));
         QVERIFY(text.plainText.contains("Save/load proof: passed"));
+        QVERIFY(text.plainText.contains("CSV export proof: passed"));
         QVERIFY(text.plainText.contains("Export proof: passed"));
         QVERIFY(text.plainText.contains("Exported note rows: 3"));
+        QVERIFY(text.plainText.contains("Proof exported note rows: 3"));
+        QVERIFY(text.plainText.contains("Exported CSV non-empty: true"));
+        QVERIFY(text.plainText.contains(
+            "Export preserved timing/duration/pitch/velocity: true"));
         QVERIFY(text.plainText.contains("Possible polyphony: true"));
         QVERIFY(text.plainText.contains(
             "Pitch bend mapping deferred: true"));

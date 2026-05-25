@@ -77,9 +77,19 @@ QString
 proofStatus(bool tested, bool passed)
 {
     if (!tested) {
-        return QString("not tested by this action");
+        return QString("not tested");
     }
     return passed ? QString("passed") : QString("failed");
+}
+
+QString
+postImportProofStatus(const BasicPitchDebugCombinedRunImportActionReport &report)
+{
+    if (report.postImportProofReport.resultJsonPath.trimmed().isEmpty()) {
+        return QString("not tested by this action");
+    }
+    return report.postImportProofReport.isValid() ?
+        QString("passed") : QString("failed");
 }
 
 }
@@ -138,7 +148,7 @@ BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
     }
     lines << "";
 
-    lines << "Manual Handoff:";
+    lines << "Manual Run / Handoff:";
     appendLine(lines, "Command", displayValue(report.commandUsed));
     appendLine(lines,
                "Input audio path",
@@ -157,7 +167,7 @@ BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
                artifactSummaries(report.discoveredArtifacts));
     lines << "";
 
-    lines << "Import Target:";
+    lines << "Import:";
     appendBoolLine(lines, "Document provided", report.documentProvided);
     appendBoolLine(lines, "View/Pane provided", report.viewProvided);
     appendBoolLine(lines,
@@ -169,7 +179,73 @@ BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
                QString::number(report.exportedNoteCount));
     lines << "";
 
-    lines << "Proof Status:";
+    lines << "Post-Import Proof:";
+    appendLine(lines,
+               "Post-import proof",
+               postImportProofStatus(report));
+    if (report.postImportProofReport.resultJsonPath.trimmed().isEmpty()) {
+        lines << "Post-import proof was not run because the debug import did "
+                  "not complete or the proof was disabled.";
+        lines << "";
+    } else {
+        const BasicPitchDebugPostImportProofActionReport &proof =
+            report.postImportProofReport;
+        appendLine(lines,
+                   "Proof result JSON path",
+                   displayValue(proof.resultJsonPath));
+        appendLine(lines,
+                   "Proof export CSV path",
+                   displayValue(proof.exportCsvPath));
+        appendBoolLine(lines,
+                       "Proof UnifiedResult loaded",
+                       proof.loadedResult);
+        appendLine(lines,
+                   "Proof note count",
+                   QString::number(proof.noteCount));
+        appendBoolLine(lines,
+                       "Real NoteModel exists",
+                       proof.realNoteModelExists);
+        appendBoolLine(lines,
+                       "Real NoteLayer exists",
+                       proof.realNoteLayerExists);
+        appendBoolLine(lines,
+                       "Document-owned layer",
+                       proof.documentOwnedLayer);
+        appendBoolLine(lines,
+                       "Proof inserted into View/Pane",
+                       proof.insertedIntoView);
+        appendBoolLine(lines,
+                       "Layer editable",
+                       proof.layerEditable);
+        appendLine(lines,
+                   "Edit proof",
+                   proofStatus(proof.editProofTested,
+                               proof.editProofPassed));
+        appendLine(lines,
+                   "Undo/redo proof",
+                   proofStatus(proof.undoRedoProofTested,
+                               proof.undoRedoProofPassed));
+        appendLine(lines,
+                   "Save/load proof",
+                   proofStatus(proof.saveLoadProofTested,
+                               proof.saveLoadProofPassed));
+        appendLine(lines,
+                   "CSV export proof",
+                   proofStatus(proof.exportProofTested,
+                               proof.exportProofPassed));
+        appendLine(lines,
+                   "Proof exported note rows",
+                   QString::number(proof.exportedNoteCount));
+        appendBoolLine(lines,
+                       "Exported CSV non-empty",
+                       proof.exportedCsvNonEmpty);
+        appendBoolLine(lines,
+                       "Export preserved timing/duration/pitch/velocity",
+                       proof.exportedTimingDurationPitchVelocity);
+        lines << "";
+    }
+
+    lines << "Proof Summary:";
     appendLine(lines,
                "Edit proof",
                proofStatus(report.editProofTested,

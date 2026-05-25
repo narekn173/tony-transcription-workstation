@@ -9,6 +9,7 @@ CODEX-109 update: a second explicit debug/manual handoff action is available and
 CODEX-110 update: a third explicit debug action imports an existing Basic Pitch-shaped result.json into a real Tony/SV layer when a current Document/Pane exists.
 CODEX-111 update: a fourth explicit debug action composes manual handoff and post-run import, still without production claims.
 CODEX-112 update: the combined action report includes debug post-import edit/save/load/export proof status.
+CODEX-113 update: the combined report now shows a dedicated post-import proof section with real model/layer, edit, undo/redo, save/load, and CSV export fields.
 
 ## Files Inspected
 
@@ -116,6 +117,8 @@ When the user explicitly invokes `Debug: Run Basic Pitch Manual Handoff and Impo
 6. `importedIntoTonyLayers=true` is reported only after a real Document-owned Tony/SV layer is created.
 7. `insertedIntoView=true` is reported only after the layer is inserted into the current real Pane/View.
 8. CODEX-112 then calls `BasicPitchDebugPostImportProofAction` to report edit, undo/redo, save/load, and CSV export proof status.
+9. CODEX-113 formats that proof in a dedicated `Post-Import Proof` section instead of hiding it in a short summary.
+10. The dialog summary banner mentions post-import proof only when `BasicPitchDebugPostImportProofActionReport::isValid()` is true.
 
 This combined action does not duplicate manual-run or import workflow logic in MainWindow.
 
@@ -150,7 +153,14 @@ The dialog displays:
 - post-run import Basic Pitch-shaped status
 - post-run import current Document/Pane availability
 - combined run/import stage sequence
+- post-import proof status
+- proof result JSON path
 - export CSV path
+- real NoteModel existence
+- real NoteLayer existence
+- Document-owned layer status
+- proof Pane/View insertion status
+- layer editable status
 - note count
 - loaded-result status
 - imported-into-Tony-layer flag
@@ -160,6 +170,8 @@ The dialog displays:
 - save/load proof flag
 - export proof flag
 - exported note row count from actual CSV rows
+- exported CSV non-empty status
+- export timing/duration/pitch/velocity preservation status
 - `productionTranscription=false`
 - `testOnlyDebugOnly=true`
 - `readyInstalledCompletedMutation=false`
@@ -246,4 +258,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-113` should define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, still without production Basic Pitch claims.
+`CODEX-114` should define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, still without production Basic Pitch claims.
