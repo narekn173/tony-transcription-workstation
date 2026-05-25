@@ -70,6 +70,8 @@ BasicPitchDebugCombinedRunImportActionReport::isValid() const
         importAttempted &&
         importedIntoTonyLayers &&
         (!viewInsertionRequested || insertedIntoView) &&
+        (!postImportProofReport.resultJsonPath.trimmed().isEmpty() ?
+             postImportProofReport.isValid() : true) &&
         !productionTranscription &&
         testOnlyDebugOnly &&
         !readyInstalledCompletedMutation;
@@ -90,7 +92,9 @@ BasicPitchDebugCombinedRunImportActionReport::debugSummaryString() const
                    "manual_allowed=%2 attempted=%3 ran=%4 result_json=%5 "
                    "loaded=%6 import_attempted=%7 notes=%8 polyphony=%9 "
                    "bends_deferred=%10 imported=%11 inserted=%12 "
-                   "production=%13 debug=%14 ready_mutation=%15 valid=%16")
+                   "edit=%13 undo_redo=%14 save_load=%15 export=%16 "
+                   "exported=%17 production=%18 debug=%19 "
+                   "ready_mutation=%20 valid=%21")
         .arg(stageStates.join(","))
         .arg(boolString(manualRunAllowed))
         .arg(boolString(manualRunAttempted))
@@ -103,6 +107,11 @@ BasicPitchDebugCombinedRunImportActionReport::debugSummaryString() const
         .arg(boolString(pitchBendMappingDeferred))
         .arg(boolString(importedIntoTonyLayers))
         .arg(boolString(insertedIntoView))
+        .arg(boolString(editProofPassed))
+        .arg(boolString(undoRedoProofPassed))
+        .arg(boolString(saveLoadProofPassed))
+        .arg(boolString(exportProofPassed))
+        .arg(exportedNoteCount)
         .arg(boolString(productionTranscription))
         .arg(boolString(testOnlyDebugOnly))
         .arg(boolString(readyInstalledCompletedMutation))
@@ -240,6 +249,59 @@ BasicPitchDebugCombinedRunImportAction::runAndImport(
     }
     if (!result.importReport.isValid()) {
         addStage(result, "combined_import_failed");
+    }
+
+    if (result.importReport.isValid() && options.runPostImportProof) {
+        BasicPitchDebugPostImportProofActionOptions proofOptions;
+        proofOptions.resultJsonPath = result.resultJsonPath;
+        proofOptions.exportCsvPath = options.postImportProofExportCsvPath;
+        proofOptions.sampleRate = options.sampleRate;
+        proofOptions.resolution = options.resolution;
+
+        BasicPitchDebugPostImportProofAction proofAction;
+        result.postImportProofReport = proofAction.prove(proofOptions);
+        appendIssues(result.report, result.postImportProofReport.report);
+        appendUnique(result.warningCodes,
+                     result.postImportProofReport.warningCodes);
+        appendUnique(result.errorCodes,
+                     result.postImportProofReport.errorCodes);
+
+        result.editProofTested =
+            result.postImportProofReport.editProofTested;
+        result.editProofPassed =
+            result.postImportProofReport.editProofPassed;
+        result.undoRedoProofTested =
+            result.postImportProofReport.undoRedoProofTested;
+        result.undoRedoProofPassed =
+            result.postImportProofReport.undoRedoProofPassed;
+        result.saveLoadProofTested =
+            result.postImportProofReport.saveLoadProofTested;
+        result.saveLoadProofPassed =
+            result.postImportProofReport.saveLoadProofPassed;
+        result.exportProofTested =
+            result.postImportProofReport.exportProofTested;
+        result.exportProofPassed =
+            result.postImportProofReport.exportProofPassed;
+        result.exportedNoteCount =
+            result.postImportProofReport.exportedNoteCount;
+        result.possiblePolyphony =
+            result.possiblePolyphony ||
+            result.postImportProofReport.possiblePolyphony;
+        result.pitchBendMappingDeferred =
+            result.pitchBendMappingDeferred ||
+            result.postImportProofReport.pitchBendMappingDeferred;
+        result.productionTranscription =
+            result.productionTranscription ||
+            result.postImportProofReport.productionTranscription;
+        result.readyInstalledCompletedMutation =
+            result.readyInstalledCompletedMutation ||
+            result.postImportProofReport.readyInstalledCompletedMutation;
+
+        if (result.postImportProofReport.isValid()) {
+            addStage(result, "combined_post_import_proof_passed");
+        } else {
+            addStage(result, "combined_post_import_proof_failed");
+        }
     }
 
     result.report.addIssue(

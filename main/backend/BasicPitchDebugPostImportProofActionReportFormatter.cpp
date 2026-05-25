@@ -12,7 +12,7 @@
     COPYING included with this distribution for more information.
 */
 
-#include "BasicPitchDebugCombinedRunImportActionReportFormatter.h"
+#include "BasicPitchDebugPostImportProofActionReportFormatter.h"
 
 namespace Tony {
 namespace Backend {
@@ -59,25 +59,11 @@ appendList(QStringList &lines,
     }
 }
 
-QStringList
-artifactSummaries(const QVector<BasicPitchDiscoveredArtifact> &artifacts)
-{
-    QStringList values;
-    for (const BasicPitchDiscoveredArtifact &artifact: artifacts) {
-        values << QString("%1 type=%2 bytes=%3 path=%4")
-            .arg(artifact.fileName)
-            .arg(artifact.artifactType)
-            .arg(artifact.sizeBytes)
-            .arg(artifact.path);
-    }
-    return values;
-}
-
 QString
 proofStatus(bool tested, bool passed)
 {
     if (!tested) {
-        return QString("not tested by this action");
+        return QString("not tested");
     }
     return passed ? QString("passed") : QString("failed");
 }
@@ -85,7 +71,7 @@ proofStatus(bool tested, bool passed)
 }
 
 bool
-BasicPitchDebugCombinedRunImportActionReportText::isValid() const
+BasicPitchDebugPostImportProofActionReportText::isValid() const
 {
     return !title.trimmed().isEmpty() &&
         !plainText.trimmed().isEmpty() &&
@@ -94,21 +80,19 @@ BasicPitchDebugCombinedRunImportActionReportText::isValid() const
         !readyInstalledCompletedMutation;
 }
 
-BasicPitchDebugCombinedRunImportActionReportText
-BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
-    const BasicPitchDebugCombinedRunImportActionReport &report) const
+BasicPitchDebugPostImportProofActionReportText
+BasicPitchDebugPostImportProofActionReportFormatter::fromReport(
+    const BasicPitchDebugPostImportProofActionReport &report) const
 {
-    BasicPitchDebugCombinedRunImportActionReportText result;
-    result.title = "Debug: Run Basic Pitch Manual Handoff and Import";
+    BasicPitchDebugPostImportProofActionReportText result;
+    result.title = "Debug: Basic Pitch Post-Import Edit/Save/Export Proof";
     result.productionTranscription = report.productionTranscription;
     result.testOnlyDebugOnly = report.testOnlyDebugOnly;
-    result.importedIntoTonyLayers = report.importedIntoTonyLayers;
-    result.insertedIntoView = report.insertedIntoView;
     result.readyInstalledCompletedMutation =
         report.readyInstalledCompletedMutation;
 
     QStringList lines;
-    lines << "Basic Pitch Debug Manual Handoff and Import";
+    lines << "Basic Pitch Debug Post-Import Edit/Save/Export Proof";
     lines << "";
     lines << "Summary:";
     appendBoolLine(lines, "Debug/test-only", report.testOnlyDebugOnly);
@@ -118,58 +102,24 @@ BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
     appendBoolLine(lines,
                    "Ready / Installed / Completed mutation",
                    report.readyInstalledCompletedMutation);
-    appendBoolLine(lines, "Manual run allowed", report.manualRunAllowed);
-    appendBoolLine(lines, "Manual run attempted", report.manualRunAttempted);
-    appendBoolLine(lines, "Backend process ran", report.ranBasicPitch);
-    appendBoolLine(lines, "Result JSON written", report.resultJsonWritten);
+    appendLine(lines, "Result JSON path", displayValue(report.resultJsonPath));
+    appendLine(lines, "Export CSV path", displayValue(report.exportCsvPath));
     appendBoolLine(lines, "UnifiedResult loaded", report.loadedResult);
-    appendBoolLine(lines, "Import attempted", report.importAttempted);
-    appendBoolLine(lines,
-                   "Imported into Tony layers",
-                   report.importedIntoTonyLayers);
-    appendBoolLine(lines,
-                   "Inserted into View/Pane",
-                   report.insertedIntoView);
-    if (!report.ranBasicPitch) {
-        lines << "No backend was run.";
-    }
-    if (!report.importedIntoTonyLayers) {
-        lines << "No Tony layer was imported.";
-    }
-    lines << "";
-
-    lines << "Manual Handoff:";
-    appendLine(lines, "Command", displayValue(report.commandUsed));
-    appendLine(lines,
-               "Input audio path",
-               displayValue(report.inputAudioPath));
-    appendLine(lines,
-               "Output directory",
-               displayValue(report.outputDirectoryPath));
-    appendLine(lines,
-               "Result JSON path",
-               displayValue(report.resultJsonPath));
-    appendLine(lines,
-               "Selected csv_note_events artifact",
-               displayValue(report.selectedNoteEventsArtifactPath));
-    appendList(lines,
-               "Discovered artifacts",
-               artifactSummaries(report.discoveredArtifacts));
-    lines << "";
-
-    lines << "Import Target:";
-    appendBoolLine(lines, "Document provided", report.documentProvided);
-    appendBoolLine(lines, "View/Pane provided", report.viewProvided);
-    appendBoolLine(lines,
-                   "View insertion requested",
-                   report.viewInsertionRequested);
     appendLine(lines, "Note count", QString::number(report.noteCount));
     appendLine(lines,
                "Exported note rows",
                QString::number(report.exportedNoteCount));
     lines << "";
 
-    lines << "Proof Status:";
+    lines << "Real Tony/Sonic Visualiser Layer Proof:";
+    appendBoolLine(lines, "Real NoteModel exists", report.realNoteModelExists);
+    appendBoolLine(lines, "Real NoteLayer exists", report.realNoteLayerExists);
+    appendBoolLine(lines, "Document-owned layer", report.documentOwnedLayer);
+    appendBoolLine(lines, "Inserted into View/Pane", report.insertedIntoView);
+    appendBoolLine(lines, "Layer editable", report.layerEditable);
+    lines << "";
+
+    lines << "Edit / Save / Export Proof:";
     appendLine(lines,
                "Edit proof",
                proofStatus(report.editProofTested,
@@ -183,9 +133,15 @@ BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
                proofStatus(report.saveLoadProofTested,
                            report.saveLoadProofPassed));
     appendLine(lines,
-               "Export proof",
+               "CSV export proof",
                proofStatus(report.exportProofTested,
                            report.exportProofPassed));
+    appendBoolLine(lines,
+                   "Exported CSV non-empty",
+                   report.exportedCsvNonEmpty);
+    appendBoolLine(lines,
+                   "Export preserved timing/duration/pitch/velocity",
+                   report.exportedTimingDurationPitchVelocity);
     lines << "";
 
     lines << "Warnings and Policy:";
@@ -197,16 +153,10 @@ BasicPitchDebugCombinedRunImportActionReportFormatter::fromReport(
     appendList(lines, "Errors", report.errorCodes);
     lines << "";
 
-    lines << "Workflow Stage Sequence:";
-    appendList(lines, "Stage states", report.stageStates);
-    lines << "";
-
     lines << "Limitations:";
-    lines << "  - This is debug/test-only UI.";
+    lines << "  - This is debug/test-only proof.";
     lines << "  - This is not production Basic Pitch transcription.";
-    lines << "  - Basic Pitch runs only when explicit manual opt-in is configured.";
-    lines << "  - Import uses only a real result.json and real Tony/Sonic Visualiser layer APIs.";
-    lines << "  - Edit/save/load/export proofs use the debug post-import proof boundary when import succeeds.";
+    lines << "  - The proof reuses the real importer and real Tony/Sonic Visualiser persistence/export APIs.";
     lines << "  - No Ready, Installed, or Completed global state is changed.";
     lines << "  - No percentage progress is reported.";
     lines << "";

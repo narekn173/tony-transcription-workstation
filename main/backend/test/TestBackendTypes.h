@@ -25,6 +25,8 @@
 #include "../BasicPitchDebugManualRunAction.h"
 #include "../BasicPitchDebugManualRunActionReportFormatter.h"
 #include "../BasicPitchDebugManualRunStatus.h"
+#include "../BasicPitchDebugPostImportProofAction.h"
+#include "../BasicPitchDebugPostImportProofActionReportFormatter.h"
 #include "../BasicPitchDebugPostRunImportAction.h"
 #include "../BasicPitchDebugPostRunImportActionReportFormatter.h"
 #include "../BasicPitchDebugWorkflow.h"
@@ -9261,6 +9263,127 @@ private slots:
         QVERIFY(!text.readyInstalledCompletedMutation);
     }
 
+    void basicPitchDebugPostImportProofActionMissingResultReportsUnavailable()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchDebugPostImportProofActionOptions options;
+        options.resultJsonPath = directory.filePath("missing-result.json");
+        options.exportCsvPath = directory.filePath("post-import.csv");
+
+        const BasicPitchDebugPostImportProofActionReport report =
+            BasicPitchDebugPostImportProofAction().prove(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.realNoteModelExists);
+        QVERIFY(!report.realNoteLayerExists);
+        QVERIFY(!report.documentOwnedLayer);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(!report.layerEditable);
+        QVERIFY(!report.editProofPassed);
+        QVERIFY(!report.undoRedoProofPassed);
+        QVERIFY(!report.saveLoadProofPassed);
+        QVERIFY(!report.exportProofPassed);
+        QVERIFY(!report.exportedCsvNonEmpty);
+        QCOMPARE(report.exportedNoteCount, 0);
+        QVERIFY(reportHasIssue(report.report, "output_file_missing"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostImportProofActionValidResultProvesEditSaveExport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const QString exportPath = directory.filePath("post-import.csv");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchDebugPostImportProofActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.exportCsvPath = exportPath;
+
+        const BasicPitchDebugPostImportProofActionReport report =
+            BasicPitchDebugPostImportProofAction().prove(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.loadedResult);
+        QVERIFY(report.realNoteModelExists);
+        QVERIFY(report.realNoteLayerExists);
+        QVERIFY(report.documentOwnedLayer);
+        QVERIFY(report.insertedIntoView);
+        QVERIFY(report.layerEditable);
+        QVERIFY(report.editProofTested);
+        QVERIFY(report.editProofPassed);
+        QVERIFY(report.undoRedoProofTested);
+        QVERIFY(report.undoRedoProofPassed);
+        QVERIFY(report.saveLoadProofTested);
+        QVERIFY(report.saveLoadProofPassed);
+        QVERIFY(report.exportProofTested);
+        QVERIFY(report.exportProofPassed);
+        QVERIFY(report.exportedCsvNonEmpty);
+        QVERIFY(report.exportedTimingDurationPitchVelocity);
+        QCOMPARE(report.noteCount, 3);
+        QCOMPARE(report.exportedNoteCount, 3);
+        QVERIFY(QFile::exists(exportPath));
+        QVERIFY(QFileInfo(exportPath).size() > 0);
+        QVERIFY(report.possiblePolyphony);
+        QVERIFY(report.pitchBendMappingDeferred);
+        QVERIFY(report.warningCodes.contains("possible_polyphony"));
+        QVERIFY(report.warningCodes.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(report.warningCodes.contains(
+            "basic_pitch_debug_post_import_proof_test_only"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugPostImportProofActionFormatterShowsProofFields()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString resultPath = directory.filePath("result.json");
+        const BasicPitchUnifiedResultHandoffResult handedOff =
+            basicPitchHandoffResultFromFixture(directory.path(), resultPath);
+        QVERIFY(handedOff.isValid());
+
+        BasicPitchDebugPostImportProofActionOptions options;
+        options.resultJsonPath = resultPath;
+        options.exportCsvPath = directory.filePath("post-import.csv");
+
+        const BasicPitchDebugPostImportProofActionReport report =
+            BasicPitchDebugPostImportProofAction().prove(options);
+        const BasicPitchDebugPostImportProofActionReportText text =
+            BasicPitchDebugPostImportProofActionReportFormatter()
+                .fromReport(report);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains(
+            "Basic Pitch Debug Post-Import Edit/Save/Export Proof"));
+        QVERIFY(text.plainText.contains("Real NoteModel exists: true"));
+        QVERIFY(text.plainText.contains("Real NoteLayer exists: true"));
+        QVERIFY(text.plainText.contains("Document-owned layer: true"));
+        QVERIFY(text.plainText.contains("Layer editable: true"));
+        QVERIFY(text.plainText.contains("Edit proof: passed"));
+        QVERIFY(text.plainText.contains("Undo/redo proof: passed"));
+        QVERIFY(text.plainText.contains("Save/load proof: passed"));
+        QVERIFY(text.plainText.contains("CSV export proof: passed"));
+        QVERIFY(text.plainText.contains("Exported note rows: 3"));
+        QVERIFY(text.plainText.contains("Possible polyphony: true"));
+        QVERIFY(text.plainText.contains(
+            "Pitch bend mapping deferred: true"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
     void basicPitchDebugCombinedRunImportActionMissingConfigDoesNotRunOrImport()
     {
         BasicPitchDebugCombinedRunImportActionOptions options;
@@ -9488,6 +9611,17 @@ private slots:
         QVERIFY(report.stageStates.contains(
             "combined_imported_into_real_layer"));
         QVERIFY(report.stageStates.contains("combined_inserted_into_view"));
+        QVERIFY(report.stageStates.contains(
+            "combined_post_import_proof_passed"));
+        QVERIFY(report.editProofTested);
+        QVERIFY(report.editProofPassed);
+        QVERIFY(report.undoRedoProofTested);
+        QVERIFY(report.undoRedoProofPassed);
+        QVERIFY(report.saveLoadProofTested);
+        QVERIFY(report.saveLoadProofPassed);
+        QVERIFY(report.exportProofTested);
+        QVERIFY(report.exportProofPassed);
+        QCOMPARE(report.exportedNoteCount, 3);
         QVERIFY(report.possiblePolyphony);
         QVERIFY(report.pitchBendMappingDeferred);
         QVERIFY(report.warningCodes.contains("possible_polyphony"));
@@ -9535,6 +9669,10 @@ private slots:
         QVERIFY(!report.insertedIntoView);
         QVERIFY(!report.viewProvided);
         QVERIFY(!report.viewInsertionRequested);
+        QVERIFY(report.editProofPassed);
+        QVERIFY(report.undoRedoProofPassed);
+        QVERIFY(report.saveLoadProofPassed);
+        QVERIFY(report.exportProofPassed);
         QVERIFY(!report.productionTranscription);
         QVERIFY(report.testOnlyDebugOnly);
         QVERIFY(!report.readyInstalledCompletedMutation);
@@ -9605,10 +9743,14 @@ private slots:
         QVERIFY(text.plainText.contains("Import attempted: true"));
         QVERIFY(text.plainText.contains("Imported into Tony layers: true"));
         QVERIFY(text.plainText.contains("Inserted into View/Pane: true"));
+        QVERIFY(text.plainText.contains("Edit proof: passed"));
+        QVERIFY(text.plainText.contains("Undo/redo proof: passed"));
+        QVERIFY(text.plainText.contains("Save/load proof: passed"));
+        QVERIFY(text.plainText.contains("Export proof: passed"));
+        QVERIFY(text.plainText.contains("Exported note rows: 3"));
         QVERIFY(text.plainText.contains("Possible polyphony: true"));
         QVERIFY(text.plainText.contains(
             "Pitch bend mapping deferred: true"));
-        QVERIFY(text.plainText.contains("not tested by this action"));
         QVERIFY(!text.productionTranscription);
         QVERIFY(text.testOnlyDebugOnly);
         QVERIFY(!text.readyInstalledCompletedMutation);
@@ -9969,6 +10111,12 @@ private slots:
         QVERIFY(proven.loadedResult);
         QVERIFY(proven.importedIntoTonyLayers);
         QVERIFY(proven.insertedIntoView);
+        QVERIFY(proven.realNoteModelExists);
+        QVERIFY(proven.realNoteLayerExists);
+        QVERIFY(proven.documentOwnedLayer);
+        QVERIFY(proven.importedLayerEditable);
+        QVERIFY(proven.editProofProven);
+        QVERIFY(proven.undoRedoProofProven);
         QVERIFY(proven.reloadedLayerIsNoteLayer);
         QVERIFY(proven.reloadedModelIsNoteModel);
         QVERIFY(proven.reloadedLayerEditable);

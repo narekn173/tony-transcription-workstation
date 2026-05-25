@@ -32,6 +32,7 @@ struct BasicPitchLayerPersistenceExportProofResult
 {
     ValidationReport report;
     BasicPitchResultToTonyLayerProofResult layerImportResult;
+    TonyLayerCommandHistoryEditProofResult editProofResult;
     QString resultJsonPath;
     QString exportCsvPath;
     QString sessionXml;
@@ -43,6 +44,12 @@ struct BasicPitchLayerPersistenceExportProofResult
     bool loadedResult = false;
     bool importedIntoTonyLayers = false;
     bool insertedIntoView = false;
+    bool realNoteModelExists = false;
+    bool realNoteLayerExists = false;
+    bool documentOwnedLayer = false;
+    bool importedLayerEditable = false;
+    bool editProofProven = false;
+    bool undoRedoProofProven = false;
     bool reloadedLayerIsNoteLayer = false;
     bool reloadedModelIsNoteModel = false;
     bool reloadedLayerEditable = false;

@@ -108,6 +108,14 @@ normalizedCsvRecordsText(QString csvText)
     return records.join('\n');
 }
 
+void
+appendIssues(ValidationReport &target, const ValidationReport &source)
+{
+    for (const ValidationIssue &issue: source.issues) {
+        target.addIssue(issue.severity, issue.code, issue.message);
+    }
+}
+
 bool
 eventsMatch(const sv::EventVector &expected,
             const sv::EventVector &actual)
@@ -256,6 +264,16 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
     result.importedIntoTonyLayers =
         result.layerImportResult.importedIntoTonyLayers;
     result.insertedIntoView = result.layerImportResult.insertedIntoView;
+    result.realNoteLayerExists =
+        dynamic_cast<sv::NoteLayer *>(
+            result.layerImportResult.importResult.layer) != nullptr &&
+        dynamic_cast<sv::FlexiNoteLayer *>(
+            result.layerImportResult.importResult.layer) == nullptr;
+    result.documentOwnedLayer =
+        result.layerImportResult.importResult.documentLayerCreated;
+    result.importedLayerEditable =
+        result.layerImportResult.importResult.layer &&
+        result.layerImportResult.importResult.layer->isLayerEditable();
     result.importedNoteCount = result.layerImportResult.noteCount;
     result.possiblePolyphony = result.layerImportResult.possiblePolyphony;
     result.pitchBendMappingDeferred =
@@ -269,6 +287,7 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
 
     auto importedModel = sv::ModelById::getAs<sv::NoteModel>(
         result.layerImportResult.importResult.modelId);
+    result.realNoteModelExists = bool(importedModel);
     if (!importedModel) {
         result.report.addError(
             "basic_pitch_imported_model_missing",
@@ -276,6 +295,32 @@ completeProof(BasicPitchLayerPersistenceExportProofResult &result,
         return false;
     }
     const sv::EventVector importedEvents = importedModel->getAllEvents();
+
+    if (!result.realNoteLayerExists ||
+        !result.documentOwnedLayer ||
+        !result.importedLayerEditable) {
+        result.report.addError(
+            "basic_pitch_imported_layer_not_real_editable_note_layer",
+            "Basic Pitch imported layer was not a real editable "
+            "Document-owned NoteLayer.");
+        return false;
+    }
+
+    TonyLayerImporter importer;
+    result.editProofResult =
+        importer.proveCommandHistoryEdit(result.layerImportResult.importResult);
+    appendIssues(result.report, result.editProofResult.report);
+    result.editProofProven =
+        result.editProofResult.isValid() &&
+        result.editProofResult.commandHistoryEditProof;
+    result.undoRedoProofProven = result.editProofProven;
+    if (!result.editProofProven) {
+        result.report.addError(
+            "basic_pitch_command_history_edit_proof_failed",
+            "Basic Pitch imported note layer did not pass the real "
+            "CommandHistory edit/undo/redo proof.");
+        return false;
+    }
 
     result.sessionXml = serializeDocumentPaneSessionXml(document, pane);
     if (result.sessionXml.trimmed().isEmpty()) {
@@ -393,6 +438,12 @@ BasicPitchLayerPersistenceExportProofResult::isValid() const
         loadedResult &&
         importedIntoTonyLayers &&
         insertedIntoView &&
+        realNoteModelExists &&
+        realNoteLayerExists &&
+        documentOwnedLayer &&
+        importedLayerEditable &&
+        editProofProven &&
+        undoRedoProofProven &&
         reloadedLayerIsNoteLayer &&
         reloadedModelIsNoteModel &&
         reloadedLayerEditable &&
@@ -407,13 +458,15 @@ QString
 BasicPitchLayerPersistenceExportProofResult::debugSummaryString() const
 {
     return QString("basic_pitch_layer_persistence_export result=%1 notes=%2 "
-                   "reloaded=%3 exported=%4 save_load=%5 export=%6 "
-                   "polyphony=%7 bends_deferred=%8 production=%9 "
-                   "ready_mutation=%10 valid=%11")
+                   "reloaded=%3 exported=%4 edit=%5 undo_redo=%6 "
+                   "save_load=%7 export=%8 polyphony=%9 bends_deferred=%10 "
+                   "production=%11 ready_mutation=%12 valid=%13")
         .arg(resultJsonPath)
         .arg(importedNoteCount)
         .arg(reloadedNoteCount)
         .arg(exportedNoteCount)
+        .arg(editProofProven ? QString("true") : QString("false"))
+        .arg(undoRedoProofProven ? QString("true") : QString("false"))
         .arg(saveLoadProven ? QString("true") : QString("false"))
         .arg(exportProven ? QString("true") : QString("false"))
         .arg(possiblePolyphony ? QString("true") : QString("false"))

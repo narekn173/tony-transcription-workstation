@@ -16,6 +16,7 @@
 #define TONY_BASIC_PITCH_DEBUG_COMBINED_RUN_IMPORT_ACTION_H
 
 #include "BasicPitchDebugManualRunAction.h"
+#include "BasicPitchDebugPostImportProofAction.h"
 #include "BasicPitchDebugPostRunImportAction.h"
 
 namespace sv {
@@ -35,6 +36,8 @@ struct BasicPitchDebugCombinedRunImportActionOptions
     sv::View *view = nullptr;
     bool insertLayerIntoView = true;
     bool requireViewForImport = false;
+    bool runPostImportProof = true;
+    QString postImportProofExportCsvPath;
 };
 
 struct BasicPitchDebugCombinedRunImportActionReport
@@ -42,6 +45,7 @@ struct BasicPitchDebugCombinedRunImportActionReport
     ValidationReport report;
     BasicPitchDebugManualRunActionReport manualRunReport;
     BasicPitchDebugPostRunImportActionReport importReport;
+    BasicPitchDebugPostImportProofActionReport postImportProofReport;
     QStringList stageStates;
     QStringList warningCodes;
     QStringList errorCodes;
@@ -67,10 +71,13 @@ struct BasicPitchDebugCombinedRunImportActionReport
     bool viewInsertionRequested = false;
     bool editProofTested = false;
     bool editProofPassed = false;
+    bool undoRedoProofTested = false;
+    bool undoRedoProofPassed = false;
     bool saveLoadProofTested = false;
     bool saveLoadProofPassed = false;
     bool exportProofTested = false;
     bool exportProofPassed = false;
+    int exportedNoteCount = 0;
     bool productionTranscription = false;
     bool testOnlyDebugOnly = true;
     bool readyInstalledCompletedMutation = false;

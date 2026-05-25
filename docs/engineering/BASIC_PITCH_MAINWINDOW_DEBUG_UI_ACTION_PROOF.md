@@ -8,6 +8,7 @@ CODEX-108 update: report details now include explicit manual-run env/config requ
 CODEX-109 update: a second explicit debug/manual handoff action is available and stops before Tony layer import.
 CODEX-110 update: a third explicit debug action imports an existing Basic Pitch-shaped result.json into a real Tony/SV layer when a current Document/Pane exists.
 CODEX-111 update: a fourth explicit debug action composes manual handoff and post-run import, still without production claims.
+CODEX-112 update: the combined action report includes debug post-import edit/save/load/export proof status.
 
 ## Files Inspected
 
@@ -27,6 +28,8 @@ CODEX-111 update: a fourth explicit debug action composes manual handoff and pos
 | `main/backend/BasicPitchDebugPostRunImportActionReportFormatter.*` | Testable report formatter for the post-run import action |
 | `main/backend/BasicPitchDebugCombinedRunImportAction.*` | Debug-only combined manual handoff plus import boundary |
 | `main/backend/BasicPitchDebugCombinedRunImportActionReportFormatter.*` | Testable report formatter for the combined action |
+| `main/backend/BasicPitchDebugPostImportProofAction.*` | Debug-only post-import edit/save/load/export proof boundary |
+| `main/backend/BasicPitchDebugPostImportProofActionReportFormatter.*` | Testable report formatter for the post-import proof |
 
 ## MainWindow Insertion Point
 
@@ -112,6 +115,7 @@ When the user explicitly invokes `Debug: Run Basic Pitch Manual Handoff and Impo
 5. If the manual handoff writes and loads a real `result.json`, the action calls `BasicPitchDebugPostRunImportAction`.
 6. `importedIntoTonyLayers=true` is reported only after a real Document-owned Tony/SV layer is created.
 7. `insertedIntoView=true` is reported only after the layer is inserted into the current real Pane/View.
+8. CODEX-112 then calls `BasicPitchDebugPostImportProofAction` to report edit, undo/redo, save/load, and CSV export proof status.
 
 This combined action does not duplicate manual-run or import workflow logic in MainWindow.
 
@@ -152,8 +156,10 @@ The dialog displays:
 - imported-into-Tony-layer flag
 - inserted-into-View/Pane flag
 - edit proof flag
+- undo/redo proof flag
 - save/load proof flag
 - export proof flag
+- exported note row count from actual CSV rows
 - `productionTranscription=false`
 - `testOnlyDebugOnly=true`
 - `readyInstalledCompletedMutation=false`
@@ -193,6 +199,7 @@ The UI action preserves the existing truth-state policy:
 - no Imported claim unless `importedIntoTonyLayers=true`
 - no Visible claim unless `insertedIntoView=true`
 - no Editable claim unless edit proof passed
+- no undo/redo claim unless the CommandHistory proof passed
 - no Save/Export verified claim unless those proof flags passed
 
 Warnings such as `possible_polyphony`, `pitch_bend_mapping_deferred`, `fixture_only_conversion`, and `production_transcription_false` remain visible in the proof report when present.
@@ -225,6 +232,7 @@ This is not production Basic Pitch UI. It does not provide:
 - production result import workflow from the manual handoff action
 - production combined run-and-import workflow
   beyond the explicit debug/test-only action added in CODEX-111
+- production edit/save/export workflow beyond the debug proof summary added in CODEX-112
 
 ## Verification Expectations
 
@@ -238,4 +246,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-112` should add a debug-only post-import proof summary/action for edit, save/load, and export verification from the visible debug path, still without production Basic Pitch claims.
+`CODEX-113` should define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, still without production Basic Pitch claims.

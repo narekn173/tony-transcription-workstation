@@ -1,7 +1,8 @@
 # Basic Pitch Debug Combined Run Import Action Proof
 
-Status: CODEX-111 debug-only combined manual handoff plus import boundary  
-Production transcription support: not claimed  
+Status: CODEX-111 debug-only combined manual handoff plus import boundary
+CODEX-112 update: includes debug post-import edit/save/load/export proof summary
+Production transcription support: not claimed
 Runtime behavior: explicit user action only
 
 ## Purpose
@@ -21,6 +22,7 @@ manual Basic Pitch preflight/run/handoff
 -> TonyLayerImporter / BasicPitchResultToTonyLayerProof
 -> real Document-owned Tony/Sonic Visualiser NoteLayer
 -> optional real Pane/View insertion
+-> debug post-import edit/save/load/export proof summary
 ```
 
 It remains debug/test-only. It does not add production Basic Pitch UI, does not alter pYIN, and does not claim backend readiness.
@@ -53,7 +55,8 @@ It then:
 2. stops without import if preflight is skipped or manual execution fails;
 3. requires the manual handoff to produce and load a real `result.json`;
 4. passes that `result.json` to `BasicPitchDebugPostRunImportAction`;
-5. reports real import flags only from the post-run import proof.
+5. runs `BasicPitchDebugPostImportProofAction` after successful import;
+6. reports real import/edit/save/export flags only from proven debug proof boundaries.
 
 MainWindow only constructs the action options, calls the action, formats the report, and shows the dialog. It does not duplicate workflow state logic.
 
@@ -85,6 +88,7 @@ When manual execution succeeds and a real `result.json` is written:
 - `BasicPitchDebugPostRunImportAction` imports only through the proven real-layer path;
 - `importedIntoTonyLayers=true` only after a real Document-owned layer exists;
 - `insertedIntoView=true` only after real Pane/View insertion occurs.
+- post-import edit, undo/redo, save/load, and export proof fields are shown only after the real proof action passes.
 
 ## Report Fields
 
@@ -105,7 +109,11 @@ The formatted report includes:
 - `pitch_bend_mapping_deferred`
 - `importedIntoTonyLayers`
 - `insertedIntoView`
-- edit/save/load/export proof status as not tested by this action
+- edit proof status
+- undo/redo proof status
+- save/load proof status
+- export proof status
+- exported note row count from the real CSV proof
 - `productionTranscription=false`
 - `testOnlyDebugOnly=true`
 - `readyInstalledCompletedMutation=false`
@@ -135,7 +143,7 @@ This is not production Basic Pitch UI. It does not provide:
 - selected-region replacement;
 - production polyphony resolution;
 - production pitch-bend layer mapping;
-- edit/save/load/export execution from this UI action;
+- production edit/save/load/export workflow beyond the debug proof summary;
 - production backend readiness or install-state management.
 
 ## Verification Expectations
@@ -150,4 +158,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-112 - add a debug-only post-import proof summary/action for edit, save/load, and export verification from the user-visible debug path, still without production Basic Pitch claims.
+Recommended next task after CODEX-112: CODEX-113 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow.
