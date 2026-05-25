@@ -20,6 +20,8 @@
 #include "../BasicPitchAdapterContract.h"
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
+#include "../BasicPitchDebugManualRunAction.h"
+#include "../BasicPitchDebugManualRunActionReportFormatter.h"
 #include "../BasicPitchDebugManualRunStatus.h"
 #include "../BasicPitchDebugWorkflow.h"
 #include "../BasicPitchDebugWorkflowUiModel.h"
@@ -8694,6 +8696,223 @@ private slots:
         QVERIFY(!result.productionTranscription);
         QVERIFY(result.testOnlyDebugOnly);
         QVERIFY(!result.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunActionMissingConfigNeverRuns()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+
+        BasicPitchDebugManualRunAction action;
+        const BasicPitchDebugManualRunActionReport report =
+            action.run(config);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.wasSkipped());
+        QVERIFY(!report.preflightPassed);
+        QVERIFY(!report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.resultJsonWritten);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(report.stageStates.contains("not_configured"));
+        QVERIFY(report.stageStates.contains("skipped"));
+        QVERIFY(report.warningCodes.contains(
+            "basic_pitch_debug_manual_run_not_configured"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunActionMissingOptInNeverRuns()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = false;
+        config.discoveryConfig.executablePath = QCoreApplication::applicationFilePath();
+        config.discoveryConfig.inputAudioPath = directory.filePath("input.wav");
+        config.discoveryConfig.outputDirectoryPath = directory.path();
+        config.resultJsonPath = directory.filePath("result.json");
+        QVERIFY(writeFile(config.discoveryConfig.inputAudioPath,
+                          QByteArray("audio")));
+
+        const BasicPitchDebugManualRunActionReport report =
+            BasicPitchDebugManualRunAction().run(config);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.wasSkipped());
+        QVERIFY(!report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!QFile::exists(config.resultJsonPath));
+        QVERIFY(report.preflightStatus.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_DISCOVERY_ENABLE=1"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunActionMissingCommandNeverRuns()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath = " ";
+        config.discoveryConfig.inputAudioPath = directory.filePath("input.wav");
+        config.discoveryConfig.outputDirectoryPath = directory.path();
+        config.resultJsonPath = directory.filePath("result.json");
+        QVERIFY(writeFile(config.discoveryConfig.inputAudioPath,
+                          QByteArray("audio")));
+
+        const BasicPitchDebugManualRunActionReport report =
+            BasicPitchDebugManualRunAction().run(config);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.wasSkipped());
+        QVERIFY(!report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!QFile::exists(config.resultJsonPath));
+        QVERIFY(report.preflightStatus.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_COMMAND"));
+        QCOMPARE(report.preflightStatus.skippedReason,
+                 QString("missing_command"));
+    }
+
+    void basicPitchDebugManualRunActionInvalidAudioFailsThroughRealRun()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath =
+            QCoreApplication::applicationFilePath();
+        config.discoveryConfig.inputAudioPath =
+            directory.filePath("missing-input.wav");
+        config.discoveryConfig.outputDirectoryPath = directory.path();
+        config.resultJsonPath = directory.filePath("result.json");
+
+        const BasicPitchDebugManualRunActionReport report =
+            BasicPitchDebugManualRunAction().run(config);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.wasSkipped());
+        QVERIFY(report.preflightPassed);
+        QVERIFY(report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.resultJsonWritten);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!QFile::exists(config.resultJsonPath));
+        QVERIFY(report.stageStates.contains("preflight_passed"));
+        QVERIFY(report.stageStates.contains(
+            "running_manual_execution_attempted"));
+        QVERIFY(report.stageStates.contains("skipped"));
+        QVERIFY(report.stageStates.contains("failed"));
+        QVERIFY(report.errorCodes.contains(
+            "missing_basic_pitch_input_audio_file"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunActionFormatterShowsNotConfigured()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+        const BasicPitchDebugManualRunActionReport report =
+            BasicPitchDebugManualRunAction().run(config);
+
+        BasicPitchDebugManualRunActionReportFormatter formatter;
+        const BasicPitchDebugManualRunActionReportText text =
+            formatter.fromReport(report);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains(
+            "Basic Pitch Debug Manual Handoff Proof"));
+        QVERIFY(text.plainText.contains("Debug/test-only: true"));
+        QVERIFY(text.plainText.contains("Production transcription: false"));
+        QVERIFY(text.plainText.contains("Imported into Tony layers: false"));
+        QVERIFY(text.plainText.contains("Manual run attempted: false"));
+        QVERIFY(text.plainText.contains("Backend process ran: false"));
+        QVERIFY(text.plainText.contains("No backend was run."));
+        QVERIFY(text.plainText.contains("Manual run allowed: false"));
+        QVERIFY(text.plainText.contains("Manual run would be skipped: true"));
+        QVERIFY(text.plainText.contains(
+            "TONY_BASIC_PITCH_DISCOVERY_ENABLE=1"));
+        QVERIFY(text.plainText.contains(
+            "basic_pitch_debug_manual_run_not_configured"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.importedIntoTonyLayers);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunActionFormatterShowsAllowedConfig()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath =
+            QCoreApplication::applicationFilePath();
+        config.discoveryConfig.inputAudioPath =
+            directory.filePath("missing-input.wav");
+        config.discoveryConfig.outputDirectoryPath = directory.path();
+        config.resultJsonPath = directory.filePath("result.json");
+
+        const BasicPitchDebugManualRunActionReport report =
+            BasicPitchDebugManualRunAction().run(config);
+        QVERIFY(!report.isValid());
+        QVERIFY(report.preflightPassed);
+
+        const BasicPitchDebugManualRunActionReportText text =
+            BasicPitchDebugManualRunActionReportFormatter().fromReport(report);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains("Manual run allowed: true"));
+        QVERIFY(text.plainText.contains("Manual run would be skipped: false"));
+        QVERIFY(text.plainText.contains("Preflight passed: true"));
+        QVERIFY(text.plainText.contains(
+            "running_manual_execution_attempted"));
+        QVERIFY(text.plainText.contains(
+            "missing_basic_pitch_input_audio_file"));
+        QVERIFY(text.plainText.contains("Result JSON written: false"));
+        QVERIFY(text.plainText.contains("UnifiedResult loaded: false"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.importedIntoTonyLayers);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunActionFormatterShowsWarnings()
+    {
+        BasicPitchDebugManualRunActionReport report;
+        report.testOnlyDebugOnly = true;
+        report.productionTranscription = false;
+        report.importedIntoTonyLayers = false;
+        report.readyInstalledCompletedMutation = false;
+        report.possiblePolyphony = true;
+        report.pitchBendMappingDeferred = true;
+        report.warningCodes << "possible_polyphony"
+                            << "pitch_bend_mapping_deferred";
+
+        const BasicPitchDebugManualRunActionReportText text =
+            BasicPitchDebugManualRunActionReportFormatter().fromReport(report);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains("Possible polyphony: true"));
+        QVERIFY(text.plainText.contains(
+            "Pitch bend mapping deferred: true"));
+        QVERIFY(text.plainText.contains("possible_polyphony"));
+        QVERIFY(text.plainText.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.importedIntoTonyLayers);
+        QVERIFY(!text.readyInstalledCompletedMutation);
     }
 
     void basicPitchResultToTonyLayerProofCreatesDocumentNoteLayer()

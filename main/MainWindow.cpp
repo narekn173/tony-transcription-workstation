@@ -18,6 +18,8 @@
 #include "MainWindow.h"
 #include "NetworkPermissionTester.h"
 #include "Analyser.h"
+#include "backend/BasicPitchDebugManualRunAction.h"
+#include "backend/BasicPitchDebugManualRunActionReportFormatter.h"
 #include "backend/BasicPitchDebugWorkflow.h"
 #include "backend/BasicPitchDebugWorkflowUiModel.h"
 #include "backend/BasicPitchDebugWorkflowUiReportFormatter.h"
@@ -144,6 +146,7 @@ MainWindow::MainWindow(AudioMode audioMode,
     m_ffwdAction(0),
     m_rwdAction(0),
     m_basicPitchDebugWorkflowProofAction(0),
+    m_basicPitchDebugManualRunProofAction(0),
     m_intelligentActionOn(true), //GF: !!! temporary
     m_activityLog(new ActivityLog()),
     m_keyReference(new KeyReference()),
@@ -852,6 +855,18 @@ MainWindow::setupAnalysisMenu()
             this,
             SLOT(showBasicPitchDebugWorkflowProof()));
     menu->addAction(m_basicPitchDebugWorkflowProofAction);
+
+    m_basicPitchDebugManualRunProofAction =
+        new QAction(tr("Debug: Run Basic Pitch Manual Handoff Proof..."), this);
+    m_basicPitchDebugManualRunProofAction->setStatusTip(
+        tr("Run the explicit debug/test-only Basic Pitch manual handoff "
+           "proof when configured. This is not production transcription "
+           "support."));
+    connect(m_basicPitchDebugManualRunProofAction,
+            SIGNAL(triggered()),
+            this,
+            SLOT(showBasicPitchDebugManualRunProof()));
+    menu->addAction(m_basicPitchDebugManualRunProofAction);
 
     updateAnalyseStates();
 }
@@ -3117,6 +3132,58 @@ MainWindow::showBasicPitchDebugWorkflowProof()
         tr("<b>Debug/test-only Basic Pitch workflow proof.</b><br/>"
            "This is not production transcription support.<br/>"
            "%1").arg(ui.userMessage.toHtmlEscaped()));
+    summary->setWordWrap(true);
+    layout->addWidget(summary, 0, 0);
+
+    QTextEdit *details = new QTextEdit;
+    details->setReadOnly(true);
+    details->setPlainText(reportText.plainText);
+    details->setMinimumSize(720, 420);
+    layout->addWidget(details, 1, 0);
+
+    QDialogButtonBox *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok);
+    connect(buttons, SIGNAL(accepted()), &dialog, SLOT(accept()));
+    layout->addWidget(buttons, 2, 0);
+
+    dialog.setLayout(layout);
+    dialog.exec();
+}
+
+void
+MainWindow::showBasicPitchDebugManualRunProof()
+{
+    using namespace Tony::Backend;
+
+    const BasicPitchRealRunHandoffProofConfig config =
+        BasicPitchRealRunHandoffProof::configFromEnvironment();
+
+    BasicPitchDebugManualRunAction action;
+    const BasicPitchDebugManualRunActionReport report =
+        action.run(config);
+
+    BasicPitchDebugManualRunActionReportFormatter formatter;
+    const BasicPitchDebugManualRunActionReportText reportText =
+        formatter.fromReport(report);
+
+    const QString status =
+        report.ranBasicPitch ? QString("ran") :
+        report.preflightPassed ? QString("attempted") :
+        QString("skipped");
+    statusBar()->showMessage(
+        tr("Basic Pitch debug manual handoff proof: %1").arg(status),
+        10000);
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Debug: Run Basic Pitch Manual Handoff Proof"));
+
+    QGridLayout *layout = new QGridLayout;
+    QLabel *summary = new QLabel(
+        tr("<b>Debug/test-only Basic Pitch manual handoff proof.</b><br/>"
+           "This is not production transcription support.<br/>"
+           "%1").arg(report.wasSkipped() ?
+                     tr("Manual run skipped: required debug configuration is missing.") :
+                     tr("Manual handoff proof report is available.")));
     summary->setWordWrap(true);
     layout->addWidget(summary, 0, 0);
 

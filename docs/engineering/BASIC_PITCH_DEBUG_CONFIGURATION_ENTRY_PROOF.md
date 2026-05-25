@@ -1,6 +1,7 @@
 # Basic Pitch Debug Configuration Entry Proof
 
 Status: CODEX-108 debug/test-only configuration and manual-run status boundary  
+CODEX-109 update: consumed by the explicit debug-only manual-run handoff action.
 Production transcription support: not claimed  
 Runtime execution: no automatic execution
 
@@ -111,9 +112,19 @@ BasicPitchDebugWorkflow
 
 The existing `Analysis -> Analyse Now!` workflow remains unchanged.
 
+## CODEX-109 Consumer
+
+CODEX-109 adds:
+
+```text
+Analysis -> Debug: Run Basic Pitch Manual Handoff Proof...
+```
+
+That action consumes `BasicPitchDebugManualRunStatus` before any process execution. If manual-run status is not allowed, it shows a skipped report and does not run Basic Pitch. If manual-run status is allowed, it delegates to `BasicPitchRealRunHandoffProof` and reports result.json handoff/loading without importing into Tony layers.
+
 ## What Remains
 
-This task does not expose an actual Basic Pitch run button from UI. A future task may add an explicitly labelled debug/manual run action, but it must:
+The debug action is still not production Basic Pitch UI. A future production workflow must:
 
 - remain user-triggered;
 - keep manual opt-in required;
@@ -123,4 +134,4 @@ This task does not expose an actual Basic Pitch run button from UI. A future tas
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-109 - add an explicit debug/manual Basic Pitch run action or preparation dialog, still without production Basic Pitch UI claims.
+Recommended next task: CODEX-110 - add a debug-only post-run Basic Pitch result import action, still without production Basic Pitch UI claims.

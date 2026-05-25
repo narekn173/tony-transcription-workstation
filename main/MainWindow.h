@@ -95,6 +95,7 @@ protected slots:
     virtual void pruneAnalysisToggled();
     virtual void updateAnalyseStates();
     virtual void showBasicPitchDebugWorkflowProof();
+    virtual void showBasicPitchDebugManualRunProof();
 
     virtual void doubleClickSelectInvoked(sv::sv_frame_t);
     virtual void abandonSelection();
@@ -211,6 +212,7 @@ protected:
     QAction       *m_onset;
     QAction       *m_prune;
     QAction       *m_basicPitchDebugWorkflowProofAction;
+    QAction       *m_basicPitchDebugManualRunProofAction;
         
     QAction       *m_showAudio;
     QAction       *m_showSpect;

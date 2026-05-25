@@ -5,6 +5,7 @@ Scope: first MainWindow action that displays Basic Pitch workflow truth-state an
 Production transcription support: not claimed
 CODEX-107 update: report details now include explicit configuration/status sections.
 CODEX-108 update: report details now include explicit manual-run env/config requirements, missing-key status, and run-allowed/skipped status.
+CODEX-109 update: a second explicit debug/manual handoff action is available and stops before Tony layer import.
 
 ## Files Inspected
 
@@ -18,6 +19,8 @@ CODEX-108 update: report details now include explicit manual-run env/config requ
 | `main/backend/BasicPitchDebugWorkflowUiModel.*` | Mandatory UI-consumable truth-state adapter |
 | `main/backend/BasicPitchDebugWorkflowUiReportFormatter.*` | New testable text formatter consumed by MainWindow |
 | `main/backend/BasicPitchDebugManualRunStatus.*` | Debug-only manual-run configuration/status boundary |
+| `main/backend/BasicPitchDebugManualRunAction.*` | Debug-only manual Basic Pitch real-run handoff boundary |
+| `main/backend/BasicPitchDebugManualRunActionReportFormatter.*` | Testable report formatter for the manual-run action |
 
 ## MainWindow Insertion Point
 
@@ -29,7 +32,13 @@ Action label:
 Debug: Basic Pitch Workflow Proof...
 ```
 
-The action is separated by a menu separator from the normal pYIN controls. It does not reuse `Analyse Now!`, does not call `Analyser`, and does not change the existing pYIN option actions.
+CODEX-109 adds a second debug-only action in the same debug section:
+
+```text
+Debug: Run Basic Pitch Manual Handoff Proof...
+```
+
+The actions are separated by a menu separator from the normal pYIN controls. They do not reuse `Analyse Now!`, do not call `Analyser`, and do not change the existing pYIN option actions.
 
 ## Runtime Behavior
 
@@ -45,6 +54,19 @@ When the user explicitly invokes the action:
 8. A short stage-based status-bar message is shown without any percentage progress.
 
 MainWindow does not derive its own backend state. It displays values already produced by `BasicPitchDebugWorkflowUiModel`.
+
+## Manual Handoff Action Behavior
+
+When the user explicitly invokes `Debug: Run Basic Pitch Manual Handoff Proof...`:
+
+1. MainWindow reads env/config through `BasicPitchRealRunHandoffProof::configFromEnvironment()`.
+2. `BasicPitchDebugManualRunAction` preflights the config with `BasicPitchDebugManualRunStatus`.
+3. If opt-in, command, input audio, or output directory is missing, the action returns a skipped report and does not run Basic Pitch.
+4. If preflight passes, the action calls `BasicPitchRealRunHandoffProof`.
+5. The report is formatted by `BasicPitchDebugManualRunActionReportFormatter`.
+6. MainWindow shows a debug/test-only dialog with command, paths, artifacts, selected CSV, result.json path, loaded status, note count, warnings, and errors.
+
+This action does not call `BasicPitchDebugWorkflow`, does not run TonyLayerImporter, and does not import into Tony layers.
 
 ## User-Visible Fields
 
@@ -126,7 +148,7 @@ Warnings such as `possible_polyphony`, `pitch_bend_mapping_deferred`, `fixture_o
 
 ## pYIN / Analyser Isolation
 
-The CODEX-106 action does not modify:
+The CODEX-106 and CODEX-109 actions do not modify:
 
 - `MainWindow::analyseNow()`
 - `MainWindow::analyseNewMainModel()`
@@ -149,6 +171,7 @@ This is not production Basic Pitch UI. It does not provide:
 - user-facing backend readiness state
 - production polyphony policy
 - production pitch-bend layer mapping
+- production result import workflow from the manual handoff action
 
 ## Verification Expectations
 
@@ -162,4 +185,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-109` should add an explicit debug/manual Basic Pitch run action or preparation dialog, still without production Basic Pitch claims.
+`CODEX-110` should add a debug-only post-run Basic Pitch result import action, still without production Basic Pitch claims.

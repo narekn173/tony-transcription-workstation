@@ -73,13 +73,14 @@ These files are the current source-of-truth set. Read them in this order.
 | 21 | `docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_INTEGRATION_PLAN.md` | Mandatory engineering audit | Source audit and plan for future debug-only MainWindow consumption |
 | 22 | `docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_ACTION_PROOF.md` | Mandatory engineering audit | First debug-only MainWindow action proof and limitations |
 | 23 | `docs/engineering/BASIC_PITCH_DEBUG_CONFIGURATION_ENTRY_PROOF.md` | Mandatory engineering audit | Debug-only Basic Pitch manual-run configuration/status boundary |
-| 24 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
-| 25 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
-| 26 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
-| 27 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
-| 28 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 29 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 30 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 24 | `docs/engineering/BASIC_PITCH_DEBUG_MANUAL_RUN_ACTION_PROOF.md` | Mandatory engineering audit | Explicit debug-only Basic Pitch manual-run handoff action boundary |
+| 25 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 26 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 27 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 28 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
+| 29 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 30 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 31 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -158,6 +159,7 @@ These documents are required reading before TonyLayerImporter, UI integration, M
 | `docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_INTEGRATION_PLAN.md` | Debug Basic Pitch MainWindow planning | Defines source-audited future MainWindow insertion points and forbidden UI claims |
 | `docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_ACTION_PROOF.md` | Debug Basic Pitch MainWindow action work | Defines the first debug-only action boundary, displayed fields, and remaining limitations |
 | `docs/engineering/BASIC_PITCH_DEBUG_CONFIGURATION_ENTRY_PROOF.md` | Debug Basic Pitch manual-run configuration work | Defines manual-run env/config requirements, missing-key reporting, and skipped/allowed status |
+| `docs/engineering/BASIC_PITCH_DEBUG_MANUAL_RUN_ACTION_PROOF.md` | Debug Basic Pitch manual-run action work | Defines the explicit user-triggered manual handoff action and its no-import/no-production limits |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |
@@ -300,14 +302,16 @@ Basic Pitch / NeuralNote path
 21. docs/engineering/BASIC_PITCH_DEBUG_UI_CONSUMPTION_MODEL.md
 22. docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_INTEGRATION_PLAN.md
 23. docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_ACTION_PROOF.md
-24. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
-25. docs/engineering/UI_VISUAL_TRUTH_STATES.md
-26. docs/engineering/PROVENANCE_METADATA_POLICY.md
-27. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
-28. docs/adr/*.md
-29. docs/06_EXECUTION_PLAN.md
-30. docs/07_CODEX_TASK_LIST.md
-31. AGENTS.md
+24. docs/engineering/BASIC_PITCH_DEBUG_CONFIGURATION_ENTRY_PROOF.md
+25. docs/engineering/BASIC_PITCH_DEBUG_MANUAL_RUN_ACTION_PROOF.md
+26. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+27. docs/engineering/UI_VISUAL_TRUTH_STATES.md
+28. docs/engineering/PROVENANCE_METADATA_POLICY.md
+29. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
+30. docs/adr/*.md
+31. docs/06_EXECUTION_PLAN.md
+32. docs/07_CODEX_TASK_LIST.md
+33. AGENTS.md
 ```
 
 ---
@@ -341,6 +345,8 @@ docs/engineering/BASIC_PITCH_DEBUG_WORKFLOW_PROOF.md
 docs/engineering/BASIC_PITCH_DEBUG_UI_CONSUMPTION_MODEL.md
 docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_INTEGRATION_PLAN.md
 docs/engineering/BASIC_PITCH_MAINWINDOW_DEBUG_UI_ACTION_PROOF.md
+docs/engineering/BASIC_PITCH_DEBUG_CONFIGURATION_ENTRY_PROOF.md
+docs/engineering/BASIC_PITCH_DEBUG_MANUAL_RUN_ACTION_PROOF.md
 docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
 docs/engineering/UI_VISUAL_TRUTH_STATES.md
 docs/engineering/PROVENANCE_METADATA_POLICY.md
