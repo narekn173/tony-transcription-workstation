@@ -1,8 +1,8 @@
 # Basic Pitch MainWindow Debug UI Integration Plan
 
-Status: source audit and design plan only  
+Status: source audit and design plan; CODEX-106 implements the first debug-only action boundary  
 Scope: future debug-only Basic Pitch workflow UI consumption  
-Runtime behavior: unchanged
+Runtime behavior: CODEX-106 adds only the explicit debug/test-only action described in this plan
 
 ## 1. Source Files Inspected
 
@@ -312,6 +312,6 @@ If CODEX-106 adds the first debug-only UI adapter or menu/action boundary, it mu
 
 Recommended next task:
 
-`CODEX-106 Add debug-only Basic Pitch MainWindow UI action boundary`
+`CODEX-107 Add Basic Pitch debug workflow details/configuration hardening`
 
-That task should add the smallest runtime-disabled or explicitly debug-only action/adapter wiring possible, with tests proving that existing Tony/pYIN workflows are untouched and that visible state is sourced from `BasicPitchDebugWorkflowUiModel`.
+CODEX-106 added the smallest explicitly debug-only action/adapter wiring. The next task should harden the details/configuration surface without promoting Basic Pitch to production UI.

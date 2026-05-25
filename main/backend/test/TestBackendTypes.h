@@ -22,6 +22,7 @@
 #include "../BasicPitchArtifactToUnifiedResult.h"
 #include "../BasicPitchDebugWorkflow.h"
 #include "../BasicPitchDebugWorkflowUiModel.h"
+#include "../BasicPitchDebugWorkflowUiReportFormatter.h"
 #include "../BasicPitchLayerPersistenceExportProof.h"
 #include "../BasicPitchOutputConverter.h"
 #include "../BasicPitchRealRunHandoffProof.h"
@@ -9475,6 +9476,72 @@ private slots:
             registry.manifestById(manifest.id());
         QVERIFY(storedManifest.has_value());
         QVERIFY(storedManifest->status == BackendStatus::NotConfigured);
+    }
+
+    void basicPitchDebugWorkflowUiReportFormatterShowsSkippedStateHonestly()
+    {
+        BasicPitchDebugWorkflow workflow;
+        BasicPitchDebugWorkflowRequest request;
+        request.mode =
+            BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn;
+        const BasicPitchDebugWorkflowReport workflowReport =
+            workflow.run(request);
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        BasicPitchDebugWorkflowUiReportFormatter formatter;
+        const BasicPitchDebugWorkflowUiReportText text =
+            formatter.fromUiModel(ui);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains("Debug/test-only: true"));
+        QVERIFY(text.plainText.contains("Production transcription: false"));
+        QVERIFY(text.plainText.contains(
+            "Ready / Installed / Completed mutation: false"));
+        QVERIFY(text.plainText.contains(
+            "Primary state: backend_not_configured"));
+        QVERIFY(text.plainText.contains("Secondary state: skipped"));
+        QVERIFY(text.plainText.contains(
+            "basic_pitch_debug_workflow_explicit_opt_in_required"));
+        QVERIFY(text.plainText.contains(
+            "Progress: stage-based only; no percentage progress is reported."));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugWorkflowUiReportFormatterShowsProofBundleFlags()
+    {
+        const BasicPitchDebugWorkflowReport workflowReport =
+            completedBasicPitchDebugWorkflowReportForUiModel();
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        BasicPitchDebugWorkflowUiReportFormatter formatter;
+        const BasicPitchDebugWorkflowUiReportText text =
+            formatter.fromUiModel(ui);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains(
+            "Primary state: completed_with_warnings"));
+        QVERIFY(text.plainText.contains(
+            "Secondary state: export_proof_passed"));
+        QVERIFY(text.plainText.contains("possible_polyphony"));
+        QVERIFY(text.plainText.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(text.plainText.contains("fixture_only_conversion"));
+        QVERIFY(text.plainText.contains("  Imported into Tony layers: true"));
+        QVERIFY(text.plainText.contains("  Inserted into View/Pane: true"));
+        QVERIFY(text.plainText.contains("  Edit proof: true"));
+        QVERIFY(text.plainText.contains("  Save/load proof: true"));
+        QVERIFY(text.plainText.contains("  Export proof: true"));
+        QVERIFY(text.plainText.contains("  Note count: 3"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.readyInstalledCompletedMutation);
     }
 
 private:

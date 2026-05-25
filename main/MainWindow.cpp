@@ -18,6 +18,9 @@
 #include "MainWindow.h"
 #include "NetworkPermissionTester.h"
 #include "Analyser.h"
+#include "backend/BasicPitchDebugWorkflow.h"
+#include "backend/BasicPitchDebugWorkflowUiModel.h"
+#include "backend/BasicPitchDebugWorkflowUiReportFormatter.h"
 
 #include "framework/Document.h"
 #include "framework/VersionTester.h"
@@ -71,6 +74,7 @@
 #include <QApplication>
 #include <QMessageBox>
 #include <QGridLayout>
+#include <QDialog>
 #include <QLabel>
 #include <QMenuBar>
 #include <QToolBar>
@@ -101,6 +105,28 @@ using std::endl;
 
 using namespace sv;
 
+namespace {
+
+Tony::Backend::BasicPitchDebugWorkflowRequest
+basicPitchDebugWorkflowRequestFromEnvironment()
+{
+    using namespace Tony::Backend;
+
+    BasicPitchDebugWorkflowRequest request;
+    request.mode = BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn;
+    request.realRunConfig =
+        BasicPitchRealRunHandoffProof::configFromEnvironment();
+    request.discoveryConfig = request.realRunConfig.discoveryConfig;
+    request.inputAudioPath =
+        request.realRunConfig.discoveryConfig.inputAudioPath;
+    request.outputDirectoryPath =
+        request.realRunConfig.discoveryConfig.outputDirectoryPath;
+    request.resultJsonPath = request.realRunConfig.resultJsonPath;
+    return request;
+}
+
+}
+
 MainWindow::MainWindow(AudioMode audioMode,
                        bool withSonification, 
                        bool withSpectrogram) :
@@ -117,6 +143,7 @@ MainWindow::MainWindow(AudioMode audioMode,
     m_deleteSelectedAction(0),
     m_ffwdAction(0),
     m_rwdAction(0),
+    m_basicPitchDebugWorkflowProofAction(0),
     m_intelligentActionOn(true), //GF: !!! temporary
     m_activityLog(new ActivityLog()),
     m_keyReference(new KeyReference()),
@@ -812,6 +839,19 @@ MainWindow::setupAnalysisMenu()
     action->setStatusTip(tr("Reset all of the Analyse menu options to their default settings."));
     connect(action, SIGNAL(triggered()), this, SLOT(resetAnalyseOptions()));
     menu->addAction(action);
+
+    menu->addSeparator();
+
+    m_basicPitchDebugWorkflowProofAction =
+        new QAction(tr("Debug: Basic Pitch Workflow Proof..."), this);
+    m_basicPitchDebugWorkflowProofAction->setStatusTip(
+        tr("Show the debug/test-only Basic Pitch workflow proof report. "
+           "This is not production transcription support."));
+    connect(m_basicPitchDebugWorkflowProofAction,
+            SIGNAL(triggered()),
+            this,
+            SLOT(showBasicPitchDebugWorkflowProof()));
+    menu->addAction(m_basicPitchDebugWorkflowProofAction);
 
     updateAnalyseStates();
 }
@@ -3043,6 +3083,56 @@ MainWindow::analyseNow()
              tr("<b>Analysis failed</b><p>%1</p>").arg(error),
              QMessageBox::Ok);
     }
+}
+
+void
+MainWindow::showBasicPitchDebugWorkflowProof()
+{
+    using namespace Tony::Backend;
+
+    const BasicPitchDebugWorkflowRequest request =
+        basicPitchDebugWorkflowRequestFromEnvironment();
+
+    BasicPitchDebugWorkflow workflow;
+    const BasicPitchDebugWorkflowReport workflowReport =
+        workflow.run(request);
+
+    BasicPitchDebugWorkflowUiModel uiModel;
+    const BasicPitchDebugWorkflowUiModelResult ui =
+        uiModel.fromReport(workflowReport);
+
+    BasicPitchDebugWorkflowUiReportFormatter formatter;
+    const BasicPitchDebugWorkflowUiReportText reportText =
+        formatter.fromUiModel(ui);
+
+    statusBar()->showMessage(
+        tr("Basic Pitch debug workflow: %1").arg(ui.primaryState),
+        10000);
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("Debug: Basic Pitch Workflow Proof"));
+
+    QGridLayout *layout = new QGridLayout;
+    QLabel *summary = new QLabel(
+        tr("<b>Debug/test-only Basic Pitch workflow proof.</b><br/>"
+           "This is not production transcription support.<br/>"
+           "%1").arg(ui.userMessage.toHtmlEscaped()));
+    summary->setWordWrap(true);
+    layout->addWidget(summary, 0, 0);
+
+    QTextEdit *details = new QTextEdit;
+    details->setReadOnly(true);
+    details->setPlainText(reportText.plainText);
+    details->setMinimumSize(720, 420);
+    layout->addWidget(details, 1, 0);
+
+    QDialogButtonBox *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok);
+    connect(buttons, SIGNAL(accepted()), &dialog, SLOT(accept()));
+    layout->addWidget(buttons, 2, 0);
+
+    dialog.setLayout(layout);
+    dialog.exec();
 }
 
 void
