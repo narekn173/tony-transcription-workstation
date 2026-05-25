@@ -39,9 +39,17 @@ struct BasicPitchDebugWorkflowUiProofBundleSummary
     QString exportCsvPath;
     QString selectedNoteEventsArtifactPath;
     bool selectedNoteEventsArtifactFound = false;
+    QStringList requiredManualRunEnvironmentKeys;
+    QStringList optionalManualRunEnvironmentKeys;
+    QStringList missingManualRunConfigurationKeys;
+    QString manualRunSkippedReason;
+    QString manualRunDerivedResultJsonPath;
     int noteCount = 0;
     bool ranBasicPitch = false;
     bool realRunExplicitOptIn = false;
+    bool manualRunAllowed = false;
+    bool manualRunWouldBeSkipped = true;
+    bool manualRunResultJsonWillBeDerived = false;
     bool loadedResult = false;
     bool importedIntoTonyLayers = false;
     bool insertedIntoView = false;

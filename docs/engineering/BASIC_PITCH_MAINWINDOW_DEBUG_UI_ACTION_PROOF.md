@@ -4,6 +4,7 @@ Status: debug-only runtime UI boundary
 Scope: first MainWindow action that displays Basic Pitch workflow truth-state and proof-bundle data  
 Production transcription support: not claimed
 CODEX-107 update: report details now include explicit configuration/status sections.
+CODEX-108 update: report details now include explicit manual-run env/config requirements, missing-key status, and run-allowed/skipped status.
 
 ## Files Inspected
 
@@ -16,6 +17,7 @@ CODEX-107 update: report details now include explicit configuration/status secti
 | `main/backend/BasicPitchDebugWorkflow.*` | Debug workflow report and proof-bundle source |
 | `main/backend/BasicPitchDebugWorkflowUiModel.*` | Mandatory UI-consumable truth-state adapter |
 | `main/backend/BasicPitchDebugWorkflowUiReportFormatter.*` | New testable text formatter consumed by MainWindow |
+| `main/backend/BasicPitchDebugManualRunStatus.*` | Debug-only manual-run configuration/status boundary |
 
 ## MainWindow Insertion Point
 
@@ -53,6 +55,12 @@ The dialog displays:
 - configured/missing command path
 - configured/missing input audio path
 - configured/missing output directory path
+- required manual-run env/config keys
+- optional manual-run env/config keys
+- missing manual-run env/config keys
+- manual run allowed / would be skipped
+- manual-run skipped reason
+- derived result JSON path if applicable
 - primary state
 - secondary state
 - user message
@@ -89,6 +97,8 @@ When Basic Pitch is not configured for manual real-run proof, the report include
 ```text
 Basic Pitch debug workflow is not configured.
 No backend was run.
+Manual Basic Pitch run would be skipped from this configuration.
+This is not production transcription.
 ```
 
 When a synthetic/test-only proof report is displayed, the report includes:
@@ -132,10 +142,11 @@ The existing `Analysis -> Analyse Now!` workflow remains the pYIN path.
 This is not production Basic Pitch UI. It does not provide:
 
 - persistent Basic Pitch settings UI
+- a production configuration dialog
 - production run/cancel workflow
+- automatic Basic Pitch execution
 - selected-region replacement
 - user-facing backend readiness state
-- automatic Basic Pitch execution
 - production polyphony policy
 - production pitch-bend layer mapping
 
@@ -151,4 +162,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-107` should add the next debug UI hardening slice: a non-modal proof-bundle/details surface or explicit debug settings/configuration entry, still without production Basic Pitch claims.
+`CODEX-109` should add an explicit debug/manual Basic Pitch run action or preparation dialog, still without production Basic Pitch claims.

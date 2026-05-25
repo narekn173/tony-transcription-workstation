@@ -20,6 +20,7 @@
 #include "../BasicPitchAdapterContract.h"
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
+#include "../BasicPitchDebugManualRunStatus.h"
 #include "../BasicPitchDebugWorkflow.h"
 #include "../BasicPitchDebugWorkflowUiModel.h"
 #include "../BasicPitchDebugWorkflowUiReportFormatter.h"
@@ -8586,6 +8587,115 @@ private slots:
         QVERIFY(registry.allManifests().isEmpty());
     }
 
+    void basicPitchDebugManualRunStatusMissingConfigReportsNotConfigured()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+
+        BasicPitchDebugManualRunStatus status;
+        const BasicPitchDebugManualRunStatusResult result =
+            status.fromConfig(config);
+
+        QVERIFY2(result.isValid(), qPrintable(result.debugSummaryString()));
+        QVERIFY(!result.explicitOptIn);
+        QVERIFY(!result.manualRunAllowed);
+        QVERIFY(result.manualRunWouldBeSkipped);
+        QCOMPARE(result.skippedReason, QString("explicit_opt_in_required"));
+        QVERIFY(result.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_DISCOVERY_ENABLE=1"));
+        QVERIFY(result.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_TEST_AUDIO"));
+        QVERIFY(result.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_OUTPUT_DIR"));
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(result.testOnlyDebugOnly);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugManualRunStatusMissingCommandReportsMissing()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath = " ";
+        config.discoveryConfig.inputAudioPath = "C:/audio/input.wav";
+        config.discoveryConfig.outputDirectoryPath = "C:/audio/out";
+
+        const BasicPitchDebugManualRunStatusResult result =
+            BasicPitchDebugManualRunStatus().fromConfig(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(!result.commandConfigured);
+        QVERIFY(!result.manualRunAllowed);
+        QVERIFY(result.manualRunWouldBeSkipped);
+        QCOMPARE(result.skippedReason, QString("missing_command"));
+        QVERIFY(result.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_COMMAND"));
+    }
+
+    void basicPitchDebugManualRunStatusMissingAudioReportsMissing()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath = "basic-pitch-test";
+        config.discoveryConfig.outputDirectoryPath = "C:/audio/out";
+
+        const BasicPitchDebugManualRunStatusResult result =
+            BasicPitchDebugManualRunStatus().fromConfig(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(!result.inputAudioConfigured);
+        QVERIFY(!result.manualRunAllowed);
+        QCOMPARE(result.skippedReason, QString("missing_audio_path"));
+        QVERIFY(result.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_TEST_AUDIO"));
+    }
+
+    void basicPitchDebugManualRunStatusMissingOutputReportsMissing()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath = "basic-pitch-test";
+        config.discoveryConfig.inputAudioPath = "C:/audio/input.wav";
+
+        const BasicPitchDebugManualRunStatusResult result =
+            BasicPitchDebugManualRunStatus().fromConfig(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(!result.outputDirectoryConfigured);
+        QVERIFY(!result.manualRunAllowed);
+        QCOMPARE(result.skippedReason, QString("missing_output_directory"));
+        QVERIFY(result.missingConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_OUTPUT_DIR"));
+    }
+
+    void basicPitchDebugManualRunStatusAllowsConfiguredManualRun()
+    {
+        BasicPitchRealRunHandoffProofConfig config;
+        config.discoveryConfig.explicitOptIn = true;
+        config.discoveryConfig.executablePath = "basic-pitch-test";
+        config.discoveryConfig.inputAudioPath = "C:/audio/input.wav";
+        config.discoveryConfig.outputDirectoryPath = "C:/audio/out";
+
+        const BasicPitchDebugManualRunStatusResult result =
+            BasicPitchDebugManualRunStatus().fromConfig(config);
+
+        QVERIFY(result.isValid());
+        QVERIFY(result.explicitOptIn);
+        QVERIFY(result.commandConfigured);
+        QVERIFY(result.inputAudioConfigured);
+        QVERIFY(result.outputDirectoryConfigured);
+        QVERIFY(!result.resultJsonConfigured);
+        QVERIFY(result.resultJsonWillBeDerived);
+        QVERIFY(result.manualRunAllowed);
+        QVERIFY(!result.manualRunWouldBeSkipped);
+        QVERIFY(result.skippedReason.isEmpty());
+        QVERIFY(result.missingConfigurationKeys.isEmpty());
+        QVERIFY(result.derivedResultJsonPath.endsWith(
+            "basic_pitch_result.json"));
+        QVERIFY(!result.productionTranscription);
+        QVERIFY(result.testOnlyDebugOnly);
+        QVERIFY(!result.readyInstalledCompletedMutation);
+    }
+
     void basicPitchResultToTonyLayerProofCreatesDocumentNoteLayer()
     {
         QTemporaryDir directory;
@@ -9316,6 +9426,51 @@ private slots:
         QVERIFY(ui.shouldShowProofBundle);
         QVERIFY(!ui.productionTranscription);
         QVERIFY(ui.testOnlyDebugOnly);
+        QVERIFY(!ui.proofBundle.manualRunAllowed);
+        QVERIFY(ui.proofBundle.manualRunWouldBeSkipped);
+        QVERIFY(ui.proofBundle.missingManualRunConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_DISCOVERY_ENABLE=1"));
+        QVERIFY(ui.proofBundle.missingManualRunConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_TEST_AUDIO"));
+        QVERIFY(ui.proofBundle.missingManualRunConfigurationKeys.contains(
+            "TONY_BASIC_PITCH_OUTPUT_DIR"));
+    }
+
+    void basicPitchDebugWorkflowUiModelReportsManualRunAllowedConfig()
+    {
+        BasicPitchDebugWorkflowReport workflowReport;
+        workflowReport.mode =
+            BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn;
+        workflowReport.truthStates.push_back(
+            BasicPitchDebugTruthState::PathChecksPassed);
+        workflowReport.testOnlyDebugOnly = true;
+        workflowReport.proofBundle.testOnlyDebugOnly = true;
+        workflowReport.realRunResult.config.discoveryConfig.explicitOptIn = true;
+        workflowReport.realRunResult.config.discoveryConfig.executablePath =
+            "basic-pitch-test";
+        workflowReport.realRunResult.config.discoveryConfig.inputAudioPath =
+            "C:/audio/input.wav";
+        workflowReport.realRunResult.config.discoveryConfig.outputDirectoryPath =
+            "C:/audio/basic-pitch-output";
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        QVERIFY2(ui.isValid(), qPrintable(ui.debugSummaryString()));
+        QCOMPARE(ui.primaryState, QString("path_checks_passed"));
+        QVERIFY(ui.canRun);
+        QVERIFY(ui.proofBundle.realRunExplicitOptIn);
+        QVERIFY(ui.proofBundle.manualRunAllowed);
+        QVERIFY(!ui.proofBundle.manualRunWouldBeSkipped);
+        QVERIFY(ui.proofBundle.manualRunSkippedReason.isEmpty());
+        QVERIFY(ui.proofBundle.missingManualRunConfigurationKeys.isEmpty());
+        QVERIFY(ui.proofBundle.manualRunResultJsonWillBeDerived);
+        QVERIFY(ui.proofBundle.manualRunDerivedResultJsonPath.endsWith(
+            "basic_pitch_result.json"));
+        QVERIFY(!ui.productionTranscription);
+        QVERIFY(ui.testOnlyDebugOnly);
+        QVERIFY(!ui.readyInstalledCompletedMutation);
     }
 
     void basicPitchDebugWorkflowUiModelSkippedDoesNotClaimRun()
@@ -9506,6 +9661,24 @@ private slots:
         QVERIFY(text.plainText.contains("Command: basic-pitch"));
         QVERIFY(text.plainText.contains("Input audio configured: false"));
         QVERIFY(text.plainText.contains("Output directory configured: false"));
+        QVERIFY(text.plainText.contains(
+            "Required manual-run env/config keys:"));
+        QVERIFY(text.plainText.contains(
+            "TONY_BASIC_PITCH_DISCOVERY_ENABLE=1"));
+        QVERIFY(text.plainText.contains("TONY_BASIC_PITCH_COMMAND"));
+        QVERIFY(text.plainText.contains("TONY_BASIC_PITCH_TEST_AUDIO"));
+        QVERIFY(text.plainText.contains("TONY_BASIC_PITCH_OUTPUT_DIR"));
+        QVERIFY(text.plainText.contains(
+            "Optional manual-run env/config keys:"));
+        QVERIFY(text.plainText.contains("TONY_BASIC_PITCH_RESULT_JSON"));
+        QVERIFY(text.plainText.contains(
+            "Missing manual-run env/config keys:"));
+        QVERIFY(text.plainText.contains("Manual run allowed: false"));
+        QVERIFY(text.plainText.contains("Manual run would be skipped: true"));
+        QVERIFY(text.plainText.contains(
+            "Manual Basic Pitch run would be skipped from this configuration."));
+        QVERIFY(text.plainText.contains(
+            "This is not production transcription."));
         QVERIFY(text.plainText.contains("Skipped reason: explicit_opt_in_required"));
         QVERIFY(text.plainText.contains(
             "Basic Pitch debug workflow is not configured."));
@@ -9518,6 +9691,46 @@ private slots:
             "basic_pitch_debug_workflow_explicit_opt_in_required"));
         QVERIFY(text.plainText.contains(
             "Progress: stage-based only; no percentage progress is reported."));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugWorkflowUiReportFormatterShowsManualRunAllowedConfig()
+    {
+        BasicPitchDebugWorkflowReport workflowReport;
+        workflowReport.mode =
+            BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn;
+        workflowReport.truthStates.push_back(
+            BasicPitchDebugTruthState::PathChecksPassed);
+        workflowReport.testOnlyDebugOnly = true;
+        workflowReport.proofBundle.testOnlyDebugOnly = true;
+        workflowReport.realRunResult.config.discoveryConfig.explicitOptIn = true;
+        workflowReport.realRunResult.config.discoveryConfig.executablePath =
+            "basic-pitch-test";
+        workflowReport.realRunResult.config.discoveryConfig.inputAudioPath =
+            "C:/audio/input.wav";
+        workflowReport.realRunResult.config.discoveryConfig.outputDirectoryPath =
+            "C:/audio/basic-pitch-output";
+
+        BasicPitchDebugWorkflowUiModel model;
+        const BasicPitchDebugWorkflowUiModelResult ui =
+            model.fromReport(workflowReport);
+
+        BasicPitchDebugWorkflowUiReportFormatter formatter;
+        const BasicPitchDebugWorkflowUiReportText text =
+            formatter.fromUiModel(ui);
+
+        QVERIFY(text.isValid());
+        QVERIFY(text.plainText.contains("Manual real-run opt-in: true"));
+        QVERIFY(text.plainText.contains("Manual run allowed: true"));
+        QVERIFY(text.plainText.contains("Manual run would be skipped: false"));
+        QVERIFY(text.plainText.contains(
+            "Missing manual-run env/config keys:"));
+        QVERIFY(text.plainText.contains("  (none)"));
+        QVERIFY(text.plainText.contains("Result JSON will be derived: true"));
+        QVERIFY(text.plainText.contains("basic_pitch_result.json"));
+        QVERIFY(text.plainText.contains("Production transcription: false"));
         QVERIFY(!text.productionTranscription);
         QVERIFY(text.testOnlyDebugOnly);
         QVERIFY(!text.readyInstalledCompletedMutation);

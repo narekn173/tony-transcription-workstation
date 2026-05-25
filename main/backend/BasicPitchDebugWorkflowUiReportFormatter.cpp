@@ -130,6 +130,38 @@ BasicPitchDebugWorkflowUiReportFormatter::fromUiModel(
     appendLine(lines,
                "Result JSON path",
                displayValue(uiModel.proofBundle.resultJsonPath));
+    appendList(lines,
+               "Required manual-run env/config keys",
+               uiModel.proofBundle.requiredManualRunEnvironmentKeys);
+    appendList(lines,
+               "Optional manual-run env/config keys",
+               uiModel.proofBundle.optionalManualRunEnvironmentKeys);
+    appendList(lines,
+               "Missing manual-run env/config keys",
+               uiModel.proofBundle.missingManualRunConfigurationKeys);
+    appendBoolLine(lines,
+                   "Manual run allowed",
+                   uiModel.proofBundle.manualRunAllowed);
+    appendBoolLine(lines,
+                   "Manual run would be skipped",
+                   uiModel.proofBundle.manualRunWouldBeSkipped);
+    appendLine(lines,
+               "Manual run skipped reason",
+               displayValue(uiModel.proofBundle.manualRunSkippedReason));
+    appendBoolLine(lines,
+                   "Result JSON will be derived",
+                   uiModel.proofBundle.manualRunResultJsonWillBeDerived);
+    appendLine(lines,
+               "Derived result JSON path",
+               displayValue(uiModel.proofBundle.manualRunDerivedResultJsonPath));
+    if (uiModel.proofBundle.manualRunWouldBeSkipped) {
+        lines << "Manual Basic Pitch run would be skipped from this configuration.";
+    }
+    if (!uiModel.proofBundle.manualRunAllowed) {
+        lines << "Basic Pitch debug workflow is not configured.";
+        lines << "No backend was run unless a separate proof report says otherwise.";
+        lines << "This is not production transcription.";
+    }
     appendLine(lines,
                "Skipped reason",
                displayValue(uiModel.proofBundle.skippedReason));

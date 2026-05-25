@@ -14,6 +14,8 @@
 
 #include "BasicPitchDebugWorkflowUiModel.h"
 
+#include "BasicPitchDebugManualRunStatus.h"
+
 namespace Tony {
 namespace Backend {
 
@@ -246,11 +248,16 @@ eventStatesSummary(const BasicPitchDebugWorkflowReport &report)
 QString
 proofBundleSummary(const BasicPitchDebugWorkflowReport &report)
 {
+    const BasicPitchDebugManualRunStatusResult manualRunStatus =
+        BasicPitchDebugManualRunStatus().fromConfig(
+            report.realRunResult.config);
+
     return QString("mode=%1 skipped=%2 ran=%3 opt_in=%4 command=%5 "
                    "input=%6 output_dir=%7 events=%8 artifacts=%9 "
                    "selected_csv=%10 result_json=%11 notes=%12 "
                    "loaded=%13 imported=%14 visible=%15 edit=%16 "
-                   "save_load=%17 export=%18 debug_only=%19")
+                   "save_load=%17 export=%18 manual_allowed=%19 "
+                   "manual_skip=%20 debug_only=%21")
         .arg(basicPitchDebugWorkflowModeToString(report.mode))
         .arg(report.skippedReason.isEmpty() ? QString("none") :
                                               report.skippedReason)
@@ -277,6 +284,10 @@ proofBundleSummary(const BasicPitchDebugWorkflowReport &report)
                                                 QString("false"))
         .arg(report.proofBundle.exportProof ? QString("true") :
                                               QString("false"))
+        .arg(manualRunStatus.manualRunAllowed ? QString("true") :
+                                                QString("false"))
+        .arg(manualRunStatus.manualRunWouldBeSkipped ? QString("true") :
+                                                       QString("false"))
         .arg(report.proofBundle.testOnlyDebugOnly ? QString("true") :
                                                     QString("false"));
 }
@@ -317,6 +328,10 @@ populateProofBundleSummary(
     BasicPitchDebugWorkflowUiProofBundleSummary &target,
     const BasicPitchDebugWorkflowReport &source)
 {
+    const BasicPitchDebugManualRunStatusResult manualRunStatus =
+        BasicPitchDebugManualRunStatus().fromConfig(
+            source.realRunResult.config);
+
     target.workflowMode = basicPitchDebugWorkflowModeToString(source.mode);
     target.skippedReason = source.skippedReason;
     target.eventStates.clear();
@@ -344,10 +359,24 @@ populateProofBundleSummary(
         firstNoteEventsArtifactPath(source);
     target.selectedNoteEventsArtifactFound =
         !target.selectedNoteEventsArtifactPath.trimmed().isEmpty();
+    target.requiredManualRunEnvironmentKeys =
+        manualRunStatus.requiredEnvironmentKeys;
+    target.optionalManualRunEnvironmentKeys =
+        manualRunStatus.optionalEnvironmentKeys;
+    target.missingManualRunConfigurationKeys =
+        manualRunStatus.missingConfigurationKeys;
+    target.manualRunSkippedReason = manualRunStatus.skippedReason;
+    target.manualRunDerivedResultJsonPath =
+        manualRunStatus.derivedResultJsonPath;
     target.noteCount = source.proofBundle.noteCount;
     target.ranBasicPitch = source.ranBasicPitch;
     target.realRunExplicitOptIn =
         source.realRunResult.config.discoveryConfig.explicitOptIn;
+    target.manualRunAllowed = manualRunStatus.manualRunAllowed;
+    target.manualRunWouldBeSkipped =
+        manualRunStatus.manualRunWouldBeSkipped;
+    target.manualRunResultJsonWillBeDerived =
+        manualRunStatus.resultJsonWillBeDerived;
     target.loadedResult = source.proofBundle.loadedResult;
     target.importedIntoTonyLayers = source.proofBundle.importedIntoTonyLayers;
     target.insertedIntoView = source.proofBundle.insertedIntoView;
