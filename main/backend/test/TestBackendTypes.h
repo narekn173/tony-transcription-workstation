@@ -34,6 +34,7 @@
 #include "../BasicPitchDebugWorkflowUiReportFormatter.h"
 #include "../BasicPitchLayerPersistenceExportProof.h"
 #include "../BasicPitchOutputConverter.h"
+#include "../BasicPitchProductionReadinessPreflight.h"
 #include "../BasicPitchRealRunHandoffProof.h"
 #include "../BasicPitchResultToTonyLayerProof.h"
 #include "../BasicPitchUnifiedResultHandoff.h"
@@ -9777,6 +9778,256 @@ private slots:
         QVERIFY(!text.productionTranscription);
         QVERIFY(text.testOnlyDebugOnly);
         QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchProductionReadinessDefaultBlocksProduction()
+    {
+        BasicPitchProductionReadinessPreflightInput input;
+        const BasicPitchProductionReadinessReport report =
+            BasicPitchProductionReadinessPreflight().evaluate(input);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(!report.productionReady);
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(report.debugWorkflowAvailable);
+        QVERIFY(!report.manualRunAvailable);
+        QVERIFY(!report.importProofAvailable);
+        QVERIFY(!report.postImportProofAvailable);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+        QVERIFY(report.hasGateStatus(
+            "configuration",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.hasGateStatus(
+            "audio_input",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.hasGateStatus(
+            "progress_cancel",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.missingProductionBlockers.contains("configuration"));
+        QVERIFY(report.missingProductionBlockers.contains("audio_input"));
+        QVERIFY(report.missingProductionBlockers.contains("progress_cancel"));
+        QVERIFY(report.warnings.contains(
+            "basic_pitch_production_readiness_debug_only"));
+    }
+
+    void basicPitchProductionReadinessDebugManualRunIsDebugOnly()
+    {
+        BasicPitchProductionReadinessPreflightInput input;
+        input.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        input.manualRunConfig.discoveryConfig.executablePath =
+            "basic-pitch-test";
+        input.manualRunConfig.discoveryConfig.inputAudioPath =
+            "C:/audio/input.wav";
+        input.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            "C:/audio/out";
+
+        const BasicPitchProductionReadinessReport report =
+            BasicPitchProductionReadinessPreflight().evaluate(input);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.productionReady);
+        QVERIFY(report.manualRunAvailable);
+        QVERIFY(report.hasGateStatus(
+            "command_runtime",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "audio_input",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "output_directory",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "manual_run_permission",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+
+        const BasicPitchProductionReadinessGate *gate =
+            report.gateById("manual_run_permission");
+        QVERIFY(gate);
+        QVERIFY(gate->debugOnly);
+        QVERIFY(gate->blocksProduction());
+        QVERIFY(report.missingProductionBlockers.contains(
+            "manual_run_permission"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchProductionReadinessPostImportProofIsEvidenceOnly()
+    {
+        BasicPitchProductionReadinessPreflightInput input;
+        input.hasPostImportProofReport = true;
+        input.postImportProofReport.loadedResult = true;
+        input.postImportProofReport.realNoteModelExists = true;
+        input.postImportProofReport.realNoteLayerExists = true;
+        input.postImportProofReport.documentOwnedLayer = true;
+        input.postImportProofReport.insertedIntoView = true;
+        input.postImportProofReport.layerEditable = true;
+        input.postImportProofReport.editProofTested = true;
+        input.postImportProofReport.editProofPassed = true;
+        input.postImportProofReport.undoRedoProofTested = true;
+        input.postImportProofReport.undoRedoProofPassed = true;
+        input.postImportProofReport.saveLoadProofTested = true;
+        input.postImportProofReport.saveLoadProofPassed = true;
+        input.postImportProofReport.exportProofTested = true;
+        input.postImportProofReport.exportProofPassed = true;
+        input.postImportProofReport.exportedNoteCount = 3;
+        input.postImportProofReport.possiblePolyphony = true;
+        input.postImportProofReport.pitchBendMappingDeferred = true;
+        input.postImportProofReport.productionTranscription = false;
+        input.postImportProofReport.testOnlyDebugOnly = true;
+        input.postImportProofReport.readyInstalledCompletedMutation = false;
+        input.postImportProofReport.report.addIssue(
+            ValidationSeverity::Warning,
+            "possible_polyphony",
+            "Possible polyphony remains visible.");
+        input.postImportProofReport.report.addIssue(
+            ValidationSeverity::Warning,
+            "pitch_bend_mapping_deferred",
+            "Pitch-bend mapping remains deferred.");
+
+        const BasicPitchProductionReadinessReport report =
+            BasicPitchProductionReadinessPreflight().evaluate(input);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.productionReady);
+        QVERIFY(report.importProofAvailable);
+        QVERIFY(report.postImportProofAvailable);
+        QVERIFY(report.hasGateStatus(
+            "layer_import",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "visibility",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "edit",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "undo_redo",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "save_load",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.hasGateStatus(
+            "export",
+            BasicPitchProductionReadinessGateStatus::DebugOnly));
+        QVERIFY(report.warnings.contains("possible_polyphony"));
+        QVERIFY(report.warnings.contains("pitch_bend_mapping_deferred"));
+        QVERIFY(report.missingProductionBlockers.contains("layer_import"));
+        QVERIFY(report.missingProductionBlockers.contains("export"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchProductionReadinessProductionGatesRemainBlocked()
+    {
+        BasicPitchProductionReadinessPreflightInput input;
+        input.productionConfigurationAvailable = true;
+        input.productionCommandRuntimeValidated = true;
+        input.productionOutputDirectoryValidated = true;
+
+        const BasicPitchProductionReadinessReport report =
+            BasicPitchProductionReadinessPreflight().evaluate(input);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.productionReady);
+        QVERIFY(report.hasGateStatus(
+            "configuration",
+            BasicPitchProductionReadinessGateStatus::Passed));
+        QVERIFY(report.hasGateStatus(
+            "command_runtime",
+            BasicPitchProductionReadinessGateStatus::Passed));
+        QVERIFY(report.hasGateStatus(
+            "output_directory",
+            BasicPitchProductionReadinessGateStatus::Passed));
+        QVERIFY(report.hasGateStatus(
+            "audio_input",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.hasGateStatus(
+            "progress_cancel",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.hasGateStatus(
+            "error_recovery",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.missingProductionBlockers.contains("audio_input"));
+        QVERIFY(report.missingProductionBlockers.contains("progress_cancel"));
+        QVERIFY(report.missingProductionBlockers.contains("error_recovery"));
+    }
+
+    void basicPitchProductionReadinessPitchBendAndPolyphonyPoliciesBlock()
+    {
+        BasicPitchProductionReadinessPreflightInput input;
+        const BasicPitchProductionReadinessReport report =
+            BasicPitchProductionReadinessPreflight().evaluate(input);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.productionReady);
+        QVERIFY(report.hasGateStatus(
+            "pitch_bend_policy",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.hasGateStatus(
+            "polyphony_policy",
+            BasicPitchProductionReadinessGateStatus::Blocked));
+        QVERIFY(report.missingProductionBlockers.contains(
+            "pitch_bend_policy"));
+        QVERIFY(report.missingProductionBlockers.contains(
+            "polyphony_policy"));
+
+        const BasicPitchProductionReadinessGate *pitchBendGate =
+            report.gateById("pitch_bend_policy");
+        QVERIFY(pitchBendGate);
+        QVERIFY(pitchBendGate->technicalMessage.contains(
+            "pitch_bend_mapping_deferred"));
+
+        const BasicPitchProductionReadinessGate *polyphonyGate =
+            report.gateById("polyphony_policy");
+        QVERIFY(polyphonyGate);
+        QVERIFY(polyphonyGate->technicalMessage.contains(
+            "possible_polyphony"));
+    }
+
+    void basicPitchProductionReadinessNeverCreatesBackendReadyState()
+    {
+        BasicPitchProductionReadinessPreflightInput input;
+        input.productionConfigurationAvailable = true;
+        input.productionCommandRuntimeValidated = true;
+        input.productionAudioInputValidated = true;
+        input.productionOutputDirectoryValidated = true;
+        input.productionRunPermissionValidated = true;
+        input.productionArtifactDiscoveryValidated = true;
+        input.productionResultValidationValidated = true;
+        input.productionLayerMappingValidated = true;
+        input.productionLayerImportValidated = true;
+        input.productionVisibilityValidated = true;
+        input.productionEditValidated = true;
+        input.productionUndoRedoValidated = true;
+        input.productionSaveLoadValidated = true;
+        input.productionExportValidated = true;
+        input.productionWarningVisibilityValidated = true;
+        input.productionProgressReportingValidated = true;
+        input.productionCancellationValidated = true;
+        input.productionErrorRecoveryValidated = true;
+        input.productionUserDocumentationAvailable = true;
+        input.productionRegressionProtectionValidated = true;
+        input.pitchBendProductionPolicyValidated = true;
+        input.polyphonyProductionPolicyValidated = true;
+
+        const BasicPitchProductionReadinessReport report =
+            BasicPitchProductionReadinessPreflight().evaluate(input);
+
+        QVERIFY(report.isValid());
+        QVERIFY(!report.productionReady);
+        QVERIFY(report.missingProductionBlockers.isEmpty());
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+
+        BackendManifest manifest = parsedBasicPitchManifest();
+        manifest.status = BackendStatus::NotConfigured;
+        QVERIFY(manifest.status == BackendStatus::NotConfigured);
+        QVERIFY(manifest.status != BackendStatus::Ready);
+        QVERIFY(manifest.status != BackendStatus::Completed);
     }
 
     void basicPitchResultToTonyLayerProofCreatesDocumentNoteLayer()

@@ -259,4 +259,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-115` should add a Basic Pitch production-readiness preflight model, still without production UI, runtime behavior changes, or production Basic Pitch claims.
+`CODEX-115` added a Basic Pitch production-readiness preflight model without production UI, runtime behavior changes, or production Basic Pitch claims. The next step is `CODEX-116`: debug-to-user configuration UX plan/source audit.

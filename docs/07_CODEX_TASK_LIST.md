@@ -1443,17 +1443,19 @@ Current repository state is beyond the original CODEX-087D proof transition. Bas
 Before any production Basic Pitch UI, selected-region replacement, or feature-complete claim, use:
 
 - `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md`
+- `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md`
 - `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`
 
 Next recommended step:
 
 ```text
-CODEX-115 - Basic Pitch production-readiness preflight model, still no production UI and no runtime behavior changes.
+CODEX-116 - debug-to-user configuration UX plan/source audit.
 ```
 
 Safe follow-up sequence:
 
 ```text
+CODEX-115 - Basic Pitch production-readiness preflight model (implemented)
 CODEX-116 - debug-to-user configuration UX plan/source audit
 CODEX-117 - first guarded user-facing Basic Pitch setup dialog, still no run
 CODEX-118 - user-selected audio/output preflight

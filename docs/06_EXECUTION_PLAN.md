@@ -359,12 +359,13 @@ CODEX-109 through CODEX-113 prove a debug-only Basic Pitch path for manual hando
 Use these documents before continuing Phase 7 into user-facing production workflow:
 
 - `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md`
+- `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md`
 - `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`
 
 The next safe sequence is:
 
 ```text
-CODEX-115 - production-readiness preflight model, still no production UI
+CODEX-115 - production-readiness preflight model, still no production UI (implemented)
 CODEX-116 - debug-to-user configuration UX plan/source audit
 CODEX-117 - first guarded setup dialog, still no run
 CODEX-118 - user-selected audio/output preflight
@@ -619,7 +620,7 @@ Codex should stop and report instead of guessing when:
 The repository has progressed beyond the original setup sequence. For the current Basic Pitch workstream, the next action is:
 
 ```text
-CODEX-115 - Basic Pitch production-readiness preflight model, still no production UI and no runtime behavior changes.
+CODEX-116 - Debug-to-user configuration UX plan/source audit, still no production run behavior.
 ```
 
 Older baseline setup tasks remain historical context only unless a new repository clone lacks the project documents or AGENTS.md.

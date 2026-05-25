@@ -11,6 +11,8 @@ This checklist is the first gate for moving Basic Pitch beyond the current debug
 
 Future implementation tasks must cite this checklist and state which gates passed, which gates remain unproven, and which warnings are still user-visible.
 
+CODEX-115 adds `BasicPitchProductionReadinessPreflight`, a backend-only model that represents these gates in code. It does not mark Basic Pitch production-ready, add production UI, or run Basic Pitch.
+
 ## Files Inspected
 
 | File | Reason |
@@ -258,4 +260,4 @@ Stop implementation and update this checklist if:
 
 ## Next Task
 
-Recommended next task: CODEX-115 - add a production-readiness preflight model for Basic Pitch, still without production UI or runtime behavior changes.
+Recommended next task: CODEX-116 - debug-to-user configuration UX plan/source audit.

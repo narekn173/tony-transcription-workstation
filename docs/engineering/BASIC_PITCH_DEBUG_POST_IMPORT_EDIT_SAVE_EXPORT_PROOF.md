@@ -107,4 +107,4 @@ This is still not production Basic Pitch UI. It does not provide:
 
 ## Recommended Next Task
 
-Recommended next task after CODEX-114: CODEX-115 - add a Basic Pitch production-readiness preflight model, still without production UI or runtime behavior changes.
+Recommended next task after CODEX-115: CODEX-116 - debug-to-user configuration UX plan/source audit.

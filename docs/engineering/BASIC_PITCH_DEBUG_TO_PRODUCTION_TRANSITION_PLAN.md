@@ -62,6 +62,8 @@ Future production UI may wrap or generalize these boundaries, but it must not lo
 
 ### CODEX-115 - Production-Readiness Preflight Model
 
+Status: implemented as `BasicPitchProductionReadinessPreflight`.
+
 Goal: add a compile-only or backend-only model that evaluates production-readiness gates without adding production UI.
 
 Must prove:
@@ -78,6 +80,13 @@ Still forbidden:
 - no production MainWindow action;
 - no Basic Pitch execution by default;
 - no persistent settings writes unless explicitly designed.
+
+CODEX-115 result:
+
+- production gates are represented as code-level gate records;
+- debug proof can appear as `debug_only` evidence;
+- `productionReady` remains false while the preflight boundary is debug/test-only or any production blocker remains;
+- no Ready, Installed, or Completed backend mutation is created.
 
 ### CODEX-116 - Debug-To-User Configuration UX Source Audit
 
@@ -166,7 +175,7 @@ Must decide:
 
 | Step | Type | Runtime behavior? |
 |---|---|---|
-| CODEX-115 | Backend/model preflight | No production UI, no run |
+| CODEX-115 | Backend/model preflight | Implemented; no production UI, no run |
 | CODEX-116 | Audit/design | No |
 | CODEX-117 | Guarded setup UI | UI only, no backend run |
 | CODEX-118 | Preflight UX | UI/model only, no backend run unless explicitly deferred |
@@ -240,4 +249,4 @@ Before any task claims the transition has reached production:
 
 ## Next Task
 
-Recommended next task: CODEX-115 - Basic Pitch production-readiness preflight model, still no production UI and no runtime behavior changes.
+Recommended next task: CODEX-116 - debug-to-user configuration UX plan/source audit.
