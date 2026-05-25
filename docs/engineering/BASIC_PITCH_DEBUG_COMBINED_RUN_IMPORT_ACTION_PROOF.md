@@ -178,4 +178,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-Recommended next task after CODEX-113: CODEX-114 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow.
+Recommended next task after CODEX-114: CODEX-115 - add a Basic Pitch production-readiness preflight model, still without production UI or runtime behavior changes.

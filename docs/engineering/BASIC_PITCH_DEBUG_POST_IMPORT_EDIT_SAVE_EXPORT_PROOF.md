@@ -107,4 +107,4 @@ This is still not production Basic Pitch UI. It does not provide:
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-114 - define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, without enabling production claims prematurely.
+Recommended next task after CODEX-114: CODEX-115 - add a Basic Pitch production-readiness preflight model, still without production UI or runtime behavior changes.

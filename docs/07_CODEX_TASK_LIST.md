@@ -1438,12 +1438,27 @@ Before accepting a Codex change, check:
 
 ## 21. Recommended immediate next action
 
-After CODEX-087D is accepted, the next phase is proof work, not more documentation hardening.
+Current repository state is beyond the original CODEX-087D proof transition. Basic Pitch now has a debug-only proof chain through CODEX-113 and a production-readiness gate through CODEX-114.
+
+Before any production Basic Pitch UI, selected-region replacement, or feature-complete claim, use:
+
+- `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md`
+- `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`
 
 Next recommended step:
 
 ```text
-CODEX-088 - Dev/mock backend end-to-end proof
-CODEX-089 - UnifiedResult to real editable Tony NoteLayer proof
-CODEX-090 - Edit/save/load/export proof
+CODEX-115 - Basic Pitch production-readiness preflight model, still no production UI and no runtime behavior changes.
+```
+
+Safe follow-up sequence:
+
+```text
+CODEX-116 - debug-to-user configuration UX plan/source audit
+CODEX-117 - first guarded user-facing Basic Pitch setup dialog, still no run
+CODEX-118 - user-selected audio/output preflight
+CODEX-119 - guarded manual run from user flow
+CODEX-120 - import result with user confirmation
+CODEX-121 - progress/log/cancel hardening
+CODEX-122 - pitch-bend/polyphony policy implementation plan
 ```

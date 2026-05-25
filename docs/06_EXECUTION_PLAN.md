@@ -352,6 +352,30 @@ Exit criteria:
 - Notes are displayed.
 - User can manually correct and export MIDI/CSV.
 
+#### Current Basic Pitch transition gate
+
+CODEX-109 through CODEX-113 prove a debug-only Basic Pitch path for manual handoff, result.json loading, real Tony/SV layer import, edit/undo, save/load, and CSV export proof reporting. CODEX-114 adds the required production-readiness gate before any task may remove the debug-only label.
+
+Use these documents before continuing Phase 7 into user-facing production workflow:
+
+- `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md`
+- `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`
+
+The next safe sequence is:
+
+```text
+CODEX-115 - production-readiness preflight model, still no production UI
+CODEX-116 - debug-to-user configuration UX plan/source audit
+CODEX-117 - first guarded setup dialog, still no run
+CODEX-118 - user-selected audio/output preflight
+CODEX-119 - guarded manual run from user flow
+CODEX-120 - import result with user confirmation
+CODEX-121 - progress/log/cancel hardening
+CODEX-122 - pitch-bend/polyphony policy implementation plan
+```
+
+Do not claim production Basic Pitch support until the CODEX-114 checklist gates pass.
+
 ### Phase 8 — MVP hardening
 
 Goal: stabilize before adding more backends.
@@ -592,17 +616,10 @@ Codex should stop and report instead of guessing when:
 
 ## 15. Next action after this plan
 
-`AGENTS.md` now exists as part of the implementation-control set.
-
-Next action depends on the actual repository state:
+The repository has progressed beyond the original setup sequence. For the current Basic Pitch workstream, the next action is:
 
 ```text
-If docs are not yet copied into the Tony fork repository:
-    run CODEX-000.
-
-If AGENTS.md is not yet copied into the repository:
-    run CODEX-001.
-
-If docs and AGENTS.md are already present:
-    start CODEX-010: inspect repository build system.
+CODEX-115 - Basic Pitch production-readiness preflight model, still no production UI and no runtime behavior changes.
 ```
+
+Older baseline setup tasks remain historical context only unless a new repository clone lacks the project documents or AGENTS.md.

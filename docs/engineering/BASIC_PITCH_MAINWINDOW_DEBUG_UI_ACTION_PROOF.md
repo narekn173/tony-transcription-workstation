@@ -10,6 +10,7 @@ CODEX-110 update: a third explicit debug action imports an existing Basic Pitch-
 CODEX-111 update: a fourth explicit debug action composes manual handoff and post-run import, still without production claims.
 CODEX-112 update: the combined action report includes debug post-import edit/save/load/export proof status.
 CODEX-113 update: the combined report now shows a dedicated post-import proof section with real model/layer, edit, undo/redo, save/load, and CSV export fields.
+CODEX-114 update: production transition is gated by `BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md` and `BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`.
 
 ## Files Inspected
 
@@ -258,4 +259,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-114` should define the first production-readiness checklist for transitioning the debug Basic Pitch workflow toward a guarded user-facing workflow, still without production Basic Pitch claims.
+`CODEX-115` should add a Basic Pitch production-readiness preflight model, still without production UI, runtime behavior changes, or production Basic Pitch claims.
