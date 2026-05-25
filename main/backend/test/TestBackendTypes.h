@@ -20,6 +20,8 @@
 #include "../BasicPitchAdapterContract.h"
 #include "../BasicPitchArtifactDiscovery.h"
 #include "../BasicPitchArtifactToUnifiedResult.h"
+#include "../BasicPitchDebugCombinedRunImportAction.h"
+#include "../BasicPitchDebugCombinedRunImportActionReportFormatter.h"
 #include "../BasicPitchDebugManualRunAction.h"
 #include "../BasicPitchDebugManualRunActionReportFormatter.h"
 #include "../BasicPitchDebugManualRunStatus.h"
@@ -9259,6 +9261,359 @@ private slots:
         QVERIFY(!text.readyInstalledCompletedMutation);
     }
 
+    void basicPitchDebugCombinedRunImportActionMissingConfigDoesNotRunOrImport()
+    {
+        BasicPitchDebugCombinedRunImportActionOptions options;
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.wasSkipped());
+        QVERIFY(!report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.resultJsonWritten);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importAttempted);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains("combined_manual_run_skipped"));
+        QVERIFY(report.stageStates.contains("skipped"));
+        QVERIFY(report.warningCodes.contains(
+            "basic_pitch_debug_combined_run_import_skipped"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugCombinedRunImportActionMissingOptInDoesNotRunOrImport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = false;
+        options.manualRunConfig.discoveryConfig.executablePath =
+            QCoreApplication::applicationFilePath();
+        options.manualRunConfig.discoveryConfig.inputAudioPath =
+            directory.filePath("input.wav");
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.manualRunConfig.resultJsonPath =
+            directory.filePath("result.json");
+        QVERIFY(writeFile(options.manualRunConfig.discoveryConfig.inputAudioPath,
+                          QByteArray("audio")));
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.wasSkipped());
+        QVERIFY(!report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.importAttempted);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!QFile::exists(options.manualRunConfig.resultJsonPath));
+        QVERIFY(report.manualRunReport.preflightStatus
+                    .missingConfigurationKeys.contains(
+                        "TONY_BASIC_PITCH_DISCOVERY_ENABLE=1"));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugCombinedRunImportActionReportsMissingFields()
+    {
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        options.manualRunConfig.discoveryConfig.executablePath = " ";
+        options.manualRunConfig.discoveryConfig.inputAudioPath = " ";
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath = " ";
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY(report.isValid());
+        QVERIFY(report.wasSkipped());
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.importAttempted);
+        QVERIFY(report.manualRunReport.preflightStatus
+                    .missingConfigurationKeys.contains(
+                        "TONY_BASIC_PITCH_COMMAND"));
+        QVERIFY(report.manualRunReport.preflightStatus
+                    .missingConfigurationKeys.contains(
+                        "TONY_BASIC_PITCH_TEST_AUDIO"));
+        QVERIFY(report.manualRunReport.preflightStatus
+                    .missingConfigurationKeys.contains(
+                        "TONY_BASIC_PITCH_OUTPUT_DIR"));
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugCombinedRunImportActionManualRunFailureDoesNotImport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        options.manualRunConfig.discoveryConfig.executablePath =
+            QCoreApplication::applicationFilePath();
+        options.manualRunConfig.discoveryConfig.inputAudioPath =
+            directory.filePath("missing-input.wav");
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.manualRunConfig.resultJsonPath =
+            directory.filePath("result.json");
+
+        sv::Pane pane;
+        sv::Document document;
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(!report.wasSkipped());
+        QVERIFY(report.manualRunAttempted);
+        QVERIFY(!report.ranBasicPitch);
+        QVERIFY(!report.resultJsonWritten);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importAttempted);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains("combined_manual_run_failed"));
+        QVERIFY(report.errorCodes.contains(
+            "missing_basic_pitch_input_audio_file"));
+        QVERIFY(!QFile::exists(options.manualRunConfig.resultJsonPath));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugCombinedRunImportActionMissingResultAfterRunDoesNotImport()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString scriptPath =
+            directory.filePath("basic-pitch-no-artifacts.bat");
+        QVERIFY(writeFile(scriptPath, basicPitchNoArtifactBatchScript()));
+        QVERIFY(makeExecutable(scriptPath));
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        options.manualRunConfig.discoveryConfig.executablePath = scriptPath;
+        options.manualRunConfig.discoveryConfig.inputAudioPath =
+            inputAudioPath;
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.manualRunConfig.resultJsonPath =
+            directory.filePath("result.json");
+
+        sv::Pane pane;
+        sv::Document document;
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY(!report.isValid());
+        QVERIFY(report.manualRunAttempted);
+        QVERIFY(report.ranBasicPitch);
+        QVERIFY(!report.resultJsonWritten);
+        QVERIFY(!report.loadedResult);
+        QVERIFY(!report.importAttempted);
+        QVERIFY(!report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(report.stageStates.contains("combined_manual_run_failed"));
+        QVERIFY(!QFile::exists(options.manualRunConfig.resultJsonPath));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugCombinedRunImportActionValidRunImportsLayer()
+    {
+        sv::CommandHistory::getInstance()->clear();
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString scriptPath =
+            directory.filePath("basic-pitch-write-csv.bat");
+        QVERIFY(writeFile(scriptPath, basicPitchCsvWriterBatchScript()));
+        QVERIFY(makeExecutable(scriptPath));
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        options.manualRunConfig.discoveryConfig.executablePath = scriptPath;
+        options.manualRunConfig.discoveryConfig.inputAudioPath =
+            inputAudioPath;
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.manualRunConfig.resultJsonPath =
+            directory.filePath("result.json");
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.manualRunAllowed);
+        QVERIFY(report.manualRunAttempted);
+        QVERIFY(report.ranBasicPitch);
+        QVERIFY(report.resultJsonWritten);
+        QVERIFY(report.loadedResult);
+        QVERIFY(report.importAttempted);
+        QVERIFY(report.importedIntoTonyLayers);
+        QVERIFY(report.insertedIntoView);
+        QCOMPARE(report.noteCount, 3);
+        QVERIFY(report.stageStates.contains("combined_manual_handoff_loaded"));
+        QVERIFY(report.stageStates.contains("combined_import_attempted"));
+        QVERIFY(report.stageStates.contains(
+            "combined_imported_into_real_layer"));
+        QVERIFY(report.stageStates.contains("combined_inserted_into_view"));
+        QVERIFY(report.possiblePolyphony);
+        QVERIFY(report.pitchBendMappingDeferred);
+        QVERIFY(report.warningCodes.contains("possible_polyphony"));
+        QVERIFY(report.warningCodes.contains("pitch_bend_mapping_deferred"));
+        QCOMPARE(pane.getLayerCount(), 1);
+        QVERIFY(QFile::exists(options.manualRunConfig.resultJsonPath));
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+
+        sv::CommandHistory::getInstance()->clear();
+    }
+
+    void basicPitchDebugCombinedRunImportActionDoesNotClaimVisibleWithoutView()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString scriptPath =
+            directory.filePath("basic-pitch-write-csv.bat");
+        QVERIFY(writeFile(scriptPath, basicPitchCsvWriterBatchScript()));
+        QVERIFY(makeExecutable(scriptPath));
+
+        const QString inputAudioPath = directory.filePath("input.wav");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+
+        sv::Document document;
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        options.manualRunConfig.discoveryConfig.executablePath = scriptPath;
+        options.manualRunConfig.discoveryConfig.inputAudioPath =
+            inputAudioPath;
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.manualRunConfig.resultJsonPath =
+            directory.filePath("result.json");
+        options.document = &document;
+        options.requireViewForImport = false;
+
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        QVERIFY2(report.isValid(), qPrintable(report.debugSummaryString()));
+        QVERIFY(report.importedIntoTonyLayers);
+        QVERIFY(!report.insertedIntoView);
+        QVERIFY(!report.viewProvided);
+        QVERIFY(!report.viewInsertionRequested);
+        QVERIFY(!report.productionTranscription);
+        QVERIFY(report.testOnlyDebugOnly);
+        QVERIFY(!report.readyInstalledCompletedMutation);
+    }
+
+    void basicPitchDebugCombinedRunImportActionFormatterShowsSkippedAndSuccess()
+    {
+        BasicPitchDebugCombinedRunImportActionOptions missingOptions;
+        const BasicPitchDebugCombinedRunImportActionReport missingReport =
+            BasicPitchDebugCombinedRunImportAction()
+                .runAndImport(missingOptions);
+        const BasicPitchDebugCombinedRunImportActionReportText missingText =
+            BasicPitchDebugCombinedRunImportActionReportFormatter()
+                .fromReport(missingReport);
+
+        QVERIFY(missingText.isValid());
+        QVERIFY(missingText.plainText.contains(
+            "Basic Pitch Debug Manual Handoff and Import"));
+        QVERIFY(missingText.plainText.contains(
+            "Production transcription: false"));
+        QVERIFY(missingText.plainText.contains(
+            "Manual run attempted: false"));
+        QVERIFY(missingText.plainText.contains("Backend process ran: false"));
+        QVERIFY(missingText.plainText.contains("No backend was run."));
+        QVERIFY(missingText.plainText.contains("No Tony layer was imported."));
+        QVERIFY(missingText.plainText.contains(
+            "basic_pitch_debug_combined_run_import_skipped"));
+        QVERIFY(!missingText.productionTranscription);
+        QVERIFY(missingText.testOnlyDebugOnly);
+        QVERIFY(!missingText.importedIntoTonyLayers);
+        QVERIFY(!missingText.readyInstalledCompletedMutation);
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString scriptPath =
+            directory.filePath("basic-pitch-write-csv.bat");
+        QVERIFY(writeFile(scriptPath, basicPitchCsvWriterBatchScript()));
+        QVERIFY(makeExecutable(scriptPath));
+        const QString inputAudioPath = directory.filePath("input.wav");
+        QVERIFY(writeFile(inputAudioPath, QByteArray("audio")));
+
+        sv::Pane pane;
+        sv::Document document;
+        BasicPitchDebugCombinedRunImportActionOptions options;
+        options.manualRunConfig.discoveryConfig.explicitOptIn = true;
+        options.manualRunConfig.discoveryConfig.executablePath = scriptPath;
+        options.manualRunConfig.discoveryConfig.inputAudioPath =
+            inputAudioPath;
+        options.manualRunConfig.discoveryConfig.outputDirectoryPath =
+            directory.path();
+        options.manualRunConfig.resultJsonPath =
+            directory.filePath("result.json");
+        options.document = &document;
+        options.view = &pane;
+        options.requireViewForImport = true;
+        const BasicPitchDebugCombinedRunImportActionReport report =
+            BasicPitchDebugCombinedRunImportAction().runAndImport(options);
+
+        const BasicPitchDebugCombinedRunImportActionReportText text =
+            BasicPitchDebugCombinedRunImportActionReportFormatter()
+                .fromReport(report);
+        QVERIFY(text.isValid());
+        QVERIFY(text.importedIntoTonyLayers);
+        QVERIFY(text.insertedIntoView);
+        QVERIFY(text.plainText.contains("Backend process ran: true"));
+        QVERIFY(text.plainText.contains("Result JSON written: true"));
+        QVERIFY(text.plainText.contains("UnifiedResult loaded: true"));
+        QVERIFY(text.plainText.contains("Import attempted: true"));
+        QVERIFY(text.plainText.contains("Imported into Tony layers: true"));
+        QVERIFY(text.plainText.contains("Inserted into View/Pane: true"));
+        QVERIFY(text.plainText.contains("Possible polyphony: true"));
+        QVERIFY(text.plainText.contains(
+            "Pitch bend mapping deferred: true"));
+        QVERIFY(text.plainText.contains("not tested by this action"));
+        QVERIFY(!text.productionTranscription);
+        QVERIFY(text.testOnlyDebugOnly);
+        QVERIFY(!text.readyInstalledCompletedMutation);
+    }
+
     void basicPitchResultToTonyLayerProofCreatesDocumentNoteLayer()
     {
         QTemporaryDir directory;
@@ -10903,6 +11258,29 @@ private:
             "0.10,0.50,60,91,0,12,-8\n"
             "0.30,0.70,64,88,1,0,-1\n"
             "0.80,1.00,67,72\n");
+    }
+
+    static QByteArray basicPitchCsvWriterBatchScript()
+    {
+        QByteArray script("@echo off\r\n");
+        script += "set OUT=%~1\r\n";
+        script += "if \"%OUT%\"==\"\" exit /b 31\r\n";
+        script += "> \"%OUT%\\input_basic_pitch.csv\" (\r\n";
+        const QStringList lines =
+            basicPitchNoteEventsCsvFixture().trimmed().split('\n');
+        for (const QString &line: lines) {
+            script += "echo ";
+            script += line.trimmed().toUtf8();
+            script += "\r\n";
+        }
+        script += ")\r\n";
+        script += "exit /b 0\r\n";
+        return script;
+    }
+
+    static QByteArray basicPitchNoArtifactBatchScript()
+    {
+        return QByteArray("@echo off\r\nexit /b 0\r\n");
     }
 };
 

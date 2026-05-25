@@ -7,6 +7,7 @@ CODEX-107 update: report details now include explicit configuration/status secti
 CODEX-108 update: report details now include explicit manual-run env/config requirements, missing-key status, and run-allowed/skipped status.
 CODEX-109 update: a second explicit debug/manual handoff action is available and stops before Tony layer import.
 CODEX-110 update: a third explicit debug action imports an existing Basic Pitch-shaped result.json into a real Tony/SV layer when a current Document/Pane exists.
+CODEX-111 update: a fourth explicit debug action composes manual handoff and post-run import, still without production claims.
 
 ## Files Inspected
 
@@ -24,6 +25,8 @@ CODEX-110 update: a third explicit debug action imports an existing Basic Pitch-
 | `main/backend/BasicPitchDebugManualRunActionReportFormatter.*` | Testable report formatter for the manual-run action |
 | `main/backend/BasicPitchDebugPostRunImportAction.*` | Debug-only existing result.json to real Tony layer import boundary |
 | `main/backend/BasicPitchDebugPostRunImportActionReportFormatter.*` | Testable report formatter for the post-run import action |
+| `main/backend/BasicPitchDebugCombinedRunImportAction.*` | Debug-only combined manual handoff plus import boundary |
+| `main/backend/BasicPitchDebugCombinedRunImportActionReportFormatter.*` | Testable report formatter for the combined action |
 
 ## MainWindow Insertion Point
 
@@ -45,6 +48,12 @@ CODEX-110 adds a third debug-only action in the same debug section:
 
 ```text
 Debug: Import Basic Pitch Manual Result...
+```
+
+CODEX-111 adds a fourth debug-only action in the same debug section:
+
+```text
+Debug: Run Basic Pitch Manual Handoff and Import...
 ```
 
 The actions are separated by a menu separator from the normal pYIN controls. They do not reuse `Analyse Now!`, do not call `Analyser`, and do not change the existing pYIN option actions.
@@ -92,6 +101,20 @@ When the user explicitly invokes `Debug: Import Basic Pitch Manual Result...`:
 
 This action does not run Basic Pitch, does not create result.json, and reports edit/save/load/export proof fields as not tested by this action.
 
+## Combined Handoff and Import Action Behavior
+
+When the user explicitly invokes `Debug: Run Basic Pitch Manual Handoff and Import...`:
+
+1. MainWindow reads env/config through `BasicPitchRealRunHandoffProof::configFromEnvironment()`.
+2. `BasicPitchDebugCombinedRunImportAction` calls `BasicPitchDebugManualRunAction`.
+3. If manual-run config is missing or opt-in is false, the action reports skipped and does not import.
+4. If the manual handoff fails, no import is attempted.
+5. If the manual handoff writes and loads a real `result.json`, the action calls `BasicPitchDebugPostRunImportAction`.
+6. `importedIntoTonyLayers=true` is reported only after a real Document-owned Tony/SV layer is created.
+7. `insertedIntoView=true` is reported only after the layer is inserted into the current real Pane/View.
+
+This combined action does not duplicate manual-run or import workflow logic in MainWindow.
+
 ## User-Visible Fields
 
 The dialog displays:
@@ -122,6 +145,7 @@ The dialog displays:
 - post-run import loaded-result status
 - post-run import Basic Pitch-shaped status
 - post-run import current Document/Pane availability
+- combined run/import stage sequence
 - export CSV path
 - note count
 - loaded-result status
@@ -200,6 +224,7 @@ This is not production Basic Pitch UI. It does not provide:
 - production pitch-bend layer mapping
 - production result import workflow from the manual handoff action
 - production combined run-and-import workflow
+  beyond the explicit debug/test-only action added in CODEX-111
 
 ## Verification Expectations
 
@@ -213,4 +238,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-110` should add a debug-only post-run Basic Pitch result import action, still without production Basic Pitch claims.
+`CODEX-112` should add a debug-only post-import proof summary/action for edit, save/load, and export verification from the visible debug path, still without production Basic Pitch claims.

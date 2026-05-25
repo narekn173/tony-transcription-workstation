@@ -97,6 +97,7 @@ protected slots:
     virtual void showBasicPitchDebugWorkflowProof();
     virtual void showBasicPitchDebugManualRunProof();
     virtual void showBasicPitchDebugPostRunImport();
+    virtual void showBasicPitchDebugCombinedRunImport();
 
     virtual void doubleClickSelectInvoked(sv::sv_frame_t);
     virtual void abandonSelection();
@@ -215,6 +216,7 @@ protected:
     QAction       *m_basicPitchDebugWorkflowProofAction;
     QAction       *m_basicPitchDebugManualRunProofAction;
     QAction       *m_basicPitchDebugPostRunImportAction;
+    QAction       *m_basicPitchDebugCombinedRunImportAction;
         
     QAction       *m_showAudio;
     QAction       *m_showSpect;

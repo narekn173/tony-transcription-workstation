@@ -16,6 +16,8 @@ The action preflights manual-run configuration, runs Basic Pitch only when the e
 
 CODEX-110 adds a separate post-run import action for an existing `result.json`. That action is intentionally separate so manual process execution and Tony layer import remain two explicit debug/user-triggered steps.
 
+CODEX-111 adds a separate combined debug action that composes the manual handoff and post-run import boundaries. The manual handoff action itself still stops before Tony layer import.
+
 ## Files Inspected
 
 | File | Reason |
@@ -103,4 +105,4 @@ This is not production Basic Pitch UI. It does not provide:
 
 ## Recommended Next Task
 
-Recommended next task after CODEX-110: CODEX-111 - add a debug-only combined workflow action that chains manual handoff and explicit import only when both stages are configured and user-triggered, while preserving truth-state labels.
+Recommended next task after CODEX-111: CODEX-112 - add a debug-only post-import proof summary/action for edit, save/load, and export verification from the visible debug path.

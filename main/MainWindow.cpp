@@ -18,6 +18,8 @@
 #include "MainWindow.h"
 #include "NetworkPermissionTester.h"
 #include "Analyser.h"
+#include "backend/BasicPitchDebugCombinedRunImportAction.h"
+#include "backend/BasicPitchDebugCombinedRunImportActionReportFormatter.h"
 #include "backend/BasicPitchDebugManualRunAction.h"
 #include "backend/BasicPitchDebugManualRunActionReportFormatter.h"
 #include "backend/BasicPitchDebugPostRunImportAction.h"
@@ -150,6 +152,7 @@ MainWindow::MainWindow(AudioMode audioMode,
     m_basicPitchDebugWorkflowProofAction(0),
     m_basicPitchDebugManualRunProofAction(0),
     m_basicPitchDebugPostRunImportAction(0),
+    m_basicPitchDebugCombinedRunImportAction(0),
     m_intelligentActionOn(true), //GF: !!! temporary
     m_activityLog(new ActivityLog()),
     m_keyReference(new KeyReference()),
@@ -882,6 +885,19 @@ MainWindow::setupAnalysisMenu()
             this,
             SLOT(showBasicPitchDebugPostRunImport()));
     menu->addAction(m_basicPitchDebugPostRunImportAction);
+
+    m_basicPitchDebugCombinedRunImportAction =
+        new QAction(tr("Debug: Run Basic Pitch Manual Handoff and Import..."),
+                    this);
+    m_basicPitchDebugCombinedRunImportAction->setStatusTip(
+        tr("Run the explicit debug/test-only Basic Pitch manual handoff "
+           "proof when configured, then import the real result.json into "
+           "a Tony layer. This is not production transcription support."));
+    connect(m_basicPitchDebugCombinedRunImportAction,
+            SIGNAL(triggered()),
+            this,
+            SLOT(showBasicPitchDebugCombinedRunImport()));
+    menu->addAction(m_basicPitchDebugCombinedRunImportAction);
 
     updateAnalyseStates();
 }
@@ -3266,6 +3282,76 @@ MainWindow::showBasicPitchDebugPostRunImport()
            "%1").arg(report.importedIntoTonyLayers ?
                      tr("A real Tony/Sonic Visualiser layer import was attempted and reported.") :
                      tr("No Tony layer was imported. See details for the missing or invalid proof boundary.")));
+    summary->setWordWrap(true);
+    layout->addWidget(summary, 0, 0);
+
+    QTextEdit *details = new QTextEdit;
+    details->setReadOnly(true);
+    details->setPlainText(reportText.plainText);
+    details->setMinimumSize(720, 420);
+    layout->addWidget(details, 1, 0);
+
+    QDialogButtonBox *buttons =
+        new QDialogButtonBox(QDialogButtonBox::Ok);
+    connect(buttons, SIGNAL(accepted()), &dialog, SLOT(accept()));
+    layout->addWidget(buttons, 2, 0);
+
+    dialog.setLayout(layout);
+    dialog.exec();
+}
+
+void
+MainWindow::showBasicPitchDebugCombinedRunImport()
+{
+    using namespace Tony::Backend;
+
+    BasicPitchDebugCombinedRunImportActionOptions options;
+    options.manualRunConfig =
+        BasicPitchRealRunHandoffProof::configFromEnvironment();
+    options.document = m_document;
+
+    sv::Pane *currentPane = 0;
+    if (m_paneStack) {
+        currentPane = m_paneStack->getCurrentPane();
+    }
+    options.view = currentPane;
+    options.insertLayerIntoView = true;
+    options.requireViewForImport = true;
+
+    if (getMainModel() && getMainModel()->getSampleRate() > 0) {
+        options.sampleRate = getMainModel()->getSampleRate();
+    }
+
+    BasicPitchDebugCombinedRunImportAction action;
+    const BasicPitchDebugCombinedRunImportActionReport report =
+        action.runAndImport(options);
+
+    BasicPitchDebugCombinedRunImportActionReportFormatter formatter;
+    const BasicPitchDebugCombinedRunImportActionReportText reportText =
+        formatter.fromReport(report);
+
+    const QString status =
+        report.insertedIntoView ? QString("inserted") :
+        report.importedIntoTonyLayers ? QString("imported") :
+        report.loadedResult ? QString("loaded") :
+        report.ranBasicPitch ? QString("ran") :
+        report.manualRunAttempted ? QString("attempted") :
+        QString("skipped");
+    statusBar()->showMessage(
+        tr("Basic Pitch debug manual handoff and import: %1").arg(status),
+        10000);
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(
+        tr("Debug: Run Basic Pitch Manual Handoff and Import"));
+
+    QGridLayout *layout = new QGridLayout;
+    QLabel *summary = new QLabel(
+        tr("<b>Debug/test-only Basic Pitch manual handoff and import.</b><br/>"
+           "This is not production transcription support.<br/>"
+           "%1").arg(report.importedIntoTonyLayers ?
+                     tr("A real Basic Pitch-shaped result was imported into a real Tony/Sonic Visualiser layer.") :
+                     tr("No Tony layer was imported. See details for the skipped, failed, or incomplete proof boundary.")));
     summary->setWordWrap(true);
     layout->addWidget(summary, 0, 0);
 

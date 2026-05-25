@@ -14,6 +14,8 @@ Analysis -> Debug: Import Basic Pitch Manual Result...
 
 The action imports an existing Basic Pitch-shaped `result.json` through the proven loader and Tony layer importer path. It does not run Basic Pitch, does not create `result.json`, and does not claim production transcription support.
 
+CODEX-111 adds a separate combined debug action that first performs the manual handoff proof and then calls this post-run import boundary only when a real loaded `result.json` exists.
+
 ## Files Inspected
 
 | File | Reason |
@@ -116,4 +118,4 @@ This is not production Basic Pitch UI. It does not provide:
 
 ## Recommended Next Task
 
-Recommended next task: CODEX-111 - add a debug-only combined workflow action that chains manual handoff and explicit import only when both stages are configured and user-triggered, still without production Basic Pitch claims.
+Recommended next task after CODEX-111: CODEX-112 - add a debug-only post-import proof summary/action for edit, save/load, and export verification from the visible debug path.
