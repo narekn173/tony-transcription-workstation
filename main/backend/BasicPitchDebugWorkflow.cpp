@@ -357,6 +357,16 @@ BasicPitchDebugWorkflow::run(
                "not prove production transcription or user-facing UI.");
 
     if (request.mode == BasicPitchDebugWorkflowMode::RealBasicPitchManualOptIn) {
+        result.realRunResult.config = request.realRunConfig;
+        result.proofBundle.commandUsed =
+            trimmed(request.realRunConfig.discoveryConfig.executablePath);
+        result.proofBundle.inputAudioPath =
+            trimmed(request.realRunConfig.discoveryConfig.inputAudioPath);
+        result.proofBundle.outputDirectoryPath =
+            trimmed(request.realRunConfig.discoveryConfig.outputDirectoryPath);
+        result.proofBundle.resultJsonPath =
+            trimmed(request.realRunConfig.resultJsonPath);
+
         if (!request.realRunConfig.discoveryConfig.explicitOptIn) {
             result.skippedReason = "explicit_opt_in_required";
             addState(result,

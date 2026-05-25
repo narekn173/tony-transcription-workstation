@@ -14,6 +14,9 @@ The model is intended for future UI consumption only. It must be treated as the 
 
 The UI model exposes:
 
+- `workflowMode`
+- skipped reason
+- command/input/output/result path configuration summary
 - `primaryState`
 - `secondaryState`
 - `userMessage`
@@ -69,9 +72,17 @@ Warnings must remain visible in future UI. A successful proof path with warnings
 
 The UI model summarizes:
 
+- workflow mode;
+- skipped reason;
+- real-run opt-in state;
+- command configured state and command path;
+- input audio configured state and path;
+- output directory configured state and path;
 - event state names;
 - event count;
 - artifact count;
+- artifact summaries;
+- selected `csv_note_events` artifact status and path;
 - result JSON path;
 - export CSV path;
 - note count;

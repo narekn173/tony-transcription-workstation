@@ -371,6 +371,7 @@ CODEX-103 adds a debug-only Basic Pitch workflow boundary with truth states and 
 CODEX-104 adds a compile-only Basic Pitch debug workflow UI-consumption adapter.
 CODEX-105 adds a source-audited MainWindow debug UI integration plan without runtime wiring.
 CODEX-106 adds the first explicit debug-only MainWindow action that displays Basic Pitch workflow truth states and proof-bundle fields without production claims.
+CODEX-107 hardens the Basic Pitch debug UI report details with explicit mode, configuration, skipped/not-configured, artifact, and proof-bundle status.
 ```
 
 Therefore the next work must prove real end-to-end behavior through the staged proof tasks.
@@ -379,13 +380,13 @@ Therefore the next work must prove real end-to-end behavior through the staged p
 
 ## 12. Immediate next action
 
-Current next action after CODEX-106:
+Current next action after CODEX-107:
 
 ```text
-CODEX-107 - harden the Basic Pitch debug details/configuration surface
+CODEX-108 - add explicit debug-only Basic Pitch configuration entry point or manual-run UX hardening
 ```
 
-This supersedes the earlier baseline setup sequence below for the current repository state. Do not start production Basic Pitch UI integration, selected-region replacement, or feature-complete claims until the debug-only MainWindow path is hardened, consumes `BasicPitchDebugWorkflowUiModel`, preserves proof-bundle access, and keeps all Basic Pitch runtime execution explicitly opt-in.
+This supersedes the earlier baseline setup sequence below for the current repository state. Do not start production Basic Pitch UI integration, selected-region replacement, or feature-complete claims until the debug-only MainWindow path has explicit configuration/run UX, consumes `BasicPitchDebugWorkflowUiModel`, preserves proof-bundle access, and keeps all Basic Pitch runtime execution explicitly opt-in.
 
 Historical baseline setup sequence:
 

@@ -22,12 +22,26 @@ namespace Backend {
 
 struct BasicPitchDebugWorkflowUiProofBundleSummary
 {
+    QString workflowMode;
+    QString skippedReason;
     QStringList eventStates;
     int eventCount = 0;
     int artifactCount = 0;
+    QStringList artifactSummaries;
+    QString commandUsed;
+    bool commandConfigured = false;
+    QString inputAudioPath;
+    bool inputAudioConfigured = false;
+    QString outputDirectoryPath;
+    bool outputDirectoryConfigured = false;
     QString resultJsonPath;
+    bool resultJsonConfigured = false;
     QString exportCsvPath;
+    QString selectedNoteEventsArtifactPath;
+    bool selectedNoteEventsArtifactFound = false;
     int noteCount = 0;
+    bool ranBasicPitch = false;
+    bool realRunExplicitOptIn = false;
     bool loadedResult = false;
     bool importedIntoTonyLayers = false;
     bool insertedIntoView = false;

@@ -246,11 +246,23 @@ eventStatesSummary(const BasicPitchDebugWorkflowReport &report)
 QString
 proofBundleSummary(const BasicPitchDebugWorkflowReport &report)
 {
-    return QString("events=%1 artifacts=%2 result_json=%3 notes=%4 "
-                   "loaded=%5 imported=%6 visible=%7 edit=%8 "
-                   "save_load=%9 export=%10 debug_only=%11")
+    return QString("mode=%1 skipped=%2 ran=%3 opt_in=%4 command=%5 "
+                   "input=%6 output_dir=%7 events=%8 artifacts=%9 "
+                   "selected_csv=%10 result_json=%11 notes=%12 "
+                   "loaded=%13 imported=%14 visible=%15 edit=%16 "
+                   "save_load=%17 export=%18 debug_only=%19")
+        .arg(basicPitchDebugWorkflowModeToString(report.mode))
+        .arg(report.skippedReason.isEmpty() ? QString("none") :
+                                              report.skippedReason)
+        .arg(report.ranBasicPitch ? QString("true") : QString("false"))
+        .arg(report.realRunResult.config.discoveryConfig.explicitOptIn ?
+                 QString("true") : QString("false"))
+        .arg(report.proofBundle.commandUsed)
+        .arg(report.proofBundle.inputAudioPath)
+        .arg(report.proofBundle.outputDirectoryPath)
         .arg(report.proofBundle.events.size())
         .arg(report.proofBundle.discoveredArtifacts.size())
+        .arg(report.handoffResult.artifactConversion.sourceArtifactPath)
         .arg(report.proofBundle.resultJsonPath)
         .arg(report.proofBundle.noteCount)
         .arg(report.proofBundle.loadedResult ? QString("true") :
@@ -269,20 +281,73 @@ proofBundleSummary(const BasicPitchDebugWorkflowReport &report)
                                                     QString("false"));
 }
 
+QString
+artifactSummary(const BasicPitchDiscoveredArtifact &artifact)
+{
+    return QString("%1 type=%2 bytes=%3 path=%4")
+        .arg(artifact.fileName)
+        .arg(artifact.artifactType)
+        .arg(artifact.sizeBytes)
+        .arg(artifact.path);
+}
+
+QString
+firstNoteEventsArtifactPath(const BasicPitchDebugWorkflowReport &report)
+{
+    if (!report.handoffResult.artifactConversion.sourceArtifactPath
+            .trimmed().isEmpty()) {
+        return report.handoffResult.artifactConversion.sourceArtifactPath
+            .trimmed();
+    }
+    if (!report.realRunResult.selectedNoteEventsArtifactPath
+            .trimmed().isEmpty()) {
+        return report.realRunResult.selectedNoteEventsArtifactPath.trimmed();
+    }
+    for (const BasicPitchDiscoveredArtifact &artifact:
+         report.proofBundle.discoveredArtifacts) {
+        if (artifact.artifactType == "csv_note_events") {
+            return artifact.path.trimmed();
+        }
+    }
+    return QString();
+}
+
 void
 populateProofBundleSummary(
     BasicPitchDebugWorkflowUiProofBundleSummary &target,
     const BasicPitchDebugWorkflowReport &source)
 {
+    target.workflowMode = basicPitchDebugWorkflowModeToString(source.mode);
+    target.skippedReason = source.skippedReason;
     target.eventStates.clear();
     for (BasicPitchDebugTruthState state: source.truthStates) {
         target.eventStates << basicPitchDebugTruthStateToString(state);
     }
     target.eventCount = source.proofBundle.events.size();
     target.artifactCount = source.proofBundle.discoveredArtifacts.size();
+    target.artifactSummaries.clear();
+    for (const BasicPitchDiscoveredArtifact &artifact:
+         source.proofBundle.discoveredArtifacts) {
+        target.artifactSummaries << artifactSummary(artifact);
+    }
+    target.commandUsed = source.proofBundle.commandUsed;
+    target.commandConfigured = !target.commandUsed.trimmed().isEmpty();
+    target.inputAudioPath = source.proofBundle.inputAudioPath;
+    target.inputAudioConfigured = !target.inputAudioPath.trimmed().isEmpty();
+    target.outputDirectoryPath = source.proofBundle.outputDirectoryPath;
+    target.outputDirectoryConfigured =
+        !target.outputDirectoryPath.trimmed().isEmpty();
     target.resultJsonPath = source.proofBundle.resultJsonPath;
+    target.resultJsonConfigured = !target.resultJsonPath.trimmed().isEmpty();
     target.exportCsvPath = source.proofBundle.exportCsvPath;
+    target.selectedNoteEventsArtifactPath =
+        firstNoteEventsArtifactPath(source);
+    target.selectedNoteEventsArtifactFound =
+        !target.selectedNoteEventsArtifactPath.trimmed().isEmpty();
     target.noteCount = source.proofBundle.noteCount;
+    target.ranBasicPitch = source.ranBasicPitch;
+    target.realRunExplicitOptIn =
+        source.realRunResult.config.discoveryConfig.explicitOptIn;
     target.loadedResult = source.proofBundle.loadedResult;
     target.importedIntoTonyLayers = source.proofBundle.importedIntoTonyLayers;
     target.insertedIntoView = source.proofBundle.insertedIntoView;

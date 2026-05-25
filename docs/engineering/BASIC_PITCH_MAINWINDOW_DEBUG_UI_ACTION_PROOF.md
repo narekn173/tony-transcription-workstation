@@ -3,6 +3,7 @@
 Status: debug-only runtime UI boundary  
 Scope: first MainWindow action that displays Basic Pitch workflow truth-state and proof-bundle data  
 Production transcription support: not claimed
+CODEX-107 update: report details now include explicit configuration/status sections.
 
 ## Files Inspected
 
@@ -47,6 +48,11 @@ MainWindow does not derive its own backend state. It displays values already pro
 
 The dialog displays:
 
+- workflow mode
+- manual real-run opt-in state
+- configured/missing command path
+- configured/missing input audio path
+- configured/missing output directory path
 - primary state
 - secondary state
 - user message
@@ -56,6 +62,8 @@ The dialog displays:
 - action gates: run, cancel, import, edit, save, export
 - proof-bundle event states and event count
 - artifact count
+- artifact summaries
+- selected `csv_note_events` artifact status and path
 - result JSON path
 - export CSV path
 - note count
@@ -74,6 +82,20 @@ The dialog explicitly states:
 ```text
 Debug/test-only Basic Pitch workflow proof.
 This is not production transcription support.
+```
+
+When Basic Pitch is not configured for manual real-run proof, the report includes:
+
+```text
+Basic Pitch debug workflow is not configured.
+No backend was run.
+```
+
+When a synthetic/test-only proof report is displayed, the report includes:
+
+```text
+Synthetic/test-only: true
+Synthetic/test-only workflow data is not real audio transcription.
 ```
 
 ## Truth-State Rules Preserved

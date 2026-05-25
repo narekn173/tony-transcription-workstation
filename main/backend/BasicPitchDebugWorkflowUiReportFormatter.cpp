@@ -25,6 +25,13 @@ boolString(bool value)
     return value ? QString("true") : QString("false");
 }
 
+QString
+displayValue(const QString &value)
+{
+    const QString trimmed = value.trimmed();
+    return trimmed.isEmpty() ? QString("(not provided)") : trimmed;
+}
+
 void
 appendLine(QStringList &lines, const QString &label, const QString &value)
 {
@@ -78,6 +85,7 @@ BasicPitchDebugWorkflowUiReportFormatter::fromUiModel(
     QStringList lines;
     lines << "Basic Pitch Debug Workflow Proof";
     lines << "";
+    lines << "Summary:";
     appendBoolLine(lines, "Debug/test-only", uiModel.testOnlyDebugOnly);
     appendBoolLine(lines,
                    "Production transcription",
@@ -85,17 +93,63 @@ BasicPitchDebugWorkflowUiReportFormatter::fromUiModel(
     appendBoolLine(lines,
                    "Ready / Installed / Completed mutation",
                    uiModel.readyInstalledCompletedMutation);
+    appendBoolLine(lines,
+                   "Backend process ran",
+                   uiModel.proofBundle.ranBasicPitch);
+    if (!uiModel.proofBundle.ranBasicPitch) {
+        lines << "No backend was run.";
+    }
     lines << "";
+
+    lines << "Configuration:";
+    appendLine(lines, "Mode", uiModel.proofBundle.workflowMode);
+    appendBoolLine(lines,
+                   "Manual real-run opt-in",
+                   uiModel.proofBundle.realRunExplicitOptIn);
+    appendBoolLine(lines,
+                   "Command configured",
+                   uiModel.proofBundle.commandConfigured);
+    appendLine(lines,
+               "Command",
+               displayValue(uiModel.proofBundle.commandUsed));
+    appendBoolLine(lines,
+                   "Input audio configured",
+                   uiModel.proofBundle.inputAudioConfigured);
+    appendLine(lines,
+               "Input audio path",
+               displayValue(uiModel.proofBundle.inputAudioPath));
+    appendBoolLine(lines,
+                   "Output directory configured",
+                   uiModel.proofBundle.outputDirectoryConfigured);
+    appendLine(lines,
+               "Output directory",
+               displayValue(uiModel.proofBundle.outputDirectoryPath));
+    appendBoolLine(lines,
+                   "Result JSON path configured",
+                   uiModel.proofBundle.resultJsonConfigured);
+    appendLine(lines,
+               "Result JSON path",
+               displayValue(uiModel.proofBundle.resultJsonPath));
+    appendLine(lines,
+               "Skipped reason",
+               displayValue(uiModel.proofBundle.skippedReason));
+    if (uiModel.primaryState == "backend_not_configured" ||
+        uiModel.primaryState == "skipped") {
+        lines << "Basic Pitch debug workflow is not configured.";
+    }
+    if (uiModel.proofBundle.workflowMode == "synthetic_artifact_only") {
+        lines << "Synthetic/test-only: true";
+        lines << "Synthetic/test-only workflow data is not real audio transcription.";
+    }
+    lines << "";
+
+    lines << "Workflow State:";
     appendLine(lines, "Primary state", uiModel.primaryState);
     appendLine(lines, "Secondary state", uiModel.secondaryState);
     appendLine(lines, "User message", uiModel.userMessage);
     appendLine(lines, "Technical message", uiModel.technicalMessage);
     lines << "";
     lines << "Progress: stage-based only; no percentage progress is reported.";
-    lines << "";
-
-    appendList(lines, "Warnings", uiModel.warnings);
-    appendList(lines, "Errors", uiModel.errors);
     lines << "";
 
     lines << "Action gates:";
@@ -117,8 +171,18 @@ BasicPitchDebugWorkflowUiReportFormatter::fromUiModel(
     appendLine(lines,
                "  Artifact count",
                QString::number(uiModel.proofBundle.artifactCount));
-    appendLine(lines, "  Result JSON", uiModel.proofBundle.resultJsonPath);
-    appendLine(lines, "  Export CSV", uiModel.proofBundle.exportCsvPath);
+    appendBoolLine(lines,
+                   "  Selected csv_note_events artifact found",
+                   uiModel.proofBundle.selectedNoteEventsArtifactFound);
+    appendLine(lines,
+               "  Selected csv_note_events artifact",
+               displayValue(uiModel.proofBundle.selectedNoteEventsArtifactPath));
+    appendLine(lines,
+               "  Result JSON",
+               displayValue(uiModel.proofBundle.resultJsonPath));
+    appendLine(lines,
+               "  Export CSV",
+               displayValue(uiModel.proofBundle.exportCsvPath));
     appendLine(lines,
                "  Note count",
                QString::number(uiModel.proofBundle.noteCount));
@@ -144,8 +208,20 @@ BasicPitchDebugWorkflowUiReportFormatter::fromUiModel(
     appendBoolLine(lines,
                    "  Test-only/debug-only",
                    uiModel.proofBundle.testOnlyDebugOnly);
+    appendList(lines, "  Artifacts", uiModel.proofBundle.artifactSummaries);
     lines << "";
     appendLine(lines, "Proof summary", uiModel.proofBundleSummary);
+    lines << "";
+
+    appendList(lines, "Warnings", uiModel.warnings);
+    appendList(lines, "Errors", uiModel.errors);
+    lines << "";
+
+    lines << "Limitations:";
+    lines << "  - This is debug/test-only UI.";
+    lines << "  - This is not production Basic Pitch transcription.";
+    lines << "  - No Ready, Installed, or Completed global state is changed.";
+    lines << "  - No percentage progress is reported.";
 
     result.plainText = lines.join("\n");
     return result;

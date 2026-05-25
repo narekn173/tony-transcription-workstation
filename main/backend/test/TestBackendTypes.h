@@ -9498,6 +9498,17 @@ private slots:
         QVERIFY(text.isValid());
         QVERIFY(text.plainText.contains("Debug/test-only: true"));
         QVERIFY(text.plainText.contains("Production transcription: false"));
+        QVERIFY(text.plainText.contains("Backend process ran: false"));
+        QVERIFY(text.plainText.contains("No backend was run."));
+        QVERIFY(text.plainText.contains("Mode: real_basic_pitch_manual_opt_in"));
+        QVERIFY(text.plainText.contains("Manual real-run opt-in: false"));
+        QVERIFY(text.plainText.contains("Command configured: true"));
+        QVERIFY(text.plainText.contains("Command: basic-pitch"));
+        QVERIFY(text.plainText.contains("Input audio configured: false"));
+        QVERIFY(text.plainText.contains("Output directory configured: false"));
+        QVERIFY(text.plainText.contains("Skipped reason: explicit_opt_in_required"));
+        QVERIFY(text.plainText.contains(
+            "Basic Pitch debug workflow is not configured."));
         QVERIFY(text.plainText.contains(
             "Ready / Installed / Completed mutation: false"));
         QVERIFY(text.plainText.contains(
@@ -9530,9 +9541,17 @@ private slots:
             "Primary state: completed_with_warnings"));
         QVERIFY(text.plainText.contains(
             "Secondary state: export_proof_passed"));
+        QVERIFY(text.plainText.contains("Mode: synthetic_artifact_only"));
+        QVERIFY(text.plainText.contains("Synthetic/test-only: true"));
+        QVERIFY(text.plainText.contains(
+            "Synthetic/test-only workflow data is not real audio transcription."));
         QVERIFY(text.plainText.contains("possible_polyphony"));
         QVERIFY(text.plainText.contains("pitch_bend_mapping_deferred"));
         QVERIFY(text.plainText.contains("fixture_only_conversion"));
+        QVERIFY(text.plainText.contains(
+            "  Selected csv_note_events artifact found: true"));
+        QVERIFY(text.plainText.contains(
+            "  Selected csv_note_events artifact: input_basic_pitch.csv"));
         QVERIFY(text.plainText.contains("  Imported into Tony layers: true"));
         QVERIFY(text.plainText.contains("  Inserted into View/Pane: true"));
         QVERIFY(text.plainText.contains("  Edit proof: true"));
@@ -9582,6 +9601,9 @@ private:
         report.readyInstalledCompletedMutation = false;
 
         report.proofBundle.resultJsonPath = "basic_pitch_debug_result.json";
+        report.proofBundle.exportCsvPath = "basic_pitch_debug_notes.csv";
+        report.proofBundle.inputAudioPath = "input.wav";
+        report.proofBundle.outputDirectoryPath = "debug-output";
         report.proofBundle.loadedResult = true;
         report.proofBundle.noteCount = 3;
         report.proofBundle.importedIntoTonyLayers = true;
@@ -9598,6 +9620,15 @@ private:
         event.state = BasicPitchDebugTruthState::CompletedWithWarnings;
         event.message = "Synthetic UI model fixture.";
         report.proofBundle.events.push_back(event);
+
+        BasicPitchDiscoveredArtifact artifact;
+        artifact.path = "input_basic_pitch.csv";
+        artifact.fileName = "input_basic_pitch.csv";
+        artifact.artifactType = "csv_note_events";
+        artifact.sizeBytes = 128;
+        report.proofBundle.discoveredArtifacts.push_back(artifact);
+        report.handoffResult.artifactConversion.sourceArtifactPath =
+            artifact.path;
 
         report.report.addIssue(
             ValidationSeverity::Warning,
