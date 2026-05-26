@@ -90,6 +90,11 @@ CODEX-115 result:
 
 ### CODEX-116 - Debug-To-User Configuration UX Source Audit
 
+Status: implemented by:
+
+- `BASIC_PITCH_USER_CONFIGURATION_UX_SOURCE_AUDIT.md`
+- `BASIC_PITCH_USER_SETUP_PREFLIGHT_DIALOG_PLAN.md`
+
 Goal: audit existing Tony settings/dialog patterns and design the safest production configuration entry.
 
 Must document:
@@ -113,7 +118,19 @@ Must prove:
 - no result.json is created;
 - pYIN/Analyser unchanged.
 
-### CODEX-118 - User-Selected Audio/Output Preflight
+### CODEX-118 - Setup Dialog Model Tests And Path Validation
+
+Goal: harden the setup/preflight dialog model and validate path/configuration fields without running analysis.
+
+Must prove:
+
+- missing command, audio, and output fields are truthfully represented;
+- stale or invalid paths do not become Configured/Ready;
+- path checks use structured values rather than shell strings;
+- no backend process runs;
+- no fake result or layer is created.
+
+### CODEX-119 - User-Selected Audio/Output Preflight
 
 Goal: let the user pick or confirm audio scope and output workspace for Basic Pitch without running analysis.
 
@@ -124,7 +141,7 @@ Must prove:
 - invalid paths and unsupported scope block run;
 - no fake result or layer is created.
 
-### CODEX-119 - Guarded Manual Run From User Flow
+### CODEX-120 - Guarded Manual Run From User Flow
 
 Goal: expose an explicit user-triggered Basic Pitch run after preflight passes.
 
@@ -137,7 +154,7 @@ Must prove:
 - no import until result validation succeeds;
 - cancellation remains hidden unless real cancellation is implemented.
 
-### CODEX-120 - Import Result With User Confirmation
+### CODEX-121 - Import Result With User Confirmation
 
 Goal: import a validated Basic Pitch result only after user confirmation.
 
@@ -149,7 +166,7 @@ Must prove:
 - user can keep, discard, or rename the imported layer;
 - existing notes are not overwritten silently.
 
-### CODEX-121 - Progress, Log, Cancel, And Error Recovery Hardening
+### CODEX-122 - Progress, Log, Cancel, And Error Recovery Hardening
 
 Goal: harden long-running process UX.
 
@@ -160,7 +177,7 @@ Must prove:
 - retry does not reuse stale artifacts incorrectly;
 - temp/output cleanup policy is explicit.
 
-### CODEX-122 - Pitch-Bend And Polyphony Policy Implementation Plan
+### CODEX-123 - Pitch-Bend And Polyphony Policy Implementation Plan
 
 Goal: design and then implement production policy for Basic Pitch-specific output limitations.
 
@@ -176,13 +193,14 @@ Must decide:
 | Step | Type | Runtime behavior? |
 |---|---|---|
 | CODEX-115 | Backend/model preflight | Implemented; no production UI, no run |
-| CODEX-116 | Audit/design | No |
-| CODEX-117 | Guarded setup UI | UI only, no backend run |
-| CODEX-118 | Preflight UX | UI/model only, no backend run unless explicitly deferred |
-| CODEX-119 | User-triggered run | Yes, guarded real process |
-| CODEX-120 | User-confirmed import | Yes, guarded real layer import |
-| CODEX-121 | Hardening | Yes, process/status/error improvements |
-| CODEX-122 | Output policy | Design first, then implementation after proof |
+| CODEX-116 | Audit/design | Implemented; no runtime behavior |
+| CODEX-117 | Guarded setup UI | UI skeleton only, no backend run |
+| CODEX-118 | Setup model/path validation | UI/model only, no backend run |
+| CODEX-119 | Audio/output preflight UX | UI/model only, no backend run unless explicitly deferred |
+| CODEX-120 | User-triggered run | Yes, guarded real process |
+| CODEX-121 | User-confirmed import | Yes, guarded real layer import |
+| CODEX-122 | Hardening | Yes, process/status/error improvements |
+| CODEX-123 | Output policy | Design first, then implementation after proof |
 
 ## Production User Workflow Target
 
@@ -249,4 +267,4 @@ Before any task claims the transition has reached production:
 
 ## Next Task
 
-Recommended next task: CODEX-116 - debug-to-user configuration UX plan/source audit.
+Recommended next task: CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, no run.

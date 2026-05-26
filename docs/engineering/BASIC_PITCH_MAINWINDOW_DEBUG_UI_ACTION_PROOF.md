@@ -11,6 +11,7 @@ CODEX-111 update: a fourth explicit debug action composes manual handoff and pos
 CODEX-112 update: the combined action report includes debug post-import edit/save/load/export proof status.
 CODEX-113 update: the combined report now shows a dedicated post-import proof section with real model/layer, edit, undo/redo, save/load, and CSV export fields.
 CODEX-114 update: production transition is gated by `BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md` and `BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`.
+CODEX-116 update: future user-facing configuration must follow `BASIC_PITCH_USER_CONFIGURATION_UX_SOURCE_AUDIT.md` and `BASIC_PITCH_USER_SETUP_PREFLIGHT_DIALOG_PLAN.md`.
 
 ## Files Inspected
 
@@ -259,4 +260,4 @@ Verification must include:
 
 ## Recommended Next Task
 
-`CODEX-115` added a Basic Pitch production-readiness preflight model without production UI, runtime behavior changes, or production Basic Pitch claims. The next step is `CODEX-116`: debug-to-user configuration UX plan/source audit.
+`CODEX-115` added a Basic Pitch production-readiness preflight model without production UI, runtime behavior changes, or production Basic Pitch claims. `CODEX-116` added the source-backed configuration UX audit and setup/preflight dialog plan. The next step is `CODEX-117`: guarded user-facing Basic Pitch setup/preflight dialog skeleton, still with no run behavior.

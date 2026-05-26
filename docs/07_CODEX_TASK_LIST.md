@@ -1449,18 +1449,19 @@ Before any production Basic Pitch UI, selected-region replacement, or feature-co
 Next recommended step:
 
 ```text
-CODEX-116 - debug-to-user configuration UX plan/source audit.
+CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, still no run.
 ```
 
 Safe follow-up sequence:
 
 ```text
 CODEX-115 - Basic Pitch production-readiness preflight model (implemented)
-CODEX-116 - debug-to-user configuration UX plan/source audit
-CODEX-117 - first guarded user-facing Basic Pitch setup dialog, still no run
-CODEX-118 - user-selected audio/output preflight
-CODEX-119 - guarded manual run from user flow
-CODEX-120 - import result with user confirmation
-CODEX-121 - progress/log/cancel hardening
-CODEX-122 - pitch-bend/polyphony policy implementation plan
+CODEX-116 - debug-to-user configuration UX plan/source audit (implemented)
+CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, still no run
+CODEX-118 - setup dialog model tests and path validation
+CODEX-119 - user-selected audio/output preflight
+CODEX-120 - explicit run button with no fake progress
+CODEX-121 - result validation/import confirmation
+CODEX-122 - progress/log/cancel hardening
+CODEX-123 - pitch-bend/polyphony policy plan or implementation boundary
 ```

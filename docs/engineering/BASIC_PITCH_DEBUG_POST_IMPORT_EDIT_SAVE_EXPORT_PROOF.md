@@ -107,4 +107,4 @@ This is still not production Basic Pitch UI. It does not provide:
 
 ## Recommended Next Task
 
-Recommended next task after CODEX-115: CODEX-116 - debug-to-user configuration UX plan/source audit.
+Recommended next task after CODEX-116: CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, no run.

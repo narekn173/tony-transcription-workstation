@@ -159,4 +159,4 @@ Therefore it must not claim Basic Pitch production transcription support.
 
 ## Next Task
 
-Recommended next task: CODEX-116 - debug-to-user configuration UX plan/source audit.
+Recommended next task: CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, no run.

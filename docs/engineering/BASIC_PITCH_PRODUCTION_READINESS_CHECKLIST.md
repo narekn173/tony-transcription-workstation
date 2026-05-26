@@ -13,6 +13,8 @@ Future implementation tasks must cite this checklist and state which gates passe
 
 CODEX-115 adds `BasicPitchProductionReadinessPreflight`, a backend-only model that represents these gates in code. It does not mark Basic Pitch production-ready, add production UI, or run Basic Pitch.
 
+CODEX-116 adds a source-backed UX/configuration audit and setup/preflight dialog plan. It does not add production UI, change MainWindow runtime behavior, run Basic Pitch, or remove any production blocker.
+
 ## Files Inspected
 
 | File | Reason |
@@ -260,4 +262,4 @@ Stop implementation and update this checklist if:
 
 ## Next Task
 
-Recommended next task: CODEX-116 - debug-to-user configuration UX plan/source audit.
+Recommended next task: CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, no run.

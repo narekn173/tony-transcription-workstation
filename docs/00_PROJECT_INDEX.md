@@ -80,13 +80,15 @@ These files are the current source-of-truth set. Read them in this order.
 | 28 | `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md` | Mandatory engineering gate | Guarded checklist before removing Basic Pitch debug-only label |
 | 29 | `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md` | Mandatory engineering gate | Backend-only preflight model for Basic Pitch production-readiness gates |
 | 30 | `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md` | Mandatory engineering plan | Safe sequence from debug Basic Pitch proof path to guarded user workflow |
-| 31 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
-| 32 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
-| 33 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
-| 34 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
-| 35 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
-| 36 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
-| 37 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
+| 31 | `docs/engineering/BASIC_PITCH_USER_CONFIGURATION_UX_SOURCE_AUDIT.md` | Mandatory engineering audit | Source-backed audit for future Basic Pitch user configuration UX |
+| 32 | `docs/engineering/BASIC_PITCH_USER_SETUP_PREFLIGHT_DIALOG_PLAN.md` | Mandatory engineering plan | Guarded setup/preflight dialog plan before any production Basic Pitch run UI |
+| 33 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Mandatory engineering rules | Proof gates for import/edit/save/export claims |
+| 34 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | Mandatory engineering rules | Honest visible backend/result UI states |
+| 35 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Mandatory engineering rules | Provenance requirements for imported results |
+| 36 | `docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md` | Mandatory engineering rules | Final acceptance checklist for feature-complete claims |
+| 37 | `docs/06_EXECUTION_PLAN.md` | Canonical v0.1 | Implementation phases, stage gates, review rules |
+| 38 | `docs/07_CODEX_TASK_LIST.md` | Canonical v0.1 | Safe small Codex tasks in implementation order |
+| 39 | `AGENTS.md` | Canonical v0.1 | Persistent coding-agent rules |
 
 ### Interpretation
 
@@ -171,7 +173,9 @@ These documents are required reading before TonyLayerImporter, UI integration, M
 | `docs/engineering/BASIC_PITCH_DEBUG_POST_IMPORT_EDIT_SAVE_EXPORT_PROOF.md` | Debug Basic Pitch post-import proof work | Defines edit/undo/save/load/export proof summary reporting for imported Basic Pitch layers |
 | `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md` | Basic Pitch production transition work | Defines gates that must pass before removing debug-only labels or claiming production Basic Pitch support |
 | `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md` | Basic Pitch production transition work | Defines the backend-only preflight model for production-readiness gates |
-| `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md` | Basic Pitch production transition work | Defines the safe CODEX-115 through CODEX-122 transition sequence |
+| `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md` | Basic Pitch production transition work | Defines the safe CODEX-115 through CODEX-123 transition sequence |
+| `docs/engineering/BASIC_PITCH_USER_CONFIGURATION_UX_SOURCE_AUDIT.md` | Basic Pitch user setup planning | Defines source-backed Tony UI/configuration patterns for guarded Basic Pitch setup UX |
+| `docs/engineering/BASIC_PITCH_USER_SETUP_PREFLIGHT_DIALOG_PLAN.md` | Basic Pitch user setup planning | Defines the future setup/preflight dialog shape and no-run acceptance criteria |
 | `docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md` | Edit/save/load/export claims | Defines proof gates and required evidence |
 | `docs/engineering/UI_VISUAL_TRUTH_STATES.md` | UI state/status work | Defines honest visible states and forbidden claims |
 | `docs/engineering/PROVENANCE_METADATA_POLICY.md` | Imported result layers and persistence | Defines required provenance metadata and privacy rules |
@@ -322,14 +326,16 @@ Basic Pitch / NeuralNote path
 29. docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md
 30. docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md
 31. docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md
-32. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
-33. docs/engineering/UI_VISUAL_TRUTH_STATES.md
-34. docs/engineering/PROVENANCE_METADATA_POLICY.md
-35. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
-36. docs/adr/*.md
-37. docs/06_EXECUTION_PLAN.md
-38. docs/07_CODEX_TASK_LIST.md
-39. AGENTS.md
+32. docs/engineering/BASIC_PITCH_USER_CONFIGURATION_UX_SOURCE_AUDIT.md
+33. docs/engineering/BASIC_PITCH_USER_SETUP_PREFLIGHT_DIALOG_PLAN.md
+34. docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
+35. docs/engineering/UI_VISUAL_TRUTH_STATES.md
+36. docs/engineering/PROVENANCE_METADATA_POLICY.md
+37. docs/engineering/REAL_RESULT_ACCEPTANCE_CHECKLIST.md
+38. docs/adr/*.md
+39. docs/06_EXECUTION_PLAN.md
+40. docs/07_CODEX_TASK_LIST.md
+41. AGENTS.md
 ```
 
 ---
@@ -371,6 +377,8 @@ docs/engineering/BASIC_PITCH_DEBUG_POST_IMPORT_EDIT_SAVE_EXPORT_PROOF.md
 docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md
 docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md
 docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md
+docs/engineering/BASIC_PITCH_USER_CONFIGURATION_UX_SOURCE_AUDIT.md
+docs/engineering/BASIC_PITCH_USER_SETUP_PREFLIGHT_DIALOG_PLAN.md
 docs/engineering/TONY_EDIT_SAVE_EXPORT_PROOF_PLAN.md
 docs/engineering/UI_VISUAL_TRUTH_STATES.md
 docs/engineering/PROVENANCE_METADATA_POLICY.md
@@ -412,6 +420,7 @@ CODEX-112 adds debug-only post-import edit/undo/save/load/export proof reporting
 CODEX-113 tightens the combined debug UI/report flow so the post-import proof appears as a dedicated truth-gated section.
 CODEX-114 adds the guarded production-readiness checklist and debug-to-production transition plan for Basic Pitch.
 CODEX-115 adds a backend-only production-readiness preflight model that represents the transition gates without production UI or runtime behavior changes.
+CODEX-116 adds a source-backed Basic Pitch user configuration UX audit and setup/preflight dialog plan without runtime behavior changes.
 ```
 
 Therefore the next work must advance through the guarded Basic Pitch transition gates without weakening the debug-only truth-state guarantees.
@@ -420,10 +429,10 @@ Therefore the next work must advance through the guarded Basic Pitch transition 
 
 ## 12. Immediate next action
 
-Current next action after CODEX-115:
+Current next action after CODEX-116:
 
 ```text
-CODEX-116 - debug-to-user configuration UX plan/source audit
+CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, still no run
 ```
 
 This supersedes the earlier baseline setup sequence below for the current repository state. Do not start production Basic Pitch UI integration, selected-region replacement, or feature-complete claims until `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_CHECKLIST.md` gates are satisfied through the preflight model in `docs/engineering/BASIC_PITCH_PRODUCTION_READINESS_PREFLIGHT_MODEL.md` and the transition sequence in `docs/engineering/BASIC_PITCH_DEBUG_TO_PRODUCTION_TRANSITION_PLAN.md`.

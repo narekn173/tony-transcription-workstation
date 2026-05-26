@@ -366,13 +366,14 @@ The next safe sequence is:
 
 ```text
 CODEX-115 - production-readiness preflight model, still no production UI (implemented)
-CODEX-116 - debug-to-user configuration UX plan/source audit
-CODEX-117 - first guarded setup dialog, still no run
-CODEX-118 - user-selected audio/output preflight
-CODEX-119 - guarded manual run from user flow
-CODEX-120 - import result with user confirmation
-CODEX-121 - progress/log/cancel hardening
-CODEX-122 - pitch-bend/polyphony policy implementation plan
+CODEX-116 - debug-to-user configuration UX plan/source audit (implemented)
+CODEX-117 - guarded user-facing Basic Pitch setup/preflight dialog skeleton, still no run
+CODEX-118 - setup dialog model tests and path validation
+CODEX-119 - user-selected audio/output preflight
+CODEX-120 - explicit run button with no fake progress
+CODEX-121 - result validation/import confirmation
+CODEX-122 - progress/log/cancel hardening
+CODEX-123 - pitch-bend/polyphony policy plan or implementation boundary
 ```
 
 Do not claim production Basic Pitch support until the CODEX-114 checklist gates pass.
@@ -620,7 +621,7 @@ Codex should stop and report instead of guessing when:
 The repository has progressed beyond the original setup sequence. For the current Basic Pitch workstream, the next action is:
 
 ```text
-CODEX-116 - Debug-to-user configuration UX plan/source audit, still no production run behavior.
+CODEX-117 - Guarded user-facing Basic Pitch setup/preflight dialog skeleton, still no production run behavior.
 ```
 
 Older baseline setup tasks remain historical context only unless a new repository clone lacks the project documents or AGENTS.md.
